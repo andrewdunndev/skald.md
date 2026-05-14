@@ -9,7 +9,16 @@ export interface Env {
   SCRIBIAN_TOKEN: string;
   ANTHROPIC_API_KEY: string;
   SCRIBIAN_SESSION: DurableObjectNamespace;
+  // Optional. When set, all Anthropic upstream calls route through
+  // Cloudflare AI Gateway for caching + observability + rate limits.
+  // Example value:
+  //   https://gateway.ai.cloudflare.com/v1/<account_id>/scribian/anthropic/v1/messages
+  // AI Gateway auto-creates the gateway on first request as of 2026-03-02.
+  AI_GATEWAY_URL?: string;
 }
+
+const DIRECT_ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
+const SCRIBIAN_USER_AGENT = 'scribian/0.0.1 (https://gitlab.com/dunn.dev/scribian)';
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -28,7 +37,8 @@ export default {
       return Response.json({
         ok: true,
         anthropic_key_present: !!env.ANTHROPIC_API_KEY,
-        version: 2,
+        ai_gateway: !!env.AI_GATEWAY_URL,
+        version: 3,
       });
     }
 
@@ -36,8 +46,8 @@ export default {
       return new Response('expected websocket', { status: 426 });
     }
 
-    const proto = req.headers.get('Sec-WebSocket-Protocol') ?? '';
-    if (!proto) {
+    const rawProto = req.headers.get('Sec-WebSocket-Protocol') ?? '';
+    if (!rawProto) {
       return new Response('missing protocol', { status: 401 });
     }
     if (!env.SCRIBIAN_TOKEN) {
@@ -45,7 +55,12 @@ export default {
         status: 500,
       });
     }
-    if (!timingSafeEqual(proto, env.SCRIBIAN_TOKEN)) {
+    // The Sec-WebSocket-Protocol header is a comma-separated list. Browser
+    // WebSocket implementations include exactly one (our token) since the
+    // plugin passes only the token. Tolerate stray whitespace and a
+    // single-value subprotocol list defensively.
+    const candidate = rawProto.split(',')[0]?.trim() ?? '';
+    if (!timingSafeEqual(candidate, env.SCRIBIAN_TOKEN)) {
       return new Response('bad token', { status: 401 });
     }
 
@@ -83,11 +98,14 @@ export class ScribianSession {
     // webSocketError when traffic arrives.
     this.state.acceptWebSocket(server);
 
-    const proto = req.headers.get('Sec-WebSocket-Protocol') ?? '';
+    // Echo the validated token (not the raw request header) to avoid
+    // any header-injection surface from a malformed upgrade.
+    const echoed =
+      req.headers.get('Sec-WebSocket-Protocol')?.split(',')[0]?.trim() ?? '';
     return new Response(null, {
       status: 101,
       webSocket: client,
-      headers: { 'Sec-WebSocket-Protocol': proto },
+      headers: { 'Sec-WebSocket-Protocol': echoed },
     });
   }
 
@@ -132,7 +150,11 @@ export class ScribianSession {
     }
 
     if (msg.type === 'chat') {
-      const apiKey = msg.anthropic_api_key || this.env.ANTHROPIC_API_KEY;
+      // Treat empty-string anthropic_api_key as "not supplied" so the
+      // Worker secret is the real fallback instead of letting a blank
+      // value short-circuit it.
+      const supplied = msg.anthropic_api_key?.trim();
+      const apiKey = supplied || this.env.ANTHROPIC_API_KEY;
       await this.runChat(ws, apiKey, msg.id, msg.payload);
       return;
     }
@@ -185,23 +207,38 @@ export class ScribianSession {
       return;
     }
 
+    const upstreamUrl = this.env.AI_GATEWAY_URL || DIRECT_ANTHROPIC_URL;
+    const via = this.env.AI_GATEWAY_URL ? 'aigw' : 'direct';
+
     console.log(
-      `chat ${id}: model=${req.model} messages=${req.messages.length} tools=${req.tools?.length ?? 0} system=${!!req.system}`,
+      `chat ${id} (${via}): model=${req.model} messages=${req.messages.length} tools=${req.tools?.length ?? 0} system=${!!req.system}`,
     );
 
     const ac = new AbortController();
     this.activeChats.set(id, ac);
 
+    const upstreamHeaders: Record<string, string> = {
+      'x-api-key': apiKey,
+      'anthropic-version': '2023-06-01',
+      'content-type': 'application/json',
+      'user-agent': SCRIBIAN_USER_AGENT,
+    };
+
+    // AI Gateway-specific metadata for dashboard filtering.
+    if (this.env.AI_GATEWAY_URL) {
+      upstreamHeaders['cf-aig-metadata'] = JSON.stringify({
+        app: 'scribian',
+        model: req.model,
+        has_tools: !!(req.tools && req.tools.length > 0),
+      });
+    }
+
     let resp: Response;
     try {
-      resp = await fetch('https://api.anthropic.com/v1/messages', {
+      resp = await fetch(upstreamUrl, {
         method: 'POST',
         signal: ac.signal,
-        headers: {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        },
+        headers: upstreamHeaders,
         body: JSON.stringify({ ...req, stream: true }),
       });
     } catch (err) {

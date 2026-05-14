@@ -17,3 +17,9 @@ new_sqlite_classes = ["ScribianSession"]
 # Secrets (set via `wrangler secret put`):
 #   SCRIBIAN_TOKEN     — bearer token matching plugin settings
 #   ANTHROPIC_API_KEY  — optional fallback; plugin-supplied key takes precedence
+#   AI_GATEWAY_URL     — optional. If set, Anthropic calls route through
+#                        Cloudflare AI Gateway for caching + observability.
+#                        Format: https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway>/anthropic/v1/messages
+#                        Gateway auto-creates on first request (no dashboard
+#                        setup required). Find your account_id at
+#                        dash.cloudflare.com → Workers & Pages → Overview.
