@@ -1,17 +1,22 @@
-import type { ClientMessage, ServerMessage } from '@scribian/protocol';
+import type {
+  ChatRequest,
+  ClientMessage,
+  ServerMessage,
+  Usage,
+} from '@scribian/protocol';
 
 export interface Env {
   SCRIBIAN_TOKEN: string;
+  ANTHROPIC_API_KEY: string;
 }
 
 function timingSafeEqual(a: string, b: string): boolean {
-  const enc = new TextEncoder();
-  const ab = enc.encode(a);
-  const bb = enc.encode(b);
-  if (ab.byteLength !== bb.byteLength) return false;
-  // CF Workers exposes crypto.timingSafeEqual as a non-standard extension.
-  // @ts-expect-error - not in standard TS lib types
-  return crypto.timingSafeEqual(ab, bb);
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) {
+    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  }
+  return diff === 0;
 }
 
 export default {
@@ -19,7 +24,10 @@ export default {
     const url = new URL(req.url);
 
     if (url.pathname === '/health') {
-      return Response.json({ ok: true });
+      return Response.json({
+        ok: true,
+        anthropic_key_present: !!env.ANTHROPIC_API_KEY,
+      });
     }
 
     if (req.headers.get('Upgrade') !== 'websocket') {
@@ -27,8 +35,16 @@ export default {
     }
 
     const proto = req.headers.get('Sec-WebSocket-Protocol') ?? '';
-    if (!proto || !timingSafeEqual(proto, env.SCRIBIAN_TOKEN)) {
-      return new Response('nope', { status: 401 });
+    if (!proto) {
+      return new Response('missing protocol', { status: 401 });
+    }
+    if (!env.SCRIBIAN_TOKEN) {
+      return new Response('server misconfigured: SCRIBIAN_TOKEN not set', {
+        status: 500,
+      });
+    }
+    if (!timingSafeEqual(proto, env.SCRIBIAN_TOKEN)) {
+      return new Response('bad token', { status: 401 });
     }
 
     const pair = new WebSocketPair();
@@ -36,19 +52,15 @@ export default {
     const server = pair[1];
     server.accept();
 
+    const abortRegistry = new Map<string, AbortController>();
+
     server.addEventListener('message', (event) => {
-      let reply: ServerMessage;
-      try {
-        const raw = typeof event.data === 'string' ? event.data : '';
-        const msg = JSON.parse(raw) as ClientMessage;
-        reply = handle(msg);
-      } catch (err) {
-        reply = {
-          type: 'error',
-          error: err instanceof Error ? err.message : 'parse error',
-        };
-      }
-      server.send(JSON.stringify(reply));
+      void handleClientMessage(server, env, event, abortRegistry);
+    });
+
+    server.addEventListener('close', () => {
+      for (const ac of abortRegistry.values()) ac.abort();
+      abortRegistry.clear();
     });
 
     return new Response(null, {
@@ -59,17 +71,199 @@ export default {
   },
 };
 
-function handle(msg: ClientMessage): ServerMessage {
+async function handleClientMessage(
+  server: WebSocket,
+  env: Env,
+  event: MessageEvent,
+  abortRegistry: Map<string, AbortController>,
+): Promise<void> {
+  let msg: ClientMessage;
+  try {
+    const raw = typeof event.data === 'string' ? event.data : '';
+    msg = JSON.parse(raw) as ClientMessage;
+  } catch (err) {
+    send(server, {
+      type: 'error',
+      error: err instanceof Error ? err.message : 'parse error',
+    });
+    return;
+  }
+
+  if (msg.type === 'ping') {
+    send(server, { type: 'pong' });
+    return;
+  }
+
   if (msg.type === 'echo') {
-    return {
+    send(server, {
       type: 'echoed',
       id: msg.id,
       text: msg.text,
       received_at: Date.now(),
-    };
+    });
+    return;
   }
-  if (msg.type === 'ping') {
-    return { type: 'pong' };
+
+  if (msg.type === 'cancel') {
+    abortRegistry.get(msg.id)?.abort();
+    abortRegistry.delete(msg.id);
+    return;
   }
-  return { type: 'error', error: 'unknown message type' };
+
+  if (msg.type === 'chat') {
+    await runChat(server, env, msg.id, msg.payload, abortRegistry);
+    return;
+  }
+
+  send(server, { type: 'error', error: 'unknown message type' });
+}
+
+async function runChat(
+  server: WebSocket,
+  env: Env,
+  id: string,
+  req: ChatRequest,
+  abortRegistry: Map<string, AbortController>,
+): Promise<void> {
+  if (!env.ANTHROPIC_API_KEY) {
+    send(server, {
+      type: 'error',
+      id,
+      error: 'ANTHROPIC_API_KEY not set on Worker',
+      retryable: false,
+    });
+    return;
+  }
+
+  const ac = new AbortController();
+  abortRegistry.set(id, ac);
+
+  let resp: Response;
+  try {
+    resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: ac.signal,
+      headers: {
+        'x-api-key': env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ ...req, stream: true }),
+    });
+  } catch (err) {
+    abortRegistry.delete(id);
+    const isAbort = err instanceof Error && err.name === 'AbortError';
+    if (isAbort) {
+      send(server, {
+        type: 'done',
+        id,
+        stop_reason: 'cancelled',
+        usage: { input_tokens: 0, output_tokens: 0 },
+      });
+    } else {
+      send(server, {
+        type: 'error',
+        id,
+        error: err instanceof Error ? err.message : 'fetch failed',
+        retryable: true,
+      });
+    }
+    return;
+  }
+
+  if (!resp.ok) {
+    abortRegistry.delete(id);
+    const text = await resp.text().catch(() => '');
+    send(server, {
+      type: 'error',
+      id,
+      error: `upstream ${resp.status}: ${text.slice(0, 500)}`,
+      retryable: resp.status >= 500 || resp.status === 429,
+    });
+    return;
+  }
+
+  const reader = resp.body!.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let stopReason = 'end_turn';
+  let usage: Usage = { input_tokens: 0, output_tokens: 0 };
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+
+      const events = buffer.split('\n\n');
+      buffer = events.pop() ?? '';
+      for (const evt of events) {
+        const parsed = parseSSE(evt);
+        if (!parsed.event) continue;
+
+        send(server, {
+          type: 'chunk',
+          id,
+          event: parsed.event,
+          data: parsed.data,
+        });
+
+        const d = parsed.data as Record<string, any> | null;
+        if (parsed.event === 'message_start' && d?.message?.usage) {
+          usage = { ...usage, ...d.message.usage };
+        }
+        if (parsed.event === 'message_delta') {
+          if (d?.usage) usage = { ...usage, ...d.usage };
+          if (d?.delta?.stop_reason) stopReason = d.delta.stop_reason;
+        }
+      }
+    }
+  } catch (err) {
+    abortRegistry.delete(id);
+    if (err instanceof Error && err.name === 'AbortError') {
+      send(server, { type: 'done', id, stop_reason: 'cancelled', usage });
+      return;
+    }
+    send(server, {
+      type: 'error',
+      id,
+      error: err instanceof Error ? err.message : 'stream error',
+      retryable: true,
+    });
+    return;
+  }
+
+  abortRegistry.delete(id);
+  send(server, { type: 'done', id, stop_reason: stopReason, usage });
+}
+
+function send(server: WebSocket, msg: ServerMessage): void {
+  try {
+    server.send(JSON.stringify(msg));
+  } catch {
+    // socket closed mid-stream — silently drop
+  }
+}
+
+interface ParsedSSE {
+  event: string;
+  data: unknown;
+}
+
+function parseSSE(event: string): ParsedSSE {
+  let eventName = '';
+  let dataStr = '';
+  for (const line of event.split('\n')) {
+    if (line.startsWith('event:')) {
+      eventName = line.slice(6).trim();
+    } else if (line.startsWith('data:')) {
+      dataStr += line.slice(5).trim();
+    }
+  }
+  if (!dataStr) return { event: eventName, data: null };
+  try {
+    return { event: eventName, data: JSON.parse(dataStr) };
+  } catch {
+    return { event: eventName, data: null };
+  }
 }

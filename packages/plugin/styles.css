@@ -6,7 +6,44 @@
   padding: var(--size-4-2);
 }
 
+.scribian-header {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.scribian-model {
+  flex: 1;
+  font: inherit;
+  padding: var(--size-2-1) var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.scribian-new-chat {
+  font-size: var(--font-ui-smaller);
+  padding: var(--size-2-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.scribian-new-chat:hover {
+  background: var(--background-modifier-hover);
+}
+
+.scribian-status-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
 .scribian-status {
+  flex: 1;
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   padding: var(--size-2-1) var(--size-4-1);
@@ -22,12 +59,26 @@
   color: var(--text-error);
 }
 
+.scribian-reconnect {
+  font-size: var(--font-ui-smaller);
+  padding: var(--size-2-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary);
+  color: var(--text-normal);
+  cursor: pointer;
+}
+
+.scribian-reconnect:hover {
+  background: var(--background-modifier-hover);
+}
+
 .scribian-messages {
   flex: 1;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: var(--size-2-3);
+  gap: var(--size-4-2);
   padding: var(--size-4-2);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-s);
@@ -36,14 +87,74 @@
 
 .scribian-msg {
   font-size: var(--font-ui-small);
-  line-height: 1.4;
+  line-height: 1.5;
   word-wrap: break-word;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-1);
 }
 
 .scribian-msg-who {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.scribian-msg-user .scribian-msg-who {
+  color: var(--text-accent);
+}
+
+.scribian-msg-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+}
+
+.scribian-thinking {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--size-2-1) var(--size-4-2);
+  background: var(--background-secondary);
+  border-left: 2px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+}
+
+.scribian-tool-use {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-1);
+  padding: var(--size-2-2) var(--size-4-2);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+}
+
+.scribian-tool-name {
+  font-size: var(--font-ui-smaller);
   color: var(--text-accent);
   font-weight: var(--font-semibold);
-  margin-right: var(--size-4-1);
+}
+
+.scribian-tool-input {
+  font-size: var(--font-ui-smaller);
+  margin: 0;
+  padding: var(--size-2-2);
+  background: var(--background-primary);
+  border-radius: var(--radius-s);
+  overflow-x: auto;
+}
+
+.scribian-block-unknown {
+  font-size: var(--font-ui-smaller);
+  margin: 0;
+  padding: var(--size-2-2);
+  background: var(--background-secondary);
+  color: var(--text-muted);
+  border-radius: var(--radius-s);
+  overflow-x: auto;
 }
 
 .scribian-input-wrap {
@@ -54,7 +165,7 @@
 
 .scribian-input {
   resize: vertical;
-  min-height: 2.5rem;
+  min-height: 3rem;
   font: inherit;
   padding: var(--size-4-2);
   border: 1px solid var(--background-modifier-border);
@@ -68,7 +179,13 @@
   outline: none;
 }
 
+.scribian-button-row {
+  display: flex;
+  gap: var(--size-2-2);
+}
+
 .scribian-send {
+  flex: 1;
   background: var(--interactive-accent);
   color: var(--text-on-accent);
   border: none;
@@ -85,4 +202,14 @@
 .scribian-send:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.scribian-stop {
+  background: var(--background-modifier-error);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--radius-s);
+  padding: var(--size-4-2) var(--size-4-4);
+  font: inherit;
+  cursor: pointer;
 }
