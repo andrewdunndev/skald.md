@@ -79,6 +79,14 @@ export class TokenRegistry {
     return this.records.length > 0;
   }
 
+  /**
+   * Non-secret summary of configured tokens for the diagnostic page.
+   * Token values intentionally omitted.
+   */
+  tokenSummaries(): Array<{ label: string; scopes: Scope[] }> {
+    return this.records.map((r) => ({ label: r.label, scopes: [...r.scopes] }));
+  }
+
   private isValidRecord(r: unknown): r is TokenRecord {
     if (!r || typeof r !== 'object') return false;
     const rec = r as Record<string, unknown>;

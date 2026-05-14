@@ -16,6 +16,10 @@ import {
   type JsonRpcRequest,
 } from './mcp';
 import { TokenRegistry, hasScope, type AuthResult } from './auth';
+import { renderAdminPage } from './admin';
+import type { AuditEvent } from './session-state';
+
+const MAX_RECENT_EVENTS = 50;
 
 export interface Env {
   SCRIBIAN_TOKEN?: string;
@@ -46,9 +50,38 @@ export default {
         anthropic_key_present: !!env.ANTHROPIC_API_KEY,
         ai_gateway: !!env.AI_GATEWAY_URL,
         tokens_configured: registry.hasAny(),
-        version: 5,
+        version: 6,
         mcp: '/mcp',
+        admin: '/admin',
       });
+    }
+
+    if (url.pathname === '/admin') {
+      const auth = authBearerOrQuery(req, registry);
+      if (!auth.ok) {
+        return new Response(auth.reason, { status: auth.status });
+      }
+      if (!hasScope(auth.result.scopes, 'chat')) {
+        return new Response('admin page requires chat scope', { status: 403 });
+      }
+      // Forward to the DO so we can pull connected-WS count and the
+      // recent-events ring buffer. Build the view model in the DO.
+      const stub = env.SCRIBIAN_SESSION.get(
+        env.SCRIBIAN_SESSION.idFromName(SESSION_DO_NAME),
+      );
+      const fwd = new Request(req.url, {
+        method: 'GET',
+        headers: new Headers({
+          'x-scribian-admin-token-summaries': JSON.stringify(
+            registry.tokenSummaries(),
+          ),
+          'x-scribian-admin-env-snapshot': JSON.stringify({
+            anthropic: !!env.ANTHROPIC_API_KEY,
+            aigw: !!env.AI_GATEWAY_URL,
+          }),
+        }),
+      });
+      return stub.fetch(fwd);
     }
 
     if (!registry.hasAny()) {
@@ -121,6 +154,25 @@ function authBearer(
   return { ok: true, result: auth };
 }
 
+/**
+ * Same as authBearer but also accepts ?token=... in the query string for
+ * the diagnostic page so you can paste a one-line URL into a browser.
+ * Query-string tokens land in browser history; bearer header is preferred.
+ */
+function authBearerOrQuery(
+  req: Request,
+  registry: TokenRegistry,
+): { ok: true; result: AuthResult } | { ok: false; reason: string; status: number } {
+  const bearer = authBearer(req, registry);
+  if (bearer.ok) return bearer;
+  const url = new URL(req.url);
+  const candidate = url.searchParams.get('token')?.trim() ?? '';
+  if (!candidate) return bearer; // surface the original 401
+  const auth = registry.authenticate(candidate);
+  if (!auth) return { ok: false, reason: 'bad token', status: 401 };
+  return { ok: true, result: auth };
+}
+
 function authSubprotocol(
   req: Request,
   registry: TokenRegistry,
@@ -145,10 +197,18 @@ export class ScribianSession {
     string,
     (result: { content: string; is_error?: boolean }) => void
   > = new Map();
+  private readonly recentEvents: AuditEvent[] = [];
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
     this.env = env;
+  }
+
+  private record(type: AuditEvent['type'], label: string, detail: string): void {
+    this.recentEvents.push({ ts: Date.now(), type, label, detail });
+    while (this.recentEvents.length > MAX_RECENT_EVENTS) {
+      this.recentEvents.shift();
+    }
   }
 
   async fetch(req: Request): Promise<Response> {
@@ -157,6 +217,10 @@ export class ScribianSession {
     if (url.pathname === '/mcp') {
       const callerLabel = req.headers.get('x-scribian-caller-label') ?? 'unknown';
       return this.handleMcp(req, callerLabel);
+    }
+
+    if (url.pathname === '/admin') {
+      return this.handleAdmin(req);
     }
 
     const pair = new WebSocketPair();
@@ -171,6 +235,33 @@ export class ScribianSession {
       status: 101,
       webSocket: client,
       headers: { 'Sec-WebSocket-Protocol': echoed },
+    });
+  }
+
+  private handleAdmin(req: Request): Response {
+    const tokenSummaries = safeParseHeader<
+      Array<{ label: string; scopes: string[] }>
+    >(req.headers.get('x-scribian-admin-token-summaries'), []);
+    const envSnap = safeParseHeader<{ anthropic?: boolean; aigw?: boolean }>(
+      req.headers.get('x-scribian-admin-env-snapshot'),
+      {},
+    );
+    const html = renderAdminPage({
+      version: 6,
+      workerName: 'scribian',
+      anthropicKeyPresent: !!envSnap.anthropic,
+      aiGatewayConfigured: !!envSnap.aigw,
+      tokenSummaries,
+      connectedWebSockets: this.state.getWebSockets().length,
+      recentEvents: this.recentEvents,
+    });
+    return new Response(html, {
+      headers: {
+        'content-type': 'text/html; charset=utf-8',
+        // Don't let the page get cached — the recent-events list and
+        // connection count are live.
+        'cache-control': 'no-store',
+      },
     });
   }
 
@@ -217,6 +308,11 @@ export class ScribianSession {
     if (msg.type === 'chat') {
       const supplied = msg.anthropic_api_key?.trim();
       const apiKey = supplied || this.env.ANTHROPIC_API_KEY;
+      this.record(
+        'chat',
+        'plugin',
+        `model=${msg.payload.model} msgs=${msg.payload.messages.length}`,
+      );
       await this.runChat(ws, apiKey, msg.id, msg.payload);
       return;
     }
@@ -299,6 +395,7 @@ export class ScribianSession {
     const isNotification = rpc.id === undefined || rpc.id === null;
 
     console.log(`mcp call: label=${callerLabel} method=${rpc.method}`);
+    this.record('mcp', callerLabel, rpc.method);
 
     try {
       switch (rpc.method) {
@@ -530,6 +627,15 @@ export class ScribianSession {
       `chat ${id} done: stop=${stopReason} in=${usage.input_tokens} out=${usage.output_tokens} cache_read=${usage.cache_read_input_tokens ?? 0}`,
     );
     this.send(ws, { type: 'done', id, stop_reason: stopReason, usage });
+  }
+}
+
+function safeParseHeader<T>(header: string | null, fallback: T): T {
+  if (!header) return fallback;
+  try {
+    return JSON.parse(header) as T;
+  } catch {
+    return fallback;
   }
 }
 
