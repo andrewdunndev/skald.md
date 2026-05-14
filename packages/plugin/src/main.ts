@@ -1,7 +1,8 @@
-import { Plugin } from 'obsidian';
+import { Notice, Plugin } from 'obsidian';
 import { ScribianView, VIEW_TYPE_SCRIBIAN } from './view';
 import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './settings';
 import { Logger } from './logger';
+import { reindexVault } from './memory-client';
 
 export default class ScribianPlugin extends Plugin {
   settings: ScribianSettings = DEFAULT_SETTINGS;
@@ -22,7 +23,63 @@ export default class ScribianPlugin extends Plugin {
       callback: () => this.activateView(),
     });
 
+    // Phase 6: vault-as-memory. The Reindex command walks vault notes
+    // and ships them to the Worker's /index endpoint for embedding +
+    // upsert into Vectorize. find_related queries depend on this
+    // having run at least once.
+    this.addCommand({
+      id: 'scribian-reindex-vault',
+      name: 'Reindex vault (for semantic search)',
+      callback: () => void this.reindexVault(),
+    });
+
     this.addSettingTab(new ScribianSettingTab(this.app, this));
+  }
+
+  /**
+   * Run a full reindex of the vault for semantic search. Surface
+   * progress as Notices. Excludes the conversation, logs, and
+   * saved-notes folders by default since they're scribian-generated
+   * artifacts the user doesn't want surfaced as "related notes."
+   */
+  private async reindexVault(): Promise<void> {
+    const cfg = {
+      workerUrl: this.settings.workerUrl,
+      workerToken: this.settings.workerToken,
+    };
+    if (!cfg.workerUrl || !cfg.workerToken) {
+      new Notice('scribian: Worker URL + token must be configured first.');
+      return;
+    }
+    const excluded = [
+      this.settings.chatsFolder,
+      this.settings.logsFolder,
+      this.settings.savedNotesFolder,
+    ].filter(Boolean);
+    const progressNotice = new Notice('Reindexing vault…', 0);
+    try {
+      const result = await reindexVault(
+        this.app,
+        cfg,
+        excluded,
+        (msg) => progressNotice.setMessage(`scribian: ${msg}`),
+      );
+      progressNotice.hide();
+      new Notice(
+        `scribian: reindexed ${result.indexed} note${
+          result.indexed === 1 ? '' : 's'
+        } (skipped ${result.skipped}).`,
+        6000,
+      );
+      this.logger.info(
+        `reindex complete: indexed=${result.indexed} skipped=${result.skipped}`,
+      );
+    } catch (err) {
+      progressNotice.hide();
+      const msg = err instanceof Error ? err.message : String(err);
+      new Notice(`scribian: reindex failed — ${msg}`, 8000);
+      this.logger.error(`reindex failed: ${msg}`);
+    }
   }
 
   async loadSettings() {

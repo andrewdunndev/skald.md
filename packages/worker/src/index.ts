@@ -20,6 +20,13 @@ import { TokenRegistry, hasScope, type AuthResult } from './auth';
 import { renderAdminPage } from './admin';
 import type { AuditEvent } from './session-state';
 import { dispatchFor, resolveProviderKey } from './providers';
+import {
+  embedDocument,
+  querySimilar,
+  upsertChunks,
+  vectorId,
+} from './memory';
+import type { ScribianVector } from './memory/types';
 
 const MAX_RECENT_EVENTS = 50;
 
@@ -102,6 +109,42 @@ export default {
         'server misconfigured: set SCRIBIAN_TOKENS (preferred) or SCRIBIAN_TOKEN',
         { status: 500 },
       );
+    }
+
+    // Vault-as-memory HTTP endpoints (phase 6). Both require the
+    // chat scope (the plugin already authenticates with one); both
+    // need the AI + VECTORIZE bindings, surface 503 if missing.
+    if (url.pathname === '/index' || url.pathname === '/search') {
+      const auth = authBearer(req, registry);
+      if (!auth.ok) {
+        return new Response(auth.reason, { status: auth.status });
+      }
+      if (!hasScope(auth.result.scopes, 'chat')) {
+        return new Response('token lacks chat scope', { status: 403 });
+      }
+      if (!env.AI || !env.VECTORIZE) {
+        return new Response(
+          'vault-memory bindings not configured on this Worker',
+          { status: 503 },
+        );
+      }
+      if (req.method !== 'POST') {
+        return new Response('method not allowed', {
+          status: 405,
+          headers: { Allow: 'POST' },
+        });
+      }
+      // Narrow env to the bindings the memory handlers require.
+      const memEnv = { AI: env.AI, VECTORIZE: env.VECTORIZE };
+      try {
+        if (url.pathname === '/index') {
+          return await handleIndex(req, memEnv);
+        }
+        return await handleSearch(req, memEnv);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : 'internal error';
+        return new Response(msg, { status: 500 });
+      }
     }
 
     // MCP endpoint — HTTP JSON-RPC.
@@ -679,6 +722,104 @@ function isWriteToolName(name: string): boolean {
   return (
     name === 'write_note' || name === 'edit_note' || name === 'append_to_note'
   );
+}
+
+interface IndexRequestBody {
+  notes?: Array<{ path?: string; title?: string; content?: string }>;
+}
+
+interface SearchRequestBody {
+  query?: string;
+  top_k?: number;
+}
+
+/**
+ * POST /index — embed + upsert a batch of notes. Each note becomes
+ * one 'note-summary' vector: title + first ~1500 chars of body.
+ * Returns the count indexed for the plugin's progress UI.
+ */
+async function handleIndex(
+  req: Request,
+  env: { AI: Ai; VECTORIZE: Vectorize },
+): Promise<Response> {
+  const body = (await req.json()) as IndexRequestBody;
+  if (!Array.isArray(body.notes)) {
+    return new Response('expected { notes: [...] }', { status: 400 });
+  }
+  const vectors: ScribianVector[] = [];
+  for (const n of body.notes) {
+    const path = typeof n.path === 'string' ? n.path : '';
+    const title = typeof n.title === 'string' ? n.title : path;
+    const content = typeof n.content === 'string' ? n.content : '';
+    if (!path || !content.trim()) continue;
+    // The embedding source: title + a head excerpt of the body.
+    // bge-base caps at 512 input tokens (~2KB); aim well under.
+    const headExcerpt = content.slice(0, 1500);
+    const source = `${title}\n\n${headExcerpt}`;
+    const vec = await embedDocument(env, { text: source });
+    vectors.push({
+      id: vectorId(path, 'note-summary', 0),
+      kind: 'note-summary',
+      vector: vec,
+      metadata: {
+        path,
+        title,
+        sha256: await sha256Hex(content),
+        mtime: Date.now(),
+      },
+    });
+  }
+  await upsertChunks(env, vectors);
+  return Response.json({ indexed: vectors.length });
+}
+
+/**
+ * POST /search — embed a free-text query, return top-K nearest
+ * note-summary neighbors with similarity scores + excerpts.
+ */
+async function handleSearch(
+  req: Request,
+  env: { AI: Ai; VECTORIZE: Vectorize },
+): Promise<Response> {
+  const body = (await req.json()) as SearchRequestBody;
+  const query = typeof body.query === 'string' ? body.query.trim() : '';
+  if (!query) {
+    return new Response('expected { query: "..." }', { status: 400 });
+  }
+  const topK = Math.min(Math.max(Number(body.top_k ?? 8), 1), 20);
+  const hits = await querySimilar(env, {
+    query,
+    kind: 'note-summary',
+    topK,
+  });
+  return Response.json({
+    hits: hits.map((h) => {
+      const meta = h.metadata as Record<string, unknown>;
+      return {
+        path: typeof meta.path === 'string' ? meta.path : h.id,
+        title:
+          typeof meta.title === 'string'
+            ? meta.title
+            : typeof meta.path === 'string'
+              ? meta.path
+              : h.id,
+        score: h.score,
+      };
+    }),
+  });
+}
+
+/**
+ * SHA-256 hex via WebCrypto. Workers AI input cap means the
+ * embedded text is truncated; the sha256 here is over the original
+ * full content so the plugin's future manifest-diff can detect
+ * changes accurately.
+ */
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf))
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
 function safeParseHeader<T>(header: string | null, fallback: T): T {

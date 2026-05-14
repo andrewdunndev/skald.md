@@ -17,6 +17,7 @@ import { ChatSession } from './chat-session';
 import { MODELS } from './settings';
 import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
+import { executeFindRelated } from './memory-client';
 import { saveConversation } from './conversation-store';
 import type { ContentBlock, Message } from '@scribian/protocol';
 
@@ -385,14 +386,27 @@ export class ScribianView extends ItemView {
         return { provider, apiKey };
       },
       ALL_TOOLS,
-      (name, input, toolUseId) =>
-        executeTool(
+      (name, input, toolUseId) => {
+        // find_related routes Worker-side because Vectorize lives in
+        // the Worker, not the plugin. Everything else dispatches
+        // through the plugin's executeTool against the Vault API.
+        if (name === 'find_related') {
+          return executeFindRelated(
+            {
+              workerUrl: this.plugin.settings.workerUrl,
+              workerToken: this.plugin.settings.workerToken,
+            },
+            input,
+          );
+        }
+        return executeTool(
           this.app,
           name,
           input,
           toolUseId,
           (proposal) => this.requestApproval(proposal),
-        ),
+        );
+      },
       {
         onUpdate: () => this.requestRender(),
         onError: (err) => this.setStatus(`Chat error: ${err}`, 'error'),
