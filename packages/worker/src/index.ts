@@ -420,6 +420,19 @@ export class ScribianSession {
           if (typeof params.name !== 'string') {
             return rpcError(rpc.id, INVALID_PARAMS, 'name is required');
           }
+          // Defense in depth: read-only tokens (mcp:read) cannot invoke
+          // write tools even if the plugin happens to be configured to
+          // accept them. The plugin already auto-rejects writes on the
+          // MCP path (handleMcpCall's approve callback returns false),
+          // but rejecting at the Worker boundary saves a bridge round-
+          // trip and keeps the audit log honest.
+          if (isWriteToolName(params.name)) {
+            return rpcError(
+              rpc.id,
+              -32603,
+              `Tool '${params.name}' requires mcp:write scope; MCP clients are read-only.`,
+            );
+          }
           const result = await this.bridgeToolCall(
             params.name,
             params.arguments,
@@ -628,6 +641,12 @@ export class ScribianSession {
     );
     this.send(ws, { type: 'done', id, stop_reason: stopReason, usage });
   }
+}
+
+function isWriteToolName(name: string): boolean {
+  return (
+    name === 'write_note' || name === 'edit_note' || name === 'append_to_note'
+  );
 }
 
 function safeParseHeader<T>(header: string | null, fallback: T): T {

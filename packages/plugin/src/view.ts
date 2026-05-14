@@ -1100,6 +1100,12 @@ export class ScribianView extends ItemView {
     const entry = this.pendingApprovals.get(toolUseId);
     if (!entry) return;
     this.pendingApprovals.delete(toolUseId);
+    // Audit: every approval decision is logged so users can review who
+    // approved which write at what time. Stays vault-local; never
+    // leaves the device.
+    this.plugin.logger.info(
+      `approval ${approved ? 'approved' : 'rejected'}: ${entry.proposal.kind} ${entry.proposal.path}`,
+    );
     // Remove the diff card from the DOM directly. The row that owns the
     // tool_use is finalized so flushRender won't re-walk it; we patch the
     // DOM in place instead.

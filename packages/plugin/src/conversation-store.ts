@@ -17,11 +17,18 @@ function slugify(text: string, max = 40): string {
   const cleaned = text
     .toLowerCase()
     .replace(/<context>[\s\S]*?<\/context>/g, '')
+    // Allow only letters, numbers, hyphen, whitespace. Any `.` is
+    // dropped which incidentally blocks `..` traversal attempts in
+    // the resulting filename; the safety net below catches anything
+    // that slipped through.
     .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-  return cleaned.slice(0, max) || 'chat';
+    .replace(/^-+|-+$/g, '');
+  // Defense in depth: never let `..` or path separators survive,
+  // even though our character whitelist should have caught them.
+  const safe = cleaned.replace(/\.\.+/g, '').replace(/[\\/]/g, '');
+  return safe.slice(0, max) || 'chat';
 }
 
 /**
@@ -178,6 +185,15 @@ export async function saveConversation(
   const slug = slugify(seed);
   const filename = `${datePart}-${slug}-${meta.id.slice(0, 6)}.md`;
   const path = normalizePath(`${normalizedFolder}/${filename}`);
+
+  // Final guard against any traversal that slipped past slugify:
+  // the resolved path MUST live inside the configured folder.
+  if (!path.startsWith(`${normalizedFolder}/`)) {
+    console.error(
+      `scribian: refusing to save outside folder (resolved="${path}" folder="${normalizedFolder}")`,
+    );
+    return null;
+  }
 
   const body = renderConversationMarkdown(meta, messages);
   const existing = app.vault.getAbstractFileByPath(path);
