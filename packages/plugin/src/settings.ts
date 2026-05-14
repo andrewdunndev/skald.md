@@ -1,5 +1,6 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type ScribianPlugin from './main';
+import { FolderSuggest } from './folder-suggest';
 
 export interface ScribianSettings {
   workerUrl: string;
@@ -9,6 +10,7 @@ export interface ScribianSettings {
   harnessFolder: string;
   savedNotesFolder: string;
   chatsFolder: string;
+  logsFolder: string;
 }
 
 export const MODELS = [
@@ -25,6 +27,7 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   harnessFolder: '.claude',
   savedNotesFolder: 'Scribian/Saved',
   chatsFolder: 'Scribian/Chats',
+  logsFolder: '',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -117,50 +120,63 @@ export class ScribianSettingTab extends PluginSettingTab {
     // ── Vault integration ─────────────────────────────────────────
     new Setting(containerEl).setName('Vault integration').setHeading();
 
-    new Setting(containerEl)
-      .setName('Harness folder')
-      .setDesc(
-        "Vault-relative folder loaded as Claude's system context. Looks for `<folder>/CLAUDE.md` and `<folder>/skills/**/*.md`. Default `.claude` matches Claude Code conventions. Leave blank to disable.",
-      )
-      .addText((t) =>
-        t
-          .setPlaceholder('.claude')
-          .setValue(this.plugin.settings.harnessFolder)
-          .onChange(async (v) => {
-            this.plugin.settings.harnessFolder = v.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
+    this.addFolderSetting(
+      'Harness folder',
+      "Loaded as Claude's system context. Looks for `<folder>/CLAUDE.md` and `<folder>/skills/**/*.md`. Default `.claude` matches Claude Code conventions. Empty to disable.",
+      '.claude',
+      'harnessFolder',
+    );
 
-    new Setting(containerEl)
-      .setName('Chats folder')
-      .setDesc(
-        'Vault-relative folder where conversations are saved as markdown after each turn. Searchable via Obsidian. Empty to disable saving.',
-      )
-      .addText((t) =>
-        t
-          .setPlaceholder('Scribian/Chats')
-          .setValue(this.plugin.settings.chatsFolder)
-          .onChange(async (v) => {
-            this.plugin.settings.chatsFolder = v.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
+    this.addFolderSetting(
+      'Chats folder',
+      'Conversations save here as markdown after each turn. Searchable via Obsidian. Empty to disable saving.',
+      'Scribian/Chats',
+      'chatsFolder',
+    );
 
-    new Setting(containerEl)
-      .setName('Saved notes folder')
-      .setDesc(
-        'Vault-relative folder where the "Save as note" button creates new notes from chat messages.',
-      )
-      .addText((t) =>
-        t
-          .setPlaceholder('Scribian/Saved')
-          .setValue(this.plugin.settings.savedNotesFolder)
-          .onChange(async (v) => {
-            this.plugin.settings.savedNotesFolder = v.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
+    this.addFolderSetting(
+      'Saved notes folder',
+      'Where the "Save as note" button creates new notes from chat messages.',
+      'Scribian/Saved',
+      'savedNotesFolder',
+    );
+
+    this.addFolderSetting(
+      'Logs folder',
+      'Plugin logs (connection events, errors, tool failures) are appended to a daily file here. Empty to log to console only.',
+      'Scribian/Logs',
+      'logsFolder',
+    );
+  }
+
+  /**
+   * Render a folder-picker setting: text input with vault-folder
+   * autocomplete attached. Typing filters; tap a suggestion to fill.
+   */
+  private addFolderSetting(
+    name: string,
+    desc: string,
+    placeholder: string,
+    key:
+      | 'harnessFolder'
+      | 'chatsFolder'
+      | 'savedNotesFolder'
+      | 'logsFolder',
+  ): void {
+    new Setting(this.containerEl)
+      .setName(name)
+      .setDesc(desc)
+      .addText((t) => {
+        t.setPlaceholder(placeholder).setValue(this.plugin.settings[key]);
+        t.onChange(async (v) => {
+          this.plugin.settings[key] = v.trim();
+          await this.plugin.saveSettings();
+        });
+        new FolderSuggest(this.app, t.inputEl, async (folder) => {
+          this.plugin.settings[key] = folder.path;
+          await this.plugin.saveSettings();
+        });
+      });
   }
 
   /**

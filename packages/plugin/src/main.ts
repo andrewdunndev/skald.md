@@ -1,12 +1,16 @@
 import { Plugin } from 'obsidian';
 import { ScribianView, VIEW_TYPE_SCRIBIAN } from './view';
 import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './settings';
+import { Logger } from './logger';
 
 export default class ScribianPlugin extends Plugin {
   settings: ScribianSettings = DEFAULT_SETTINGS;
+  logger!: Logger;
 
   override async onload() {
     await this.loadSettings();
+    this.logger = new Logger(this.app, () => this.settings.logsFolder);
+    this.logger.info('scribian loaded');
 
     this.registerView(VIEW_TYPE_SCRIBIAN, (leaf) => new ScribianView(leaf, this));
 
