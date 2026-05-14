@@ -3,6 +3,7 @@ import type {
   ContentBlock,
   Message,
   ServerMessage,
+  ToolDefinition,
   Usage,
 } from '@scribian/protocol';
 import { Transport } from './transport';
@@ -19,6 +20,10 @@ export interface ChatSessionHandlers {
   onDone: (stopReason: string, usage: Usage) => void;
 }
 
+export interface ToolExecutor {
+  (name: string, input: unknown): Promise<{ content: string; is_error?: boolean }>;
+}
+
 export class ChatSession {
   private readonly messages: Message[] = [];
   private inFlight: InFlight | null = null;
@@ -28,6 +33,8 @@ export class ChatSession {
     private readonly modelProvider: () => string,
     private readonly systemProvider: () => Promise<string | undefined>,
     private readonly apiKeyProvider: () => string | undefined,
+    private readonly toolDefinitions: ToolDefinition[],
+    private readonly toolExecutor: ToolExecutor,
     private readonly handlers: ChatSessionHandlers,
   ) {}
 
@@ -36,33 +43,9 @@ export class ChatSession {
       this.handlers.onError('A response is already in flight.');
       return;
     }
-
     this.messages.push({ role: 'user', content: text });
-
-    const id = crypto.randomUUID();
-    this.inFlight = {
-      id,
-      blocks: [],
-      usage: { input_tokens: 0, output_tokens: 0 },
-    };
     this.handlers.onUpdate();
-
-    const system = await this.systemProvider();
-    const apiKey = this.apiKeyProvider();
-
-    const payload: ChatRequest = {
-      model: this.modelProvider(),
-      messages: this.messages,
-      max_tokens: 4096,
-    };
-    if (system) payload.system = system;
-
-    this.transport.send({
-      type: 'chat',
-      id,
-      payload,
-      ...(apiKey ? { anthropic_api_key: apiKey } : {}),
-    });
+    await this.dispatch();
   }
 
   cancel(): void {
@@ -76,7 +59,7 @@ export class ChatSession {
       return;
     }
     if (msg.type === 'done') {
-      this.finalize(msg.stop_reason, msg.usage);
+      void this.finalize(msg.stop_reason, msg.usage);
       return;
     }
     if (msg.type === 'error') {
@@ -100,11 +83,38 @@ export class ChatSession {
     this.handlers.onUpdate();
   }
 
+  private async dispatch(): Promise<void> {
+    const id = crypto.randomUUID();
+    this.inFlight = {
+      id,
+      blocks: [],
+      usage: { input_tokens: 0, output_tokens: 0 },
+    };
+
+    const system = await this.systemProvider();
+    const apiKey = this.apiKeyProvider();
+
+    const payload: ChatRequest = {
+      model: this.modelProvider(),
+      messages: this.messages,
+      max_tokens: 4096,
+    };
+    if (system) payload.system = system;
+    if (this.toolDefinitions.length > 0) payload.tools = this.toolDefinitions;
+
+    this.transport.send({
+      type: 'chat',
+      id,
+      payload,
+      ...(apiKey ? { anthropic_api_key: apiKey } : {}),
+    });
+    this.handlers.onUpdate();
+  }
+
   private handleChunk(event: string, data: unknown): void {
     if (!this.inFlight) return;
     const d = data as Record<string, any> | null;
     if (!d) return;
-
     const blocks = this.inFlight.blocks;
 
     if (event === 'content_block_start') {
@@ -132,28 +142,61 @@ export class ChatSession {
         }
         delete block.partial_json;
       }
-    } else if (event === 'message_delta') {
-      if (d.usage && this.inFlight) {
-        this.inFlight.usage = { ...this.inFlight.usage, ...d.usage };
-      }
     } else if (event === 'message_start') {
       if (d.message?.usage && this.inFlight) {
         this.inFlight.usage = { ...this.inFlight.usage, ...d.message.usage };
+      }
+    } else if (event === 'message_delta') {
+      if (d.usage && this.inFlight) {
+        this.inFlight.usage = { ...this.inFlight.usage, ...d.usage };
       }
     }
 
     this.handlers.onUpdate();
   }
 
-  private finalize(stopReason: string, usage: Usage): void {
+  private async finalize(stopReason: string, usage: Usage): Promise<void> {
     if (!this.inFlight) return;
-    this.messages.push({
-      role: 'assistant',
-      content: this.inFlight.blocks,
-    });
+    const blocks = this.inFlight.blocks;
     const finalUsage = { ...this.inFlight.usage, ...usage };
+
+    this.messages.push({ role: 'assistant', content: blocks });
     this.inFlight = null;
+    this.handlers.onUpdate();
+
+    if (stopReason === 'tool_use') {
+      await this.executeToolsAndContinue(blocks);
+      return;
+    }
+
     this.handlers.onDone(stopReason, finalUsage);
     this.handlers.onUpdate();
+  }
+
+  private async executeToolsAndContinue(blocks: ContentBlock[]): Promise<void> {
+    const toolUses = blocks.filter(
+      (b) => (b as Record<string, unknown>).type === 'tool_use',
+    );
+    if (toolUses.length === 0) return;
+
+    const results: ContentBlock[] = [];
+    for (const block of toolUses) {
+      const b = block as Record<string, any>;
+      const result = await this.toolExecutor(b.name, b.input);
+      const resultBlock: ContentBlock = {
+        type: 'tool_result',
+        tool_use_id: b.id,
+        content: result.content,
+      };
+      if (result.is_error) {
+        (resultBlock as Record<string, unknown>).is_error = true;
+      }
+      results.push(resultBlock);
+    }
+
+    this.messages.push({ role: 'user', content: results });
+    this.handlers.onUpdate();
+
+    await this.dispatch();
   }
 }

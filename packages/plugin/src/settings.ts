@@ -6,7 +6,7 @@ export interface ScribianSettings {
   workerToken: string;
   anthropicApiKey: string;
   defaultModel: string;
-  systemPromptPath: string;
+  harnessFolder: string;
 }
 
 export const MODELS = [
@@ -20,7 +20,7 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   workerToken: '',
   anthropicApiKey: '',
   defaultModel: 'claude-sonnet-4-6',
-  systemPromptPath: 'CLAUDE.md',
+  harnessFolder: '.claude',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -88,16 +88,16 @@ export class ScribianSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName('System prompt note')
+      .setName('Harness folder')
       .setDesc(
-        'Vault-relative path to a markdown note loaded as system prompt. Leave blank to disable.',
+        'Vault-relative folder loaded as Claude\'s system context. Looks for `<folder>/CLAUDE.md` and `<folder>/skills/**/*.md`. Default `.claude` matches Claude Code conventions. Leave blank to disable.',
       )
       .addText((t) =>
         t
-          .setPlaceholder('CLAUDE.md')
-          .setValue(this.plugin.settings.systemPromptPath)
+          .setPlaceholder('.claude')
+          .setValue(this.plugin.settings.harnessFolder)
           .onChange(async (v) => {
-            this.plugin.settings.systemPromptPath = v.trim();
+            this.plugin.settings.harnessFolder = v.trim();
             await this.plugin.saveSettings();
           }),
       );

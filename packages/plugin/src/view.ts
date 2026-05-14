@@ -1,8 +1,9 @@
-import { ItemView, TFile, WorkspaceLeaf } from 'obsidian';
+import { ItemView, TFile, TFolder, WorkspaceLeaf, normalizePath } from 'obsidian';
 import type ScribianPlugin from './main';
 import { Transport } from './transport';
 import { ChatSession } from './chat-session';
 import { MODELS } from './settings';
+import { READ_ONLY_TOOLS, executeTool } from './tools';
 import type { ContentBlock, Message } from '@scribian/protocol';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
@@ -140,6 +141,8 @@ export class ScribianView extends ItemView {
       () => this.modelSelect.value,
       () => this.loadSystemPrompt(),
       () => this.plugin.settings.anthropicApiKey || undefined,
+      READ_ONLY_TOOLS,
+      (name, input) => executeTool(this.app, name, input),
       {
         onUpdate: () => this.renderMessages(),
         onError: (err) => this.setStatus(`Chat error: ${err}`, 'error'),
@@ -150,15 +153,58 @@ export class ScribianView extends ItemView {
   }
 
   private async loadSystemPrompt(): Promise<string | undefined> {
-    const path = this.plugin.settings.systemPromptPath;
-    if (!path) return undefined;
-    const file = this.app.vault.getAbstractFileByPath(path);
-    if (!(file instanceof TFile)) return undefined;
-    try {
-      return await this.app.vault.read(file);
-    } catch {
-      return undefined;
+    const folderSetting = this.plugin.settings.harnessFolder.trim();
+    // Empty setting disables harness loading entirely.
+    if (!folderSetting) return undefined;
+
+    // `.` or `/` means "use vault root".
+    const folderPath =
+      folderSetting === '.' || folderSetting === '/'
+        ? ''
+        : normalizePath(folderSetting);
+
+    const parts: string[] = [];
+
+    const claudeMdPath = folderPath
+      ? `${folderPath}/CLAUDE.md`
+      : 'CLAUDE.md';
+    const claudeMd = this.app.vault.getAbstractFileByPath(claudeMdPath);
+    if (claudeMd instanceof TFile) {
+      try {
+        parts.push(await this.app.vault.read(claudeMd));
+      } catch {
+        // ignore unreadable file
+      }
     }
+
+    const skillsPath = folderPath ? `${folderPath}/skills` : 'skills';
+    const skillsFolder = this.app.vault.getAbstractFileByPath(skillsPath);
+    if (skillsFolder instanceof TFolder) {
+      const skills = await this.collectSkills(skillsFolder);
+      if (skills.length > 0) {
+        parts.push('## Skills\n\n' + skills.join('\n\n---\n\n'));
+      }
+    }
+
+    return parts.length > 0 ? parts.join('\n\n---\n\n') : undefined;
+  }
+
+  private async collectSkills(folder: TFolder): Promise<string[]> {
+    const out: string[] = [];
+    for (const child of folder.children) {
+      if (child instanceof TFile && child.extension === 'md') {
+        try {
+          const content = await this.app.vault.read(child);
+          out.push(`### ${child.basename}\n\n${content}`);
+        } catch {
+          // skip unreadable
+        }
+      } else if (child instanceof TFolder) {
+        const nested = await this.collectSkills(child);
+        out.push(...nested);
+      }
+    }
+    return out;
   }
 
   private send(): void {
@@ -248,6 +294,23 @@ export class ScribianView extends ItemView {
           typeof input === 'string' ? input : JSON.stringify(input, null, 2),
         );
       }
+      return;
+    }
+    if (type === 'tool_result') {
+      const isError = b.is_error === true;
+      const card = parent.createDiv({
+        cls: `scribian-tool-result${isError ? ' scribian-tool-result-error' : ''}`,
+      });
+      card.createSpan({
+        cls: 'scribian-tool-result-label',
+        text: isError ? '⚠️ tool error' : '✓ tool result',
+      });
+      const content =
+        typeof b.content === 'string'
+          ? b.content
+          : JSON.stringify(b.content, null, 2);
+      const pre = card.createEl('pre', { cls: 'scribian-tool-result-body' });
+      pre.setText(content);
       return;
     }
     // Unknown block type — render as JSON for visibility while we iterate.
