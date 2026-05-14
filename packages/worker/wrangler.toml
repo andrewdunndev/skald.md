@@ -3,7 +3,17 @@ main = "src/index.ts"
 compatibility_date = "2026-05-14"
 workers_dev = true
 
+# Per-session Durable Object: one instance per WebSocket connection.
+# Hibernation API holds the WS while the JS context sleeps between
+# messages, freeing CPU budget for actual work.
+[[durable_objects.bindings]]
+name = "SCRIBIAN_SESSION"
+class_name = "ScribianSession"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["ScribianSession"]
+
 # Secrets (set via `wrangler secret put`):
-#   SCRIBIAN_TOKEN   — bearer token matching plugin settings
-#
-# (Future: ANTHROPIC_API_KEY will be added in phase 1.)
+#   SCRIBIAN_TOKEN     — bearer token matching plugin settings
+#   ANTHROPIC_API_KEY  — optional fallback; plugin-supplied key takes precedence
