@@ -1,6 +1,7 @@
 import type {
   ChatRequest,
   ClientMessage,
+  Provider,
   ServerMessage,
   Usage,
 } from '@scribian/protocol';
@@ -18,19 +19,23 @@ import {
 import { TokenRegistry, hasScope, type AuthResult } from './auth';
 import { renderAdminPage } from './admin';
 import type { AuditEvent } from './session-state';
+import { dispatchFor, resolveProviderKey } from './providers';
 
 const MAX_RECENT_EVENTS = 50;
 
 export interface Env {
   SCRIBIAN_TOKEN?: string;
   SCRIBIAN_TOKENS?: string;
-  ANTHROPIC_API_KEY: string;
+  /** Anthropic API key (default provider). Optional — Worker is valid
+   * with only OPENROUTER_API_KEY set if every user supplies their own
+   * Anthropic key in plugin settings. */
+  ANTHROPIC_API_KEY?: string;
+  /** OpenRouter API key (fallback provider for non-Anthropic models). */
+  OPENROUTER_API_KEY?: string;
   SCRIBIAN_SESSION: DurableObjectNamespace;
   AI_GATEWAY_URL?: string;
 }
 
-const DIRECT_ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const SCRIBIAN_USER_AGENT = 'scribian/0.0.1 (https://gitlab.com/dunn.dev/scribian)';
 const MCP_PROTOCOL_VERSION = '2025-06-18';
 const MCP_TOOL_TIMEOUT_MS = 8000;
 
@@ -48,9 +53,10 @@ export default {
       return Response.json({
         ok: true,
         anthropic_key_present: !!env.ANTHROPIC_API_KEY,
+        openrouter_key_present: !!env.OPENROUTER_API_KEY,
         ai_gateway: !!env.AI_GATEWAY_URL,
         tokens_configured: registry.hasAny(),
-        version: 6,
+        version: 7,
         mcp: '/mcp',
         admin: '/admin',
       });
@@ -77,6 +83,7 @@ export default {
           ),
           'x-scribian-admin-env-snapshot': JSON.stringify({
             anthropic: !!env.ANTHROPIC_API_KEY,
+            openrouter: !!env.OPENROUTER_API_KEY,
             aigw: !!env.AI_GATEWAY_URL,
           }),
         }),
@@ -204,8 +211,13 @@ export class ScribianSession {
     this.env = env;
   }
 
-  private record(type: AuditEvent['type'], label: string, detail: string): void {
-    this.recentEvents.push({ ts: Date.now(), type, label, detail });
+  private record(
+    type: AuditEvent['type'],
+    label: string,
+    detail: string,
+    provider?: Provider,
+  ): void {
+    this.recentEvents.push({ ts: Date.now(), type, label, detail, provider });
     while (this.recentEvents.length > MAX_RECENT_EVENTS) {
       this.recentEvents.shift();
     }
@@ -242,14 +254,16 @@ export class ScribianSession {
     const tokenSummaries = safeParseHeader<
       Array<{ label: string; scopes: string[] }>
     >(req.headers.get('x-scribian-admin-token-summaries'), []);
-    const envSnap = safeParseHeader<{ anthropic?: boolean; aigw?: boolean }>(
-      req.headers.get('x-scribian-admin-env-snapshot'),
-      {},
-    );
+    const envSnap = safeParseHeader<{
+      anthropic?: boolean;
+      openrouter?: boolean;
+      aigw?: boolean;
+    }>(req.headers.get('x-scribian-admin-env-snapshot'), {});
     const html = renderAdminPage({
-      version: 6,
+      version: 7,
       workerName: 'scribian',
       anthropicKeyPresent: !!envSnap.anthropic,
+      openrouterKeyPresent: !!envSnap.openrouter,
       aiGatewayConfigured: !!envSnap.aigw,
       tokenSummaries,
       connectedWebSockets: this.state.getWebSockets().length,
@@ -306,14 +320,18 @@ export class ScribianSession {
     }
 
     if (msg.type === 'chat') {
-      const supplied = msg.anthropic_api_key?.trim();
-      const apiKey = supplied || this.env.ANTHROPIC_API_KEY;
+      const provider: Provider = msg.provider ?? 'anthropic';
+      const apiKey = resolveProviderKey(provider, this.env, {
+        anthropic_api_key: msg.anthropic_api_key,
+        openrouter_api_key: msg.openrouter_api_key,
+      });
       this.record(
         'chat',
         'plugin',
         `model=${msg.payload.model} msgs=${msg.payload.messages.length}`,
+        provider,
       );
-      await this.runChat(ws, apiKey, msg.id, msg.payload);
+      await this.runChat(ws, provider, apiKey, msg.id, msg.payload);
       return;
     }
 
@@ -504,23 +522,31 @@ export class ScribianSession {
 
   private async runChat(
     ws: WebSocket,
+    provider: Provider,
     apiKey: string | undefined,
     id: string,
     req: ChatRequest,
   ): Promise<void> {
     if (!apiKey) {
+      const which = provider === 'openrouter' ? 'OpenRouter' : 'Anthropic';
+      const envName =
+        provider === 'openrouter' ? 'OPENROUTER_API_KEY' : 'ANTHROPIC_API_KEY';
       this.send(ws, {
         type: 'error',
         id,
-        error:
-          'No Anthropic API key. Set it in plugin settings (preferred) or on the Worker secret ANTHROPIC_API_KEY.',
+        error: `No ${which} API key. Set it in plugin settings (preferred) or on the Worker secret ${envName}.`,
         retryable: false,
       });
       return;
     }
 
-    const upstreamUrl = this.env.AI_GATEWAY_URL || DIRECT_ANTHROPIC_URL;
-    const via = this.env.AI_GATEWAY_URL ? 'aigw' : 'direct';
+    const dispatch = dispatchFor(provider, apiKey, this.env, req);
+    const via =
+      provider === 'anthropic' && this.env.AI_GATEWAY_URL
+        ? 'aigw'
+        : provider === 'anthropic'
+          ? 'direct'
+          : 'openrouter';
 
     console.log(
       `chat ${id} (${via}): model=${req.model} messages=${req.messages.length} tools=${req.tools?.length ?? 0} system=${!!req.system}`,
@@ -529,28 +555,13 @@ export class ScribianSession {
     const ac = new AbortController();
     this.activeChats.set(id, ac);
 
-    const upstreamHeaders: Record<string, string> = {
-      'x-api-key': apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type': 'application/json',
-      'user-agent': SCRIBIAN_USER_AGENT,
-    };
-
-    if (this.env.AI_GATEWAY_URL) {
-      upstreamHeaders['cf-aig-metadata'] = JSON.stringify({
-        app: 'scribian',
-        model: req.model,
-        has_tools: !!(req.tools && req.tools.length > 0),
-      });
-    }
-
     let resp: Response;
     try {
-      resp = await fetch(upstreamUrl, {
+      resp = await fetch(dispatch.url, {
         method: 'POST',
         signal: ac.signal,
-        headers: upstreamHeaders,
-        body: JSON.stringify({ ...req, stream: true }),
+        headers: dispatch.headers,
+        body: JSON.stringify({ ...dispatch.request, stream: true }),
       });
     } catch (err) {
       this.activeChats.delete(id);
@@ -561,6 +572,7 @@ export class ScribianSession {
           id,
           stop_reason: 'cancelled',
           usage: { input_tokens: 0, output_tokens: 0 },
+          provider,
         });
       } else {
         this.send(ws, {
@@ -579,7 +591,7 @@ export class ScribianSession {
       this.send(ws, {
         type: 'error',
         id,
-        error: `upstream ${resp.status}: ${text.slice(0, 500)}`,
+        error: `upstream ${resp.status} (${provider}): ${text.slice(0, 500)}`,
         retryable: resp.status >= 500 || resp.status === 429,
       });
       return;
@@ -603,18 +615,26 @@ export class ScribianSession {
           const parsed = parseSSE(evt);
           if (!parsed.event) continue;
 
+          // Per-provider event translation. Anthropic is identity;
+          // OpenRouter rewrites server-tool names back to scribian
+          // canonical so the plugin renderer doesn't branch.
+          const translated = dispatch.translateEvent(
+            parsed.event,
+            parsed.data,
+          );
+
           this.send(ws, {
             type: 'chunk',
             id,
-            event: parsed.event,
-            data: parsed.data,
+            event: translated.event,
+            data: translated.data,
           });
 
-          const d = parsed.data as Record<string, any> | null;
-          if (parsed.event === 'message_start' && d?.message?.usage) {
+          const d = translated.data as Record<string, any> | null;
+          if (translated.event === 'message_start' && d?.message?.usage) {
             usage = { ...usage, ...d.message.usage };
           }
-          if (parsed.event === 'message_delta') {
+          if (translated.event === 'message_delta') {
             if (d?.usage) usage = { ...usage, ...d.usage };
             if (d?.delta?.stop_reason) stopReason = d.delta.stop_reason;
           }
@@ -623,7 +643,13 @@ export class ScribianSession {
     } catch (err) {
       this.activeChats.delete(id);
       if (err instanceof Error && err.name === 'AbortError') {
-        this.send(ws, { type: 'done', id, stop_reason: 'cancelled', usage });
+        this.send(ws, {
+          type: 'done',
+          id,
+          stop_reason: 'cancelled',
+          usage,
+          provider,
+        });
         return;
       }
       this.send(ws, {
@@ -637,9 +663,9 @@ export class ScribianSession {
 
     this.activeChats.delete(id);
     console.log(
-      `chat ${id} done: stop=${stopReason} in=${usage.input_tokens} out=${usage.output_tokens} cache_read=${usage.cache_read_input_tokens ?? 0}`,
+      `chat ${id} done (${provider}): stop=${stopReason} in=${usage.input_tokens} out=${usage.output_tokens} cache_read=${usage.cache_read_input_tokens ?? 0}`,
     );
-    this.send(ws, { type: 'done', id, stop_reason: stopReason, usage });
+    this.send(ws, { type: 'done', id, stop_reason: stopReason, usage, provider });
   }
 }
 

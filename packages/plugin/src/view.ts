@@ -191,18 +191,45 @@ export class ScribianView extends ItemView {
     root.addClass('scribian-root');
 
     const header = root.createDiv({ cls: 'scribian-header' });
-    this.modelSelect = header.createEl('select', { cls: 'scribian-model' });
-    for (const m of MODELS) {
-      const opt = this.modelSelect.createEl('option', {
-        text: m.label,
-        value: m.id,
+    const settings = this.plugin.settings;
+    const provider = settings.provider ?? 'anthropic';
+
+    if (provider === 'anthropic') {
+      // Anthropic-direct: small fixed dropdown of Anthropic models.
+      this.modelSelect = header.createEl('select', { cls: 'scribian-model' });
+      for (const m of MODELS) {
+        const opt = this.modelSelect.createEl('option', {
+          text: m.label,
+          value: m.id,
+        });
+        if (m.id === settings.defaultModel) opt.selected = true;
+      }
+      this.modelSelect.addEventListener('change', async () => {
+        this.plugin.settings.defaultModel = this.modelSelect.value;
+        await this.plugin.saveSettings();
       });
-      if (m.id === this.plugin.settings.defaultModel) opt.selected = true;
+    } else {
+      // OpenRouter: hundreds-of-models catalog. The chat header shows
+      // the active model as a non-editable label; model selection
+      // lives in settings (ModelSuggest fuzzy search). The hidden
+      // <select> below is a stand-in so `.value` keeps working — its
+      // single option carries the user's configured OpenRouter model.
+      const label = header.createEl('span', {
+        cls: 'scribian-model-label',
+        text: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
+      });
+      label.style.fontFamily = 'var(--font-monospace, monospace)';
+      label.style.fontSize = '0.85rem';
+      label.style.color = 'var(--text-muted)';
+      label.setAttr('title', 'Active OpenRouter model. Change in settings.');
+      this.modelSelect = header.createEl('select', { cls: 'scribian-model' });
+      this.modelSelect.style.display = 'none';
+      const opt = this.modelSelect.createEl('option', {
+        text: settings.openrouterModel,
+        value: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
+      });
+      opt.selected = true;
     }
-    this.modelSelect.addEventListener('change', async () => {
-      this.plugin.settings.defaultModel = this.modelSelect.value;
-      await this.plugin.saveSettings();
-    });
 
     const newChatBtn = header.createEl('button', {
       cls: 'clickable-icon scribian-icon-btn',
@@ -348,7 +375,15 @@ export class ScribianView extends ItemView {
       this.transport,
       () => this.modelSelect.value,
       () => this.loadSystemPrompt(),
-      () => this.plugin.settings.anthropicApiKey || undefined,
+      () => {
+        const s = this.plugin.settings;
+        const provider = s.provider ?? 'anthropic';
+        const apiKey =
+          provider === 'openrouter'
+            ? s.openrouterApiKey || undefined
+            : s.anthropicApiKey || undefined;
+        return { provider, apiKey };
+      },
       ALL_TOOLS,
       (name, input, toolUseId) =>
         executeTool(
@@ -361,7 +396,8 @@ export class ScribianView extends ItemView {
       {
         onUpdate: () => this.requestRender(),
         onError: (err) => this.setStatus(`Chat error: ${err}`, 'error'),
-        onDone: (stopReason, usage) => this.onTurnDone(stopReason, usage),
+        onDone: (stopReason, usage, provider) =>
+          this.onTurnDone(stopReason, usage, provider),
       },
     );
     this.requestRender();
@@ -604,6 +640,7 @@ export class ScribianView extends ItemView {
       cache_read_input_tokens?: number;
       cache_creation_input_tokens?: number;
     },
+    provider?: 'anthropic' | 'openrouter',
   ): void {
     this.sendBtn.disabled = false;
     this.stopBtn.style.display = 'none';
@@ -611,8 +648,9 @@ export class ScribianView extends ItemView {
       ? ` (cache hit ${usage.cache_read_input_tokens})`
       : '';
     const stop = stopReason !== 'end_turn' ? ` · ${stopReason}` : '';
+    const via = provider === 'openrouter' ? ' · openrouter' : '';
     this.setStatus(
-      `Connected · last turn: ${usage.input_tokens} in / ${usage.output_tokens} out${cache}${stop}`,
+      `Connected · last turn${via}: ${usage.input_tokens} in / ${usage.output_tokens} out${cache}${stop}`,
       'connected',
     );
     // Force a final render to lock the finalized message rendering.

@@ -2,6 +2,7 @@ import type {
   ChatRequest,
   ContentBlock,
   Message,
+  Provider,
   ServerMessage,
   ToolDefinition,
   Usage,
@@ -17,7 +18,7 @@ export interface InFlight {
 export interface ChatSessionHandlers {
   onUpdate: () => void;
   onError: (err: string) => void;
-  onDone: (stopReason: string, usage: Usage) => void;
+  onDone: (stopReason: string, usage: Usage, provider?: Provider) => void;
 }
 
 export interface ToolExecutor {
@@ -26,6 +27,17 @@ export interface ToolExecutor {
     input: unknown,
     toolUseId: string,
   ): Promise<{ content: string; is_error?: boolean }>;
+}
+
+/**
+ * Resolved per-turn provider configuration. `apiKey` is the
+ * plugin-supplied key for the active provider; if absent the Worker
+ * falls back to its own secret. `provider` selects which upstream
+ * the Worker dispatches to.
+ */
+export interface ProviderConfig {
+  provider: Provider;
+  apiKey?: string;
 }
 
 export class ChatSession {
@@ -38,7 +50,7 @@ export class ChatSession {
     private readonly transport: Transport,
     private readonly modelProvider: () => string,
     private readonly systemProvider: () => Promise<string | undefined>,
-    private readonly apiKeyProvider: () => string | undefined,
+    private readonly providerConfigProvider: () => ProviderConfig,
     private readonly toolDefinitions: ToolDefinition[],
     private readonly toolExecutor: ToolExecutor,
     private readonly handlers: ChatSessionHandlers,
@@ -65,7 +77,7 @@ export class ChatSession {
       return;
     }
     if (msg.type === 'done') {
-      void this.finalize(msg.stop_reason, msg.usage);
+      void this.finalize(msg.stop_reason, msg.usage, msg.provider);
       return;
     }
     if (msg.type === 'error') {
@@ -100,7 +112,7 @@ export class ChatSession {
     };
 
     const system = await this.systemProvider();
-    const apiKey = this.apiKeyProvider();
+    const { provider, apiKey } = this.providerConfigProvider();
 
     const payload: ChatRequest = {
       model: this.modelProvider(),
@@ -110,12 +122,20 @@ export class ChatSession {
     if (system) payload.system = system;
     if (this.toolDefinitions.length > 0) payload.tools = this.toolDefinitions;
 
-    this.transport.send({
+    const msg: import('@scribian/protocol').ClientMessage = {
       type: 'chat',
       id,
       payload,
-      ...(apiKey ? { anthropic_api_key: apiKey } : {}),
-    });
+      provider,
+    };
+    if (apiKey) {
+      if (provider === 'openrouter') {
+        msg.openrouter_api_key = apiKey;
+      } else {
+        msg.anthropic_api_key = apiKey;
+      }
+    }
+    this.transport.send(msg);
     this.handlers.onUpdate();
   }
 
@@ -163,7 +183,11 @@ export class ChatSession {
     this.handlers.onUpdate();
   }
 
-  private async finalize(stopReason: string, usage: Usage): Promise<void> {
+  private async finalize(
+    stopReason: string,
+    usage: Usage,
+    provider?: Provider,
+  ): Promise<void> {
     if (!this.inFlight) return;
     const blocks = this.inFlight.blocks;
     const finalUsage = { ...this.inFlight.usage, ...usage };
@@ -177,7 +201,7 @@ export class ChatSession {
       return;
     }
 
-    this.handlers.onDone(stopReason, finalUsage);
+    this.handlers.onDone(stopReason, finalUsage, provider);
     this.handlers.onUpdate();
   }
 

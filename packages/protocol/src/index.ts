@@ -2,6 +2,7 @@
 //
 // Phase 0 retains `echo` / `pong` / `echoed` for diagnostics.
 // Phase 1 adds Anthropic-shaped chat passthrough.
+// Phase 5 adds provider routing for OpenRouter fallback.
 //
 // Type-loose by design: content blocks and tool definitions flow as
 // opaque records so the protocol stays current as Anthropic adds
@@ -13,6 +14,15 @@ export interface Usage {
   output_tokens: number;
   cache_read_input_tokens?: number;
   cache_creation_input_tokens?: number;
+  // OpenRouter-only: per-server-tool counters under
+  // usage.server_tool_use.{web_search_requests, web_fetch_requests}.
+  // Anthropic native server tools count as part of input/output
+  // tokens, no separate metering. Phase 12 (cost surfacing) reads
+  // this for OpenRouter routes.
+  server_tool_use?: {
+    web_search_requests?: number;
+    web_fetch_requests?: number;
+  };
 }
 
 export type ContentBlock = Record<string, unknown>;
@@ -41,6 +51,15 @@ export interface ChatRequest {
   thinking?: ThinkingConfig;
 }
 
+/**
+ * Provider routing. Anthropic is the default (rich content blocks,
+ * native server tools, prompt caching). OpenRouter is the opt-in
+ * fallback for the long tail of non-Anthropic models, accessed via
+ * OpenRouter's Anthropic-shaped /api/v1/messages endpoint so the
+ * Worker request body is unchanged across providers.
+ */
+export type Provider = 'anthropic' | 'openrouter';
+
 // Plugin → Worker
 export type ClientMessage =
   | { type: 'echo'; id: string; text: string }
@@ -49,10 +68,17 @@ export type ClientMessage =
       type: 'chat';
       id: string;
       payload: ChatRequest;
-      // Anthropic API key supplied by the plugin. If absent, the Worker
-      // falls back to its own ANTHROPIC_API_KEY secret. Lives outside
-      // payload so it never reaches the Anthropic request body.
+      // Provider routing decision. Lives at the ClientMessage level
+      // (not inside payload) so it doesn't leak into the upstream
+      // request body. Defaults to 'anthropic' for backward
+      // compatibility with older plugin clients.
+      provider?: Provider;
+      // Per-provider keys supplied by the plugin. Worker falls back
+      // to its own ANTHROPIC_API_KEY / OPENROUTER_API_KEY secrets if
+      // absent. Lives outside payload so the API key never reaches
+      // the upstream request body.
       anthropic_api_key?: string;
+      openrouter_api_key?: string;
     }
   | { type: 'cancel'; id: string }
   // MCP bridge: plugin executes a vault tool on behalf of an MCP
@@ -69,7 +95,16 @@ export type ServerMessage =
   | { type: 'echoed'; id: string; text: string; received_at: number }
   | { type: 'pong' }
   | { type: 'chunk'; id: string; event: string; data: unknown }
-  | { type: 'done'; id: string; stop_reason: string; usage: Usage }
+  | {
+      type: 'done';
+      id: string;
+      stop_reason: string;
+      usage: Usage;
+      // Which provider served this turn. Surfaced so the plugin can
+      // audit-log it and show provider in cost surfacing. Optional
+      // for backward compatibility with older Workers.
+      provider?: Provider;
+    }
   | { type: 'error'; id?: string; error: string; retryable?: boolean }
   // MCP bridge: Worker forwards a tool call from an MCP client over
   // the plugin's existing WS. Plugin executes locally against Vault

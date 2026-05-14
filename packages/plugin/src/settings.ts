@@ -1,12 +1,27 @@
 import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
+import type { Provider } from '@scribian/protocol';
 import type ScribianPlugin from './main';
 import { FolderSuggest } from './folder-suggest';
+import { ModelSuggest } from './model-suggest';
 
 export interface ScribianSettings {
   workerUrl: string;
   workerToken: string;
+  /**
+   * Active provider. Anthropic-direct is the default (rich content
+   * blocks, native server tools, prompt caching). OpenRouter is the
+   * opt-in fallback for non-Anthropic models via the namespaced
+   * catalog.
+   */
+  provider: Provider;
   anthropicApiKey: string;
+  openrouterApiKey: string;
+  /** Default Anthropic model (used when provider=anthropic). */
   defaultModel: string;
+  /** Default OpenRouter model id (used when provider=openrouter).
+   * Catalog ids are slash-namespaced: `anthropic/claude-...`,
+   * `openai/...`, `meta-llama/...`, etc. */
+  openrouterModel: string;
   harnessFolder: string;
   savedNotesFolder: string;
   chatsFolder: string;
@@ -22,8 +37,11 @@ export const MODELS = [
 export const DEFAULT_SETTINGS: ScribianSettings = {
   workerUrl: '',
   workerToken: '',
+  provider: 'anthropic',
   anthropicApiKey: '',
+  openrouterApiKey: '',
   defaultModel: 'claude-sonnet-4-6',
+  openrouterModel: 'anthropic/claude-sonnet-4-6',
   harnessFolder: '.claude',
   savedNotesFolder: 'Scribian/Saved',
   chatsFolder: 'Scribian/Chats',
@@ -86,36 +104,127 @@ export class ScribianSettingTab extends PluginSettingTab {
           .onClick(() => this.testWorkerHealth()),
       );
 
-    // ── Anthropic ─────────────────────────────────────────────────
-    new Setting(containerEl).setName('Anthropic').setHeading();
+    // ── Provider ──────────────────────────────────────────────────
+    new Setting(containerEl).setName('Provider').setHeading();
 
     new Setting(containerEl)
-      .setName('API key')
+      .setName('Active provider')
       .setDesc(
-        'sk-ant-… key from console.anthropic.com. Stored in plugin data, synced across your devices via Obsidian Sync. Leave blank to fall back to the Worker secret ANTHROPIC_API_KEY.',
-      )
-      .addText((t) => {
-        t.inputEl.type = 'password';
-        t.setPlaceholder('sk-ant-…')
-          .setValue(this.plugin.settings.anthropicApiKey)
-          .onChange(async (v) => {
-            this.plugin.settings.anthropicApiKey = v.trim();
-            await this.plugin.saveSettings();
-          });
-      });
-
-    new Setting(containerEl)
-      .setName('Default model')
-      .setDesc(
-        'Anthropic model used for new chats. Pickable per-chat in the chat header.',
+        'Anthropic (direct): rich content blocks, native server tools, prompt caching. OpenRouter: fallback for non-Anthropic models via OpenRouter\'s Anthropic-compatible endpoint.',
       )
       .addDropdown((d) => {
-        for (const m of MODELS) d.addOption(m.id, m.label);
-        d.setValue(this.plugin.settings.defaultModel).onChange(async (v) => {
-          this.plugin.settings.defaultModel = v;
+        d.addOption('anthropic', 'Anthropic (direct)');
+        d.addOption('openrouter', 'OpenRouter (fallback)');
+        d.setValue(this.plugin.settings.provider).onChange(async (v) => {
+          this.plugin.settings.provider = v as Provider;
           await this.plugin.saveSettings();
+          // Re-render to show/hide per-provider blocks.
+          this.display();
         });
       });
+
+    const isAnthropic = this.plugin.settings.provider === 'anthropic';
+    const isOpenRouter = this.plugin.settings.provider === 'openrouter';
+
+    // ── Anthropic block ───────────────────────────────────────────
+    if (isAnthropic) {
+      new Setting(containerEl).setName('Anthropic').setHeading();
+
+      new Setting(containerEl)
+        .setName('API key')
+        .setDesc(
+          'sk-ant-… key from console.anthropic.com. Stored in plugin data, synced across your devices via Obsidian Sync. Leave blank to fall back to the Worker secret ANTHROPIC_API_KEY.',
+        )
+        .addText((t) => {
+          t.inputEl.type = 'password';
+          t.setPlaceholder('sk-ant-…')
+            .setValue(this.plugin.settings.anthropicApiKey)
+            .onChange(async (v) => {
+              this.plugin.settings.anthropicApiKey = v.trim();
+              await this.plugin.saveSettings();
+            });
+        });
+
+      new Setting(containerEl)
+        .setName('Default model')
+        .setDesc(
+          'Anthropic model used for new chats. Pickable per-chat in the chat header.',
+        )
+        .addDropdown((d) => {
+          for (const m of MODELS) d.addOption(m.id, m.label);
+          d.setValue(this.plugin.settings.defaultModel).onChange(async (v) => {
+            this.plugin.settings.defaultModel = v;
+            await this.plugin.saveSettings();
+          });
+        });
+    }
+
+    // ── OpenRouter block ──────────────────────────────────────────
+    if (isOpenRouter) {
+      new Setting(containerEl).setName('OpenRouter').setHeading();
+
+      // Privacy notice. Honest framing — prompts pass through
+      // OpenRouter in addition to the underlying provider.
+      const notice = containerEl.createEl('div', {
+        cls: 'scribian-privacy-notice',
+      });
+      notice.style.padding = '0.75rem';
+      notice.style.marginBottom = '1rem';
+      notice.style.background = 'var(--background-modifier-info, #eef)';
+      notice.style.borderRadius = '6px';
+      notice.style.fontSize = '0.85rem';
+      notice.style.lineHeight = '1.4';
+      notice.createEl('strong', { text: 'Privacy notice. ' });
+      notice.createSpan({
+        text:
+          'When OpenRouter is the active provider, your prompts ' +
+          '(including vault content attached as context) pass through ' +
+          "OpenRouter's API in addition to the underlying model " +
+          "provider you select. See OpenRouter's privacy policy at ",
+      });
+      const link = notice.createEl('a', {
+        text: 'openrouter.ai/privacy',
+        href: 'https://openrouter.ai/privacy',
+      });
+      link.setAttr('target', '_blank');
+      notice.createSpan({
+        text:
+          ', and scribian\'s security model in docs/security-model.md.',
+      });
+
+      new Setting(containerEl)
+        .setName('API key')
+        .setDesc(
+          'OpenRouter API key from openrouter.ai. Stored in plugin data, synced across your devices via Obsidian Sync. Leave blank to fall back to the Worker secret OPENROUTER_API_KEY.',
+        )
+        .addText((t) => {
+          t.inputEl.type = 'password';
+          t.setPlaceholder('sk-or-…')
+            .setValue(this.plugin.settings.openrouterApiKey)
+            .onChange(async (v) => {
+              this.plugin.settings.openrouterApiKey = v.trim();
+              await this.plugin.saveSettings();
+            });
+        });
+
+      new Setting(containerEl)
+        .setName('Default model')
+        .setDesc(
+          'OpenRouter model id (namespaced, e.g. anthropic/claude-opus-4-7, openai/gpt-5.2, meta-llama/llama-3.3-70b-instruct). Type to search the catalog.',
+        )
+        .addText((t) => {
+          t.setPlaceholder('anthropic/claude-sonnet-4-6')
+            .setValue(this.plugin.settings.openrouterModel);
+          t.onChange(async (v) => {
+            this.plugin.settings.openrouterModel = v.trim();
+            await this.plugin.saveSettings();
+          });
+          new ModelSuggest(this.app, t.inputEl, async (model) => {
+            this.plugin.settings.openrouterModel = model.id;
+            await this.plugin.saveSettings();
+          });
+        });
+    }
 
     // ── Vault integration ─────────────────────────────────────────
     new Setting(containerEl).setName('Vault integration').setHeading();

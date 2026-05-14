@@ -15,6 +15,7 @@ export interface AdminViewModel {
   version: number;
   workerName: string;
   anthropicKeyPresent: boolean;
+  openrouterKeyPresent: boolean;
   aiGatewayConfigured: boolean;
   tokenSummaries: Array<{ label: string; scopes: string[] }>;
   connectedWebSockets: number;
@@ -154,6 +155,14 @@ export function renderAdminPage(vm: AdminViewModel): string {
       }</span>
     </div>
     <div class="row">
+      <span class="k">OpenRouter key</span>
+      <span class="v">${
+        vm.openrouterKeyPresent
+          ? '<span class="badge ok">set on Worker</span>'
+          : '<span class="badge">not configured</span>'
+      }</span>
+    </div>
+    <div class="row">
       <span class="k">AI Gateway</span>
       <span class="v">${
         vm.aiGatewayConfigured
@@ -202,7 +211,7 @@ pnpm exec wrangler secret put SCRIBIAN_TOKENS</code></pre>
         ? '<p class="muted">No events yet. Open the chat pane and send a message, or call /mcp.</p>'
         : `<table>
         <thead>
-          <tr><th>When</th><th>Type</th><th>Label</th><th>Detail</th></tr>
+          <tr><th>When</th><th>Type</th><th>Provider</th><th>Label</th><th>Detail</th></tr>
         </thead>
         <tbody>
         ${vm.recentEvents
@@ -213,6 +222,7 @@ pnpm exec wrangler secret put SCRIBIAN_TOKENS</code></pre>
               `<tr>
                 <td class="ts">${esc(formatTs(e.ts))}</td>
                 <td class="type">${esc(e.type)}</td>
+                <td class="provider">${esc(e.provider ?? '—')}</td>
                 <td class="label">${esc(e.label)}</td>
                 <td class="detail">${esc(e.detail)}</td>
               </tr>`,

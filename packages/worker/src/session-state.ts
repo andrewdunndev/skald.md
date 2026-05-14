@@ -10,4 +10,7 @@ export interface AuditEvent {
   type: 'chat' | 'mcp' | 'tool';
   label: string; // token label or 'plugin' / 'anon'
   detail: string;
+  // Provider that served this event. Only populated for chat events
+  // (MCP + tool routes are provider-independent). Phase 5+.
+  provider?: 'anthropic' | 'openrouter';
 }
