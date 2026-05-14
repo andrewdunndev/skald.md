@@ -11,7 +11,7 @@ import type ScribianPlugin from './main';
 import { Transport } from './transport';
 import { ChatSession } from './chat-session';
 import { MODELS } from './settings';
-import { READ_ONLY_TOOLS, executeTool } from './tools';
+import { ALL_TOOLS, executeTool } from './tools';
 import type { ContentBlock, Message } from '@scribian/protocol';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
@@ -165,7 +165,7 @@ export class ScribianView extends ItemView {
       () => this.modelSelect.value,
       () => this.loadSystemPrompt(),
       () => this.plugin.settings.anthropicApiKey || undefined,
-      READ_ONLY_TOOLS,
+      ALL_TOOLS,
       (name, input) => executeTool(this.app, name, input),
       {
         onUpdate: () => this.requestRender(),
