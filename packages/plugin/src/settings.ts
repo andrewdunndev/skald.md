@@ -1,4 +1,4 @@
-import { App, PluginSettingTab, Setting } from 'obsidian';
+import { App, Notice, PluginSettingTab, Setting } from 'obsidian';
 import type ScribianPlugin from './main';
 
 export interface ScribianSettings {
@@ -39,9 +39,14 @@ export class ScribianSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
+    // ── Worker ────────────────────────────────────────────────────
+    new Setting(containerEl).setName('Worker').setHeading();
+
     new Setting(containerEl)
       .setName('Worker URL')
-      .setDesc('wss:// URL of your scribian Cloudflare Worker.')
+      .setDesc(
+        'wss:// URL of your Cloudflare Worker. Run `pnpm deploy` in packages/worker to get one.',
+      )
       .addText((t) =>
         t
           .setPlaceholder('wss://scribian.username.workers.dev')
@@ -54,10 +59,12 @@ export class ScribianSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Worker token')
-      .setDesc('Bearer token matching the Worker secret SCRIBIAN_TOKEN.')
+      .setDesc(
+        'Bearer token matching the Worker secret SCRIBIAN_TOKEN. Generate with `openssl rand -hex 32`.',
+      )
       .addText((t) => {
         t.inputEl.type = 'password';
-        t.setPlaceholder('paste token')
+        t.setPlaceholder('hex token')
           .setValue(this.plugin.settings.workerToken)
           .onChange(async (v) => {
             this.plugin.settings.workerToken = v.trim();
@@ -66,9 +73,23 @@ export class ScribianSettingTab extends PluginSettingTab {
       });
 
     new Setting(containerEl)
-      .setName('Anthropic API key')
+      .setName('Test connection')
       .setDesc(
-        'sk-ant-… key. Syncs across your devices via vault sync. Leave blank to fall back to the Worker secret ANTHROPIC_API_KEY.',
+        'Hits the Worker /health endpoint. Confirms the URL is reachable; does NOT verify the token.',
+      )
+      .addButton((b) =>
+        b
+          .setButtonText('Test')
+          .onClick(() => this.testWorkerHealth()),
+      );
+
+    // ── Anthropic ─────────────────────────────────────────────────
+    new Setting(containerEl).setName('Anthropic').setHeading();
+
+    new Setting(containerEl)
+      .setName('API key')
+      .setDesc(
+        'sk-ant-… key from console.anthropic.com. Stored in plugin data, synced across your devices via Obsidian Sync. Leave blank to fall back to the Worker secret ANTHROPIC_API_KEY.',
       )
       .addText((t) => {
         t.inputEl.type = 'password';
@@ -82,7 +103,9 @@ export class ScribianSettingTab extends PluginSettingTab {
 
     new Setting(containerEl)
       .setName('Default model')
-      .setDesc('Anthropic model used for new chats.')
+      .setDesc(
+        'Anthropic model used for new chats. Pickable per-chat in the chat header.',
+      )
       .addDropdown((d) => {
         for (const m of MODELS) d.addOption(m.id, m.label);
         d.setValue(this.plugin.settings.defaultModel).onChange(async (v) => {
@@ -91,17 +114,20 @@ export class ScribianSettingTab extends PluginSettingTab {
         });
       });
 
+    // ── Vault integration ─────────────────────────────────────────
+    new Setting(containerEl).setName('Vault integration').setHeading();
+
     new Setting(containerEl)
-      .setName('Saved notes folder')
+      .setName('Harness folder')
       .setDesc(
-        'Vault-relative folder where "Save as note" creates new notes from chat messages.',
+        "Vault-relative folder loaded as Claude's system context. Looks for `<folder>/CLAUDE.md` and `<folder>/skills/**/*.md`. Default `.claude` matches Claude Code conventions. Leave blank to disable.",
       )
       .addText((t) =>
         t
-          .setPlaceholder('Scribian/Saved')
-          .setValue(this.plugin.settings.savedNotesFolder)
+          .setPlaceholder('.claude')
+          .setValue(this.plugin.settings.harnessFolder)
           .onChange(async (v) => {
-            this.plugin.settings.savedNotesFolder = v.trim();
+            this.plugin.settings.harnessFolder = v.trim();
             await this.plugin.saveSettings();
           }),
       );
@@ -109,7 +135,7 @@ export class ScribianSettingTab extends PluginSettingTab {
     new Setting(containerEl)
       .setName('Chats folder')
       .setDesc(
-        'Vault-relative folder where chat conversations are saved as markdown after each turn. Searchable via Obsidian. Set to empty to disable saving.',
+        'Vault-relative folder where conversations are saved as markdown after each turn. Searchable via Obsidian. Empty to disable saving.',
       )
       .addText((t) =>
         t
@@ -122,18 +148,48 @@ export class ScribianSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('Harness folder')
+      .setName('Saved notes folder')
       .setDesc(
-        'Vault-relative folder loaded as Claude\'s system context. Looks for `<folder>/CLAUDE.md` and `<folder>/skills/**/*.md`. Default `.claude` matches Claude Code conventions. Leave blank to disable.',
+        'Vault-relative folder where the "Save as note" button creates new notes from chat messages.',
       )
       .addText((t) =>
         t
-          .setPlaceholder('.claude')
-          .setValue(this.plugin.settings.harnessFolder)
+          .setPlaceholder('Scribian/Saved')
+          .setValue(this.plugin.settings.savedNotesFolder)
           .onChange(async (v) => {
-            this.plugin.settings.harnessFolder = v.trim();
+            this.plugin.settings.savedNotesFolder = v.trim();
             await this.plugin.saveSettings();
           }),
       );
+  }
+
+  /**
+   * Hit the Worker's /health endpoint. Surface a Notice with the
+   * response so users can confirm the URL is right. Does NOT validate
+   * the SCRIBIAN_TOKEN — that only matters on WebSocket upgrades.
+   */
+  private async testWorkerHealth(): Promise<void> {
+    const url = this.plugin.settings.workerUrl.trim();
+    if (!url) {
+      new Notice('Set the Worker URL first.');
+      return;
+    }
+    // /health is HTTPS; the user enters wss:// in settings. Swap scheme.
+    const httpUrl = url.replace(/^ws/, 'http').replace(/\/$/, '') + '/health';
+    try {
+      const resp = await fetch(httpUrl);
+      if (!resp.ok) {
+        new Notice(`Worker returned ${resp.status}`);
+        return;
+      }
+      const data = (await resp.json()) as Record<string, unknown>;
+      const aig = data.ai_gateway ? ' · AI Gateway on' : '';
+      const key = data.anthropic_key_present ? ' · Worker key set' : '';
+      new Notice(`Worker OK (v${data.version ?? '?'})${aig}${key}`, 5000);
+    } catch (err) {
+      new Notice(
+        `Connection failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      );
+    }
   }
 }
