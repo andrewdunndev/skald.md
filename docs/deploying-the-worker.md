@@ -30,22 +30,71 @@ re-authenticating.
 
 The Worker needs at least one secret:
 
-### `SCRIBIAN_TOKEN` (required)
+### `SCRIBIAN_TOKENS` (recommended)
 
-A bearer token shared between the plugin and the Worker. The plugin
-sends it on every WebSocket upgrade; the Worker validates it with a
-constant-time compare. Generate a long random string and set it as
-a Worker secret:
+A JSON array of token records — one per client. Each record has a
+human-readable label, the token itself, and a list of scopes:
 
-```sh
-TOKEN=$(openssl rand -hex 32)
-echo "Save this — paste it into the plugin's 'Worker token' setting:"
-echo "$TOKEN"
-printf "%s" "$TOKEN" | pnpm exec wrangler secret put SCRIBIAN_TOKEN
+```json
+[
+  {
+    "label": "plugin",
+    "token": "<64-hex>",
+    "scopes": ["chat", "mcp:read"]
+  },
+  {
+    "label": "claude-code",
+    "token": "<64-hex>",
+    "scopes": ["mcp:read"]
+  },
+  {
+    "label": "cursor",
+    "token": "<64-hex>",
+    "scopes": ["mcp:read"]
+  }
+]
 ```
 
-64 hex characters is overkill for security but trivial to generate.
-Use whatever entropy you trust.
+**Scopes:**
+
+- `chat` — open the chat WebSocket (plugin only)
+- `mcp:read` — call read-only vault tools via MCP
+- `mcp:write` — reserved for future write tools via MCP (today,
+  write tools live only inside the chat pane's approval flow)
+
+**Generate tokens + post the secret:**
+
+```sh
+# Generate
+PLUGIN=$(openssl rand -hex 32)
+CLAUDE_CODE=$(openssl rand -hex 32)
+
+# Build the JSON
+cat <<JSON > /tmp/scribian-tokens.json
+[
+  { "label": "plugin",      "token": "$PLUGIN",      "scopes": ["chat", "mcp:read"] },
+  { "label": "claude-code", "token": "$CLAUDE_CODE", "scopes": ["mcp:read"] }
+]
+JSON
+cat /tmp/scribian-tokens.json  # save these — you'll paste into clients
+
+# Push as a Worker secret
+cat /tmp/scribian-tokens.json | pnpm exec wrangler secret put SCRIBIAN_TOKENS
+
+# Clean up
+rm /tmp/scribian-tokens.json
+```
+
+To revoke a single token (say the `claude-code` one): edit the JSON
+to remove that entry, push again. Other clients keep working.
+
+### `SCRIBIAN_TOKEN` (legacy, single-token fallback)
+
+If `SCRIBIAN_TOKENS` is unset, the Worker accepts a single
+`SCRIBIAN_TOKEN` secret with implicit full scopes. Kept for backward
+compatibility — existing deploys keep working unchanged. For new
+deploys, use `SCRIBIAN_TOKENS` (above) so per-client revocation
+works.
 
 ### `ANTHROPIC_API_KEY` (optional fallback)
 

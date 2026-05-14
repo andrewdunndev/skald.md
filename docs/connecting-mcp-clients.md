@@ -28,15 +28,29 @@ pane; we don't want external clients quietly mutating the vault.
 
 ## Configuration
 
-The MCP endpoint URL and auth token are the same as the WebSocket:
-
 - **URL:** `https://scribian.<your-subdomain>.workers.dev/mcp`
-- **Auth:** `Authorization: Bearer <SCRIBIAN_TOKEN>` — same token you
-  pasted into the plugin's "Worker token" setting and stored as
-  the Worker secret `SCRIBIAN_TOKEN`
+- **Auth:** `Authorization: Bearer <token>` — a per-client token
+  from your `SCRIBIAN_TOKENS` Worker secret with the `mcp:read`
+  scope. Don't reuse the plugin token; generate a fresh one per
+  MCP client so you can revoke just that client if needed.
 
 Don't confuse the URL prefix with the WebSocket one — `https://` for
 MCP (HTTP transport), `wss://` for the plugin's chat WS.
+
+### Generating an MCP client token
+
+See [`deploying-the-worker.md`](deploying-the-worker.md) for the
+`SCRIBIAN_TOKENS` JSON format. Quick recap:
+
+```sh
+# Generate a new token
+CLAUDE_CODE=$(openssl rand -hex 32)
+echo "Token for Claude Code: $CLAUDE_CODE"
+
+# Append it to your SCRIBIAN_TOKENS JSON, then push:
+pnpm exec wrangler secret put SCRIBIAN_TOKENS
+# (paste the updated array)
+```
 
 ### Claude Code
 
