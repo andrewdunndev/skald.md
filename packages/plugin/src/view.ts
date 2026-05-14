@@ -139,6 +139,7 @@ export class ScribianView extends ItemView {
       this.transport,
       () => this.modelSelect.value,
       () => this.loadSystemPrompt(),
+      () => this.plugin.settings.anthropicApiKey || undefined,
       {
         onUpdate: () => this.renderMessages(),
         onError: (err) => this.setStatus(`Chat error: ${err}`, 'error'),

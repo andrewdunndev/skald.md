@@ -4,6 +4,7 @@ import type ScribianPlugin from './main';
 export interface ScribianSettings {
   workerUrl: string;
   workerToken: string;
+  anthropicApiKey: string;
   defaultModel: string;
   systemPromptPath: string;
 }
@@ -17,6 +18,7 @@ export const MODELS = [
 export const DEFAULT_SETTINGS: ScribianSettings = {
   workerUrl: '',
   workerToken: '',
+  anthropicApiKey: '',
   defaultModel: 'claude-sonnet-4-6',
   systemPromptPath: 'CLAUDE.md',
 };
@@ -55,6 +57,21 @@ export class ScribianSettingTab extends PluginSettingTab {
           .setValue(this.plugin.settings.workerToken)
           .onChange(async (v) => {
             this.plugin.settings.workerToken = v.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName('Anthropic API key')
+      .setDesc(
+        'sk-ant-… key. Syncs across your devices via vault sync. Leave blank to fall back to the Worker secret ANTHROPIC_API_KEY.',
+      )
+      .addText((t) => {
+        t.inputEl.type = 'password';
+        t.setPlaceholder('sk-ant-…')
+          .setValue(this.plugin.settings.anthropicApiKey)
+          .onChange(async (v) => {
+            this.plugin.settings.anthropicApiKey = v.trim();
             await this.plugin.saveSettings();
           });
       });

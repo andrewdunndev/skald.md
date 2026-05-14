@@ -45,7 +45,15 @@ export interface ChatRequest {
 export type ClientMessage =
   | { type: 'echo'; id: string; text: string }
   | { type: 'ping' }
-  | { type: 'chat'; id: string; payload: ChatRequest }
+  | {
+      type: 'chat';
+      id: string;
+      payload: ChatRequest;
+      // Anthropic API key supplied by the plugin. If absent, the Worker
+      // falls back to its own ANTHROPIC_API_KEY secret. Lives outside
+      // payload so it never reaches the Anthropic request body.
+      anthropic_api_key?: string;
+    }
   | { type: 'cancel'; id: string };
 
 // Worker → Plugin

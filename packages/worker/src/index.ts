@@ -111,7 +111,8 @@ async function handleClientMessage(
   }
 
   if (msg.type === 'chat') {
-    await runChat(server, env, msg.id, msg.payload, abortRegistry);
+    const apiKey = msg.anthropic_api_key || env.ANTHROPIC_API_KEY;
+    await runChat(server, apiKey, msg.id, msg.payload, abortRegistry);
     return;
   }
 
@@ -120,16 +121,17 @@ async function handleClientMessage(
 
 async function runChat(
   server: WebSocket,
-  env: Env,
+  apiKey: string | undefined,
   id: string,
   req: ChatRequest,
   abortRegistry: Map<string, AbortController>,
 ): Promise<void> {
-  if (!env.ANTHROPIC_API_KEY) {
+  if (!apiKey) {
     send(server, {
       type: 'error',
       id,
-      error: 'ANTHROPIC_API_KEY not set on Worker',
+      error:
+        'No Anthropic API key. Set it in plugin settings (preferred) or on the Worker secret ANTHROPIC_API_KEY.',
       retryable: false,
     });
     return;
@@ -144,7 +146,7 @@ async function runChat(
       method: 'POST',
       signal: ac.signal,
       headers: {
-        'x-api-key': env.ANTHROPIC_API_KEY,
+        'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       },

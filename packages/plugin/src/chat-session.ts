@@ -27,6 +27,7 @@ export class ChatSession {
     private readonly transport: Transport,
     private readonly modelProvider: () => string,
     private readonly systemProvider: () => Promise<string | undefined>,
+    private readonly apiKeyProvider: () => string | undefined,
     private readonly handlers: ChatSessionHandlers,
   ) {}
 
@@ -47,6 +48,7 @@ export class ChatSession {
     this.handlers.onUpdate();
 
     const system = await this.systemProvider();
+    const apiKey = this.apiKeyProvider();
 
     const payload: ChatRequest = {
       model: this.modelProvider(),
@@ -55,7 +57,12 @@ export class ChatSession {
     };
     if (system) payload.system = system;
 
-    this.transport.send({ type: 'chat', id, payload });
+    this.transport.send({
+      type: 'chat',
+      id,
+      payload,
+      ...(apiKey ? { anthropic_api_key: apiKey } : {}),
+    });
   }
 
   cancel(): void {
