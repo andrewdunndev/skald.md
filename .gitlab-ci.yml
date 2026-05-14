@@ -1,0 +1,55 @@
+# scribian CI
+#
+# Two stages: test (typecheck across the workspace) and build (compile the
+# Obsidian plugin + dry-run the Cloudflare Worker bundle). No deployment
+# from CI — the Worker is BYO-deployed per user, and the plugin ships via
+# BRAT + the community plugins directory (manual release cuts for now).
+#
+# Caches the pnpm store keyed on the lockfile so subsequent runs reuse
+# the resolution work.
+
+default:
+  image: node:22
+  cache:
+    key:
+      files:
+        - pnpm-lock.yaml
+    paths:
+      - .pnpm-store/
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@11.1.1 --activate
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+
+stages:
+  - test
+  - build
+
+typecheck:
+  stage: test
+  script:
+    - pnpm typecheck
+
+build-plugin:
+  stage: build
+  needs: ['typecheck']
+  script:
+    - pnpm --filter @scribian/plugin build
+  artifacts:
+    name: 'scribian-plugin-$CI_COMMIT_SHORT_SHA'
+    paths:
+      - packages/plugin/dist/
+    expire_in: 2 weeks
+
+build-worker:
+  stage: build
+  needs: ['typecheck']
+  script:
+    - cd packages/worker
+    - pnpm exec wrangler deploy --dry-run --outdir=dist
+  artifacts:
+    name: 'scribian-worker-$CI_COMMIT_SHORT_SHA'
+    paths:
+      - packages/worker/dist/
+    expire_in: 2 weeks
