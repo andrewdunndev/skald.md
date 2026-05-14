@@ -328,7 +328,7 @@ export class ScribianView extends ItemView {
       onOpen: () => this.setStatus('Connected', 'connected'),
       onClose: (code, reason) =>
         this.setStatus(`Disconnected (${code}${reason ? `: ${reason}` : ''})`),
-      onMessage: (msg) => this.session?.handleServer(msg),
+      onMessage: (msg) => this.handleServerMessage(msg),
       onError: (err) => this.setStatus(`Error: ${err}`, 'error'),
     });
     this.transport.connect();
@@ -626,6 +626,48 @@ export class ScribianView extends ItemView {
       },
       this.session.getMessages(),
     );
+  }
+
+  /**
+   * Dispatch incoming Worker messages. mcp_call messages are MCP bridge
+   * tool calls from external clients (Claude Code, Cursor, etc.) routed
+   * through our Worker — execute locally and reply with mcp_result.
+   * Everything else is chat traffic.
+   */
+  private handleServerMessage(msg: import('@scribian/protocol').ServerMessage): void {
+    if (msg.type === 'mcp_call') {
+      void this.handleMcpCall(msg.id, msg.name, msg.input);
+      return;
+    }
+    this.session?.handleServer(msg);
+  }
+
+  private async handleMcpCall(
+    id: string,
+    name: string,
+    input: unknown,
+  ): Promise<void> {
+    if (!this.transport) return;
+    try {
+      const result = await executeTool(this.app, name, input, id, async () => {
+        // MCP read-only path: no write tools allowed, so no approval is
+        // ever requested. Auto-reject any write-tool approval attempt.
+        return false;
+      });
+      this.transport.send({
+        type: 'mcp_result',
+        id,
+        content: result.content,
+        ...(result.is_error ? { is_error: true } : {}),
+      });
+    } catch (err) {
+      this.transport.send({
+        type: 'mcp_result',
+        id,
+        content: err instanceof Error ? err.message : 'tool execution failed',
+        is_error: true,
+      });
+    }
   }
 
   // ─── Render pipeline ────────────────────────────────────────────

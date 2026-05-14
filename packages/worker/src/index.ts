@@ -4,21 +4,30 @@ import type {
   ServerMessage,
   Usage,
 } from '@scribian/protocol';
+import {
+  MCP_TOOLS,
+  doNameForToken,
+  rpcError,
+  rpcResult,
+  PARSE_ERROR,
+  INVALID_REQUEST,
+  METHOD_NOT_FOUND,
+  INVALID_PARAMS,
+  INTERNAL_ERROR,
+  type JsonRpcRequest,
+} from './mcp';
 
 export interface Env {
   SCRIBIAN_TOKEN: string;
   ANTHROPIC_API_KEY: string;
   SCRIBIAN_SESSION: DurableObjectNamespace;
-  // Optional. When set, all Anthropic upstream calls route through
-  // Cloudflare AI Gateway for caching + observability + rate limits.
-  // Example value:
-  //   https://gateway.ai.cloudflare.com/v1/<account_id>/scribian/anthropic/v1/messages
-  // AI Gateway auto-creates the gateway on first request as of 2026-03-02.
   AI_GATEWAY_URL?: string;
 }
 
 const DIRECT_ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const SCRIBIAN_USER_AGENT = 'scribian/0.0.1 (https://gitlab.com/dunn.dev/scribian)';
+const MCP_PROTOCOL_VERSION = '2025-06-18';
+const MCP_TOOL_TIMEOUT_MS = 8000;
 
 function timingSafeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
@@ -38,8 +47,26 @@ export default {
         ok: true,
         anthropic_key_present: !!env.ANTHROPIC_API_KEY,
         ai_gateway: !!env.AI_GATEWAY_URL,
-        version: 3,
+        version: 4,
+        mcp: '/mcp',
       });
+    }
+
+    // MCP endpoint — HTTP JSON-RPC. Bearer-token auth (same SCRIBIAN_TOKEN
+    // as the plugin uses). Routes to the same DO instance as the plugin
+    // so we can forward tool calls over the plugin's existing WS.
+    if (url.pathname === '/mcp') {
+      const auth = req.headers.get('Authorization') ?? '';
+      if (!auth.startsWith('Bearer ')) {
+        return new Response('missing bearer', { status: 401 });
+      }
+      const token = auth.slice(7).trim();
+      if (!env.SCRIBIAN_TOKEN || !timingSafeEqual(token, env.SCRIBIAN_TOKEN)) {
+        return new Response('bad token', { status: 401 });
+      }
+      const name = await doNameForToken(token);
+      const stub = env.SCRIBIAN_SESSION.get(env.SCRIBIAN_SESSION.idFromName(name));
+      return stub.fetch(req);
     }
 
     if (req.headers.get('Upgrade') !== 'websocket') {
@@ -55,20 +82,15 @@ export default {
         status: 500,
       });
     }
-    // The Sec-WebSocket-Protocol header is a comma-separated list. Browser
-    // WebSocket implementations include exactly one (our token) since the
-    // plugin passes only the token. Tolerate stray whitespace and a
-    // single-value subprotocol list defensively.
     const candidate = rawProto.split(',')[0]?.trim() ?? '';
     if (!timingSafeEqual(candidate, env.SCRIBIAN_TOKEN)) {
       return new Response('bad token', { status: 401 });
     }
 
-    // Per-session DO. Each upgrade gets a fresh DO instance with its
-    // own state for that WebSocket. Hibernation API releases the JS
-    // context between messages, only re-entering when traffic arrives.
-    const id = env.SCRIBIAN_SESSION.newUniqueId();
-    const stub = env.SCRIBIAN_SESSION.get(id);
+    // Token-derived DO name so plugin + MCP client reach the same DO
+    // instance; the MCP bridge needs the plugin's WS to forward calls.
+    const name = await doNameForToken(candidate);
+    const stub = env.SCRIBIAN_SESSION.get(env.SCRIBIAN_SESSION.idFromName(name));
     return stub.fetch(req);
   },
 };
@@ -76,12 +98,13 @@ export default {
 export class ScribianSession {
   private readonly state: DurableObjectState;
   private readonly env: Env;
-  // Per-WS in-flight chat AbortControllers, keyed by chat id. Lives
-  // only while the DO instance is in-memory; persists across
-  // hibernation cycles only as long as the JS context survives. For
-  // cancel-during-streaming this is fine: the DO is awake while a
-  // fetch is awaited, so the controller is reachable.
   private readonly activeChats: Map<string, AbortController> = new Map();
+  // MCP tool calls awaiting plugin response. Keyed by the id we generated
+  // when forwarding the call.
+  private readonly pendingMcp: Map<
+    string,
+    (result: { content: string; is_error?: boolean }) => void
+  > = new Map();
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
@@ -89,17 +112,19 @@ export class ScribianSession {
   }
 
   async fetch(req: Request): Promise<Response> {
+    const url = new URL(req.url);
+
+    // MCP requests come in via HTTP (no upgrade). Handle as JSON-RPC.
+    if (url.pathname === '/mcp') {
+      return this.handleMcp(req);
+    }
+
     const pair = new WebSocketPair();
     const client = pair[0];
     const server = pair[1];
 
-    // Hibernation-mode accept: Workers handles the WS when this DO is
-    // hibernated, dispatching to webSocketMessage / webSocketClose /
-    // webSocketError when traffic arrives.
     this.state.acceptWebSocket(server);
 
-    // Echo the validated token (not the raw request header) to avoid
-    // any header-injection surface from a malformed upgrade.
     const echoed =
       req.headers.get('Sec-WebSocket-Protocol')?.split(',')[0]?.trim() ?? '';
     return new Response(null, {
@@ -150,12 +175,18 @@ export class ScribianSession {
     }
 
     if (msg.type === 'chat') {
-      // Treat empty-string anthropic_api_key as "not supplied" so the
-      // Worker secret is the real fallback instead of letting a blank
-      // value short-circuit it.
       const supplied = msg.anthropic_api_key?.trim();
       const apiKey = supplied || this.env.ANTHROPIC_API_KEY;
       await this.runChat(ws, apiKey, msg.id, msg.payload);
+      return;
+    }
+
+    if (msg.type === 'mcp_result') {
+      const cb = this.pendingMcp.get(msg.id);
+      if (cb) {
+        this.pendingMcp.delete(msg.id);
+        cb({ content: msg.content, is_error: msg.is_error });
+      }
       return;
     }
 
@@ -177,17 +208,146 @@ export class ScribianSession {
     }
   }
 
-  async webSocketError(_ws: WebSocket, _error: unknown): Promise<void> {
-    for (const ac of this.activeChats.values()) ac.abort();
-    this.activeChats.clear();
-  }
-
   private send(ws: WebSocket, msg: ServerMessage): void {
     try {
       ws.send(JSON.stringify(msg));
     } catch {
-      // socket closed mid-stream — silently drop
+      // socket closed mid-stream
     }
+  }
+
+  // ─── MCP server ─────────────────────────────────────────────────
+
+  private async handleMcp(req: Request): Promise<Response> {
+    if (req.method !== 'POST') {
+      // Streamable HTTP MCP transport spec also supports GET for
+      // server-initiated SSE; we don't support that. Return 405.
+      return new Response('method not allowed', {
+        status: 405,
+        headers: { Allow: 'POST' },
+      });
+    }
+
+    let body: unknown;
+    try {
+      body = await req.json();
+    } catch {
+      return Response.json(rpcError(null, PARSE_ERROR, 'invalid JSON'));
+    }
+
+    // Handle both single requests and batched requests.
+    const requests = Array.isArray(body) ? body : [body];
+    const responses: unknown[] = [];
+    for (const r of requests) {
+      const reply = await this.handleRpc(r as JsonRpcRequest);
+      if (reply !== null) responses.push(reply);
+    }
+
+    if (responses.length === 0) {
+      // All requests were notifications (no id); return 202.
+      return new Response(null, { status: 202 });
+    }
+    return Response.json(Array.isArray(body) ? responses : responses[0]);
+  }
+
+  private async handleRpc(rpc: JsonRpcRequest): Promise<unknown | null> {
+    if (!rpc || rpc.jsonrpc !== '2.0' || typeof rpc.method !== 'string') {
+      return rpcError(rpc?.id ?? null, INVALID_REQUEST, 'invalid request');
+    }
+    const isNotification = rpc.id === undefined || rpc.id === null;
+
+    try {
+      switch (rpc.method) {
+        case 'initialize':
+          return rpcResult(rpc.id, {
+            protocolVersion: MCP_PROTOCOL_VERSION,
+            capabilities: { tools: { listChanged: false } },
+            serverInfo: { name: 'scribian', version: '0.0.1' },
+          });
+
+        case 'notifications/initialized':
+          // No response for notifications
+          return isNotification ? null : rpcResult(rpc.id, {});
+
+        case 'tools/list':
+          return rpcResult(rpc.id, { tools: MCP_TOOLS });
+
+        case 'tools/call': {
+          const params = (rpc.params ?? {}) as {
+            name?: string;
+            arguments?: unknown;
+          };
+          if (typeof params.name !== 'string') {
+            return rpcError(rpc.id, INVALID_PARAMS, 'name is required');
+          }
+          const result = await this.bridgeToolCall(params.name, params.arguments);
+          return rpcResult(rpc.id, {
+            content: [{ type: 'text', text: result.content }],
+            isError: result.is_error ?? false,
+          });
+        }
+
+        case 'ping':
+          return rpcResult(rpc.id, {});
+
+        default:
+          return isNotification
+            ? null
+            : rpcError(rpc.id, METHOD_NOT_FOUND, `unknown method: ${rpc.method}`);
+      }
+    } catch (err) {
+      return rpcError(
+        rpc.id,
+        INTERNAL_ERROR,
+        err instanceof Error ? err.message : 'internal error',
+      );
+    }
+  }
+
+  /**
+   * Forward an MCP tool call to whichever plugin WS is attached to this
+   * DO. Returns the result the plugin produced, or an error if no
+   * plugin is connected / it times out.
+   */
+  private async bridgeToolCall(
+    name: string,
+    input: unknown,
+  ): Promise<{ content: string; is_error?: boolean }> {
+    const sockets = this.state.getWebSockets();
+    if (sockets.length === 0) {
+      return {
+        content:
+          'No Obsidian plugin is currently connected — open the scribian chat pane to bring the vault online.',
+        is_error: true,
+      };
+    }
+    const callId = crypto.randomUUID();
+    const promise = new Promise<{ content: string; is_error?: boolean }>(
+      (resolve) => {
+        this.pendingMcp.set(callId, resolve);
+      },
+    );
+    const timeout = new Promise<{ content: string; is_error?: boolean }>(
+      (resolve) =>
+        setTimeout(() => {
+          this.pendingMcp.delete(callId);
+          resolve({
+            content: `Plugin did not respond within ${MCP_TOOL_TIMEOUT_MS}ms.`,
+            is_error: true,
+          });
+        }, MCP_TOOL_TIMEOUT_MS),
+    );
+
+    // Send to the first connected plugin. If the user has Mac + iPhone
+    // both open, only the first ws gets the call — fine for v1.
+    this.send(sockets[0], {
+      type: 'mcp_call',
+      id: callId,
+      name,
+      input,
+    });
+
+    return Promise.race([promise, timeout]);
   }
 
   private async runChat(
@@ -224,7 +384,6 @@ export class ScribianSession {
       'user-agent': SCRIBIAN_USER_AGENT,
     };
 
-    // AI Gateway-specific metadata for dashboard filtering.
     if (this.env.AI_GATEWAY_URL) {
       upstreamHeaders['cf-aig-metadata'] = JSON.stringify({
         app: 'scribian',

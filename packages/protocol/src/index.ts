@@ -54,7 +54,15 @@ export type ClientMessage =
       // payload so it never reaches the Anthropic request body.
       anthropic_api_key?: string;
     }
-  | { type: 'cancel'; id: string };
+  | { type: 'cancel'; id: string }
+  // MCP bridge: plugin executes a vault tool on behalf of an MCP
+  // client connected to the Worker, returns the result here.
+  | {
+      type: 'mcp_result';
+      id: string;
+      content: string;
+      is_error?: boolean;
+    };
 
 // Worker → Plugin
 export type ServerMessage =
@@ -62,4 +70,13 @@ export type ServerMessage =
   | { type: 'pong' }
   | { type: 'chunk'; id: string; event: string; data: unknown }
   | { type: 'done'; id: string; stop_reason: string; usage: Usage }
-  | { type: 'error'; id?: string; error: string; retryable?: boolean };
+  | { type: 'error'; id?: string; error: string; retryable?: boolean }
+  // MCP bridge: Worker forwards a tool call from an MCP client over
+  // the plugin's existing WS. Plugin executes locally against Vault
+  // API and replies with mcp_result.
+  | {
+      type: 'mcp_call';
+      id: string;
+      name: string;
+      input: unknown;
+    };

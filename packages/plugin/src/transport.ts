@@ -7,6 +7,8 @@ export interface TransportHandlers {
   onError: (err: string) => void;
 }
 
+export type SendMessage = ClientMessage;
+
 // Exponential backoff for unexpected disconnects, capped at 30s. Mobile
 // WebSockets get killed when the app backgrounds; backoff + visibility-
 // change handling pulls the connection back up without user intervention.
