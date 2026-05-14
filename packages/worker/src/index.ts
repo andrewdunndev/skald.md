@@ -34,6 +34,12 @@ export interface Env {
   OPENROUTER_API_KEY?: string;
   SCRIBIAN_SESSION: DurableObjectNamespace;
   AI_GATEWAY_URL?: string;
+  /** Workers AI binding for vault embeddings (phase 6). Optional —
+   * chat path doesn't depend on it; memory feature gates on it. */
+  AI?: Ai;
+  /** Vectorize index for vault embeddings (phase 6). Optional —
+   * memory feature gates on this binding's presence. */
+  VECTORIZE?: Vectorize;
 }
 
 const MCP_PROTOCOL_VERSION = '2025-06-18';

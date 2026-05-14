@@ -14,12 +14,35 @@ class_name = "ScribianSession"
 tag = "v1"
 new_sqlite_classes = ["ScribianSession"]
 
+# Workers AI binding for vault-as-memory (phase 6).
+# Used for generating embeddings of vault notes via @cf/baai/bge-base-en-v1.5
+# (768 dims, 512-token input). Optional: chat path doesn't depend on this.
+# The semantic-linking feature (find_related tool) requires this binding +
+# the Vectorize binding below.
+[ai]
+binding = "AI"
+
+# Vectorize index for vault embeddings (phase 6).
+# Create once per Worker deployment:
+#   wrangler vectorize create scribian-vault --dimensions=768 --metric=cosine
+# Stored vectors are namespaced by kind ("note-summary" vs "section") so
+# topK queries can target the right granularity. ~6M dims for a 1000-note
+# vault including section chunks — well inside the 10M Paid allotment.
+[[vectorize]]
+binding = "VECTORIZE"
+index_name = "scribian-vault"
+
 # Secrets (set via `wrangler secret put`):
-#   SCRIBIAN_TOKEN     — bearer token matching plugin settings
-#   ANTHROPIC_API_KEY  — optional fallback; plugin-supplied key takes precedence
-#   AI_GATEWAY_URL     — optional. If set, Anthropic calls route through
-#                        Cloudflare AI Gateway for caching + observability.
-#                        Format: https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway>/anthropic/v1/messages
-#                        Gateway auto-creates on first request (no dashboard
-#                        setup required). Find your account_id at
-#                        dash.cloudflare.com → Workers & Pages → Overview.
+#   SCRIBIAN_TOKEN      — legacy single bearer token (still supported)
+#   SCRIBIAN_TOKENS     — preferred: JSON array of per-client tokens
+#                         with scopes (label/token/scopes)
+#   ANTHROPIC_API_KEY   — optional fallback; plugin-supplied key takes
+#                         precedence when sent
+#   OPENROUTER_API_KEY  — optional fallback for the OpenRouter provider;
+#                         plugin-supplied key takes precedence
+#   AI_GATEWAY_URL      — optional. If set, Anthropic calls route through
+#                         Cloudflare AI Gateway for caching + observability.
+#                         Format: https://gateway.ai.cloudflare.com/v1/<account_id>/<gateway>/anthropic/v1/messages
+#                         Gateway auto-creates on first request (no dashboard
+#                         setup required). Find your account_id at
+#                         dash.cloudflare.com → Workers & Pages → Overview.
