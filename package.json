@@ -1,0 +1,22 @@
+{
+  "name": "scribian",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Vault-native Claude client for Obsidian.",
+  "repository": {
+    "type": "git",
+    "url": "https://gitlab.com/dunn.dev/scribian.git"
+  },
+  "scripts": {
+    "dev:plugin": "pnpm --filter @scribian/plugin dev",
+    "dev:worker": "pnpm --filter @scribian/worker dev",
+    "build": "pnpm -r build",
+    "deploy:worker": "pnpm --filter @scribian/worker deploy",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "packageManager": "pnpm@11.1.1",
+  "devDependencies": {
+    "typescript": "^5.6.0"
+  }
+}

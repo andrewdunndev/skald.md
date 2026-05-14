@@ -1,0 +1,88 @@
+.scribian-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  gap: var(--size-2-2);
+  padding: var(--size-4-2);
+}
+
+.scribian-status {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  padding: var(--size-2-1) var(--size-4-1);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+}
+
+.scribian-status.connected {
+  color: var(--text-success);
+}
+
+.scribian-status.error {
+  color: var(--text-error);
+}
+
+.scribian-messages {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-3);
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+}
+
+.scribian-msg {
+  font-size: var(--font-ui-small);
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.scribian-msg-who {
+  color: var(--text-accent);
+  font-weight: var(--font-semibold);
+  margin-right: var(--size-4-1);
+}
+
+.scribian-input-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+}
+
+.scribian-input {
+  resize: vertical;
+  min-height: 2.5rem;
+  font: inherit;
+  padding: var(--size-4-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  color: var(--text-normal);
+}
+
+.scribian-input:focus {
+  border-color: var(--interactive-accent);
+  outline: none;
+}
+
+.scribian-send {
+  background: var(--interactive-accent);
+  color: var(--text-on-accent);
+  border: none;
+  border-radius: var(--radius-s);
+  padding: var(--size-4-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+.scribian-send:hover {
+  background: var(--interactive-accent-hover);
+}
+
+.scribian-send:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

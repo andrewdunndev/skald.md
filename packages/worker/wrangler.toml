@@ -1,0 +1,9 @@
+name = "scribian"
+main = "src/index.ts"
+compatibility_date = "2026-05-14"
+workers_dev = true
+
+# Secrets (set via `wrangler secret put`):
+#   SCRIBIAN_TOKEN   — bearer token matching plugin settings
+#
+# (Future: ANTHROPIC_API_KEY will be added in phase 1.)

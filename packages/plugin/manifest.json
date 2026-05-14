@@ -1,0 +1,10 @@
+{
+  "id": "scribian",
+  "name": "Scribian",
+  "version": "0.0.1",
+  "minAppVersion": "1.4.0",
+  "description": "Vault-native Claude client. Mobile-first.",
+  "author": "Andrew Dunn",
+  "authorUrl": "https://gitlab.com/dunn.dev/scribian",
+  "isDesktopOnly": false
+}
