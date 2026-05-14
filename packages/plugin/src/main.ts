@@ -30,7 +30,9 @@ export default class ScribianPlugin extends Plugin {
     this.addCommand({
       id: 'scribian-reindex-vault',
       name: 'Reindex vault (for semantic search)',
-      callback: () => void this.reindexVault(),
+      callback: () => {
+        void this.reindexVault();
+      },
     });
 
     this.addSettingTab(new ScribianSettingTab(this.app, this));
@@ -41,8 +43,11 @@ export default class ScribianPlugin extends Plugin {
    * progress as Notices. Excludes the conversation, logs, and
    * saved-notes folders by default since they're scribian-generated
    * artifacts the user doesn't want surfaced as "related notes."
+   *
+   * Public so the settings tab can invoke it directly without going
+   * through the command bus.
    */
-  private async reindexVault(): Promise<void> {
+  async reindexVault(): Promise<void> {
     const cfg = {
       workerUrl: this.settings.workerUrl,
       workerToken: this.settings.workerToken,

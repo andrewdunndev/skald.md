@@ -17,7 +17,7 @@ import { ChatSession } from './chat-session';
 import { MODELS } from './settings';
 import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
-import { executeFindRelated } from './memory-client';
+import { buildMemorySection } from './memory-prompt';
 import { saveConversation } from './conversation-store';
 import type { ContentBlock, Message } from '@scribian/protocol';
 
@@ -215,16 +215,15 @@ export class ScribianView extends ItemView {
       // lives in settings (ModelSuggest fuzzy search). The hidden
       // <select> below is a stand-in so `.value` keeps working — its
       // single option carries the user's configured OpenRouter model.
+      // Styles in styles.css (.scribian-model-label).
       const label = header.createEl('span', {
         cls: 'scribian-model-label',
         text: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
       });
-      label.style.fontFamily = 'var(--font-monospace, monospace)';
-      label.style.fontSize = '0.85rem';
-      label.style.color = 'var(--text-muted)';
       label.setAttr('title', 'Active OpenRouter model. Change in settings.');
-      this.modelSelect = header.createEl('select', { cls: 'scribian-model' });
-      this.modelSelect.style.display = 'none';
+      this.modelSelect = header.createEl('select', {
+        cls: 'scribian-model scribian-model-hidden',
+      });
       const opt = this.modelSelect.createEl('option', {
         text: settings.openrouterModel,
         value: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
@@ -386,27 +385,15 @@ export class ScribianView extends ItemView {
         return { provider, apiKey };
       },
       ALL_TOOLS,
-      (name, input, toolUseId) => {
-        // find_related routes Worker-side because Vectorize lives in
-        // the Worker, not the plugin. Everything else dispatches
-        // through the plugin's executeTool against the Vault API.
-        if (name === 'find_related') {
-          return executeFindRelated(
-            {
-              workerUrl: this.plugin.settings.workerUrl,
-              workerToken: this.plugin.settings.workerToken,
-            },
-            input,
-          );
-        }
-        return executeTool(
-          this.app,
-          name,
-          input,
-          toolUseId,
-          (proposal) => this.requestApproval(proposal),
-        );
-      },
+      (name, input, toolUseId) =>
+        executeTool(name, input, toolUseId, {
+          app: this.app,
+          approve: (proposal) => this.requestApproval(proposal),
+          memoryClient: {
+            workerUrl: this.plugin.settings.workerUrl,
+            workerToken: this.plugin.settings.workerToken,
+          },
+        }),
       {
         onUpdate: () => this.requestRender(),
         onError: (err) => this.setStatus(`Chat error: ${err}`, 'error'),
@@ -418,34 +405,43 @@ export class ScribianView extends ItemView {
   }
 
   private async loadSystemPrompt(): Promise<string | undefined> {
-    const folderSetting = this.plugin.settings.harnessFolder.trim();
-    if (!folderSetting) return undefined;
-
-    const folderPath =
-      folderSetting === '.' || folderSetting === '/'
-        ? ''
-        : normalizePath(folderSetting);
-
     const parts: string[] = [];
 
-    const claudeMdPath = folderPath ? `${folderPath}/CLAUDE.md` : 'CLAUDE.md';
-    const claudeMd = this.app.vault.getAbstractFileByPath(claudeMdPath);
-    if (claudeMd instanceof TFile) {
-      try {
-        parts.push(await this.app.vault.read(claudeMd));
-      } catch {
-        // ignore unreadable file
+    // 1. Harness context (CLAUDE.md + skills). Optional.
+    const folderSetting = this.plugin.settings.harnessFolder.trim();
+    if (folderSetting) {
+      const folderPath =
+        folderSetting === '.' || folderSetting === '/'
+          ? ''
+          : normalizePath(folderSetting);
+
+      const claudeMdPath = folderPath ? `${folderPath}/CLAUDE.md` : 'CLAUDE.md';
+      const claudeMd = this.app.vault.getAbstractFileByPath(claudeMdPath);
+      if (claudeMd instanceof TFile) {
+        try {
+          parts.push(await this.app.vault.read(claudeMd));
+        } catch {
+          // ignore unreadable file
+        }
+      }
+
+      const skillsPath = folderPath ? `${folderPath}/skills` : 'skills';
+      const skillsFolder = this.app.vault.getAbstractFileByPath(skillsPath);
+      if (skillsFolder instanceof TFolder) {
+        const skills = await this.collectSkills(skillsFolder);
+        if (skills.length > 0) {
+          parts.push('## Skills\n\n' + skills.join('\n\n---\n\n'));
+        }
       }
     }
 
-    const skillsPath = folderPath ? `${folderPath}/skills` : 'skills';
-    const skillsFolder = this.app.vault.getAbstractFileByPath(skillsPath);
-    if (skillsFolder instanceof TFolder) {
-      const skills = await this.collectSkills(skillsFolder);
-      if (skills.length > 0) {
-        parts.push('## Skills\n\n' + skills.join('\n\n---\n\n'));
-      }
-    }
+    // 2. Memory note. Phase 6: Claude's long-term state, read at every
+    // chat start. Shape owned by memory-prompt.ts.
+    const memSection = await buildMemorySection(this.app, {
+      enabled: this.plugin.settings.memoryEnabled,
+      path: this.plugin.settings.memoryPath,
+    });
+    if (memSection) parts.push(memSection);
 
     return parts.length > 0 ? parts.join('\n\n---\n\n') : undefined;
   }
@@ -718,10 +714,16 @@ export class ScribianView extends ItemView {
       `mcp_call from=${caller} tool=${name} ${inputSummary}`,
     );
     try {
-      const result = await executeTool(this.app, name, input, id, async () => {
+      const result = await executeTool(name, input, id, {
+        app: this.app,
         // MCP read-only path: no write tools allowed, so no approval is
-        // ever requested. Auto-reject any write-tool approval attempt.
-        return false;
+        // ever requested. Auto-reject any write-tool approval attempt
+        // (defense in depth — Worker also gates writes at the MCP edge).
+        approve: async () => false,
+        memoryClient: {
+          workerUrl: this.plugin.settings.workerUrl,
+          workerToken: this.plugin.settings.workerToken,
+        },
       });
       if (result.is_error) {
         this.plugin.logger.warn(

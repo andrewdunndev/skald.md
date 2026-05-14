@@ -1,5 +1,6 @@
 import { App, normalizePath, TFile } from 'obsidian';
 import type { ToolDefinition } from '@scribian/protocol';
+import { executeFindRelated, type MemoryClientConfig } from './memory-client';
 
 export interface ToolExecutionResult {
   content: string;
@@ -17,6 +18,21 @@ export interface WriteProposal {
 }
 
 export type ApproveFn = (proposal: WriteProposal) => Promise<boolean>;
+
+/**
+ * Context every tool executor receives. Required fields are the
+ * foundation (Vault API + approval flow); optional fields gate
+ * specific tools (memoryClient for find_related). This keeps the
+ * executor a single dispatch point with no special-cases at the
+ * call site.
+ */
+export interface ToolContext {
+  app: App;
+  approve: ApproveFn;
+  /** Phase 6: enables find_related. Absent → tool returns a clear
+   * "not configured" error. */
+  memoryClient?: MemoryClientConfig;
+}
 
 // Anthropic-executed server tools. These are passed in the tools array
 // like custom tools, but Anthropic runs them server-side and emits
@@ -201,31 +217,39 @@ export const ALL_TOOLS: ToolDefinition[] = [
 ];
 
 export async function executeTool(
-  app: App,
   name: string,
   input: unknown,
   toolUseId: string,
-  approve: ApproveFn,
+  ctx: ToolContext,
 ): Promise<ToolExecutionResult> {
   const args = (input as Record<string, unknown>) ?? {};
   try {
     switch (name) {
       case 'read_note':
-        return await runReadNote(app, args);
+        return await runReadNote(ctx.app, args);
       case 'list_notes':
-        return runListNotes(app, args);
+        return runListNotes(ctx.app, args);
       case 'search_vault':
-        return await runSearchVault(app, args);
+        return await runSearchVault(ctx.app, args);
       case 'current_note':
-        return await runCurrentNote(app);
+        return await runCurrentNote(ctx.app);
       case 'metadata':
-        return runMetadata(app, args);
+        return runMetadata(ctx.app, args);
       case 'write_note':
-        return await runWriteNote(app, args, toolUseId, approve);
+        return await runWriteNote(ctx.app, args, toolUseId, ctx.approve);
       case 'edit_note':
-        return await runEditNote(app, args, toolUseId, approve);
+        return await runEditNote(ctx.app, args, toolUseId, ctx.approve);
       case 'append_to_note':
-        return await runAppendToNote(app, args, toolUseId, approve);
+        return await runAppendToNote(ctx.app, args, toolUseId, ctx.approve);
+      case 'find_related':
+        if (!ctx.memoryClient) {
+          return {
+            content:
+              'find_related: memory client not configured. Set the Worker URL + token in plugin settings.',
+            is_error: true,
+          };
+        }
+        return await executeFindRelated(ctx.memoryClient, input);
       default:
         return { content: `Unknown tool: ${name}`, is_error: true };
     }

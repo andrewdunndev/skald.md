@@ -568,3 +568,26 @@
 .scribian-stop {
   --icon-color: var(--text-error);
 }
+
+/* ── Settings: provider privacy notice (phase 5) ─────────────────── */
+.scribian-privacy-notice {
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+  background: var(--background-modifier-info, var(--background-secondary));
+  border-radius: 6px;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+/* Chat-header label shown when provider=openrouter; the model
+   picker lives in settings since the catalog has hundreds of
+   entries. */
+.scribian-model-label {
+  font-family: var(--font-monospace);
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.scribian-model-hidden {
+  display: none;
+}

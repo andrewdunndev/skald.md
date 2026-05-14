@@ -26,6 +26,16 @@ export interface ScribianSettings {
   savedNotesFolder: string;
   chatsFolder: string;
   logsFolder: string;
+  /**
+   * Phase 6: vault-as-memory.
+   * memoryEnabled: inject memoryPath contents into the system prompt
+   *   at the start of every chat. Claude can read + (with approval)
+   *   write to this note across sessions for long-term state.
+   * memoryPath: the single note holding Claude's memory. Defaults
+   *   to Scribian/Memory.md.
+   */
+  memoryEnabled: boolean;
+  memoryPath: string;
 }
 
 export const MODELS = [
@@ -46,6 +56,8 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   savedNotesFolder: 'Scribian/Saved',
   chatsFolder: 'Scribian/Chats',
   logsFolder: '',
+  memoryEnabled: true,
+  memoryPath: 'Scribian/Memory.md',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -164,16 +176,11 @@ export class ScribianSettingTab extends PluginSettingTab {
       new Setting(containerEl).setName('OpenRouter').setHeading();
 
       // Privacy notice. Honest framing — prompts pass through
-      // OpenRouter in addition to the underlying provider.
+      // OpenRouter in addition to the underlying provider. Styles in
+      // packages/plugin/styles.css (.scribian-privacy-notice).
       const notice = containerEl.createEl('div', {
         cls: 'scribian-privacy-notice',
       });
-      notice.style.padding = '0.75rem';
-      notice.style.marginBottom = '1rem';
-      notice.style.background = 'var(--background-modifier-info, #eef)';
-      notice.style.borderRadius = '6px';
-      notice.style.fontSize = '0.85rem';
-      notice.style.lineHeight = '1.4';
       notice.createEl('strong', { text: 'Privacy notice. ' });
       notice.createSpan({
         text:
@@ -256,6 +263,46 @@ export class ScribianSettingTab extends PluginSettingTab {
       'Scribian/Logs',
       'logsFolder',
     );
+
+    // ── Memory ────────────────────────────────────────────────────
+    new Setting(containerEl).setName('Memory').setHeading();
+
+    new Setting(containerEl)
+      .setName('Enable memory note')
+      .setDesc(
+        "Inject a single vault note's contents into every chat's system prompt as Claude's long-term memory. Claude can read it inline and propose updates via write_note / edit_note (you approve via diff card).",
+      )
+      .addToggle((t) =>
+        t.setValue(this.plugin.settings.memoryEnabled).onChange(async (v) => {
+          this.plugin.settings.memoryEnabled = v;
+          await this.plugin.saveSettings();
+        }),
+      );
+
+    new Setting(containerEl)
+      .setName('Memory note path')
+      .setDesc(
+        'Vault-relative path of the memory note. Created on first write if it does not exist. Default: Scribian/Memory.md',
+      )
+      .addText((t) => {
+        t.setPlaceholder('Scribian/Memory.md')
+          .setValue(this.plugin.settings.memoryPath)
+          .onChange(async (v) => {
+            this.plugin.settings.memoryPath = v.trim();
+            await this.plugin.saveSettings();
+          });
+      });
+
+    new Setting(containerEl)
+      .setName('Reindex vault for semantic search')
+      .setDesc(
+        'Walk markdown notes (excluding chats/logs/saved folders), embed each via Workers AI, upsert to the Worker\'s Vectorize index. Required before find_related works. Re-run after major vault changes. Cost: ~one cent per 1000 notes.',
+      )
+      .addButton((b) =>
+        b.setButtonText('Reindex').onClick(() => {
+          void this.plugin.reindexVault();
+        }),
+      );
   }
 
   /**
