@@ -21,12 +21,18 @@ export interface ChatSessionHandlers {
 }
 
 export interface ToolExecutor {
-  (name: string, input: unknown): Promise<{ content: string; is_error?: boolean }>;
+  (
+    name: string,
+    input: unknown,
+    toolUseId: string,
+  ): Promise<{ content: string; is_error?: boolean }>;
 }
 
 export class ChatSession {
   private readonly messages: Message[] = [];
   private inFlight: InFlight | null = null;
+  conversationId: string = crypto.randomUUID();
+  conversationCreated: string = new Date().toISOString();
 
   constructor(
     private readonly transport: Transport,
@@ -80,6 +86,8 @@ export class ChatSession {
   reset(): void {
     this.messages.length = 0;
     this.inFlight = null;
+    this.conversationId = crypto.randomUUID();
+    this.conversationCreated = new Date().toISOString();
     this.handlers.onUpdate();
   }
 
@@ -182,7 +190,7 @@ export class ChatSession {
     const results: ContentBlock[] = [];
     for (const block of toolUses) {
       const b = block as Record<string, any>;
-      const result = await this.toolExecutor(b.name, b.input);
+      const result = await this.toolExecutor(b.name, b.input, b.id);
       const resultBlock: ContentBlock = {
         type: 'tool_result',
         tool_use_id: b.id,

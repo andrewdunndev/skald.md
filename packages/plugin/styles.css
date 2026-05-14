@@ -22,24 +22,242 @@
   color: var(--text-normal);
 }
 
-.scribian-new-chat {
-  font-size: var(--font-ui-smaller);
-  padding: var(--size-2-1) var(--size-4-2);
-  border-radius: var(--radius-s);
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
-  color: var(--text-normal);
-  cursor: pointer;
-}
-
-.scribian-new-chat:hover {
-  background: var(--background-modifier-hover);
+/* Generic icon button — small, native Obsidian feel.
+   Obsidian's .clickable-icon already gives us 4px padding + hover state;
+   we just nudge sizing for our chrome. */
+.scribian-icon-btn {
+  --icon-size: var(--icon-s);
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .scribian-status-row {
   display: flex;
   align-items: center;
   gap: var(--size-2-2);
+}
+
+.scribian-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--size-2-2);
+  min-height: 1.75rem;
+}
+
+.scribian-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-1);
+  padding: var(--size-2-1) var(--size-2-2) var(--size-2-1) var(--size-4-2);
+  background: var(--background-modifier-hover);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  font-size: var(--font-ui-smaller);
+  max-width: 100%;
+  overflow: hidden;
+}
+
+.scribian-chip-label {
+  cursor: pointer;
+  color: var(--text-accent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.scribian-chip-label::before {
+  content: '📎 ';
+  margin-right: var(--size-2-1);
+}
+
+.scribian-chip-label:hover {
+  text-decoration: underline;
+}
+
+.scribian-chip-dismiss {
+  --icon-size: var(--icon-xs);
+  padding: 2px;
+  border-radius: 999px;
+}
+
+.scribian-chip-attach {
+  background: transparent;
+  border: 1px dashed var(--background-modifier-border);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: var(--size-2-1) var(--size-4-2);
+  font: inherit;
+  font-size: var(--font-ui-smaller);
+  cursor: pointer;
+}
+
+.scribian-chip-attach:hover {
+  background: var(--background-modifier-hover);
+  color: var(--text-normal);
+}
+
+.scribian-chip-empty {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-style: italic;
+  padding: var(--size-2-1) var(--size-4-2);
+}
+
+.scribian-chip-active {
+  background: var(--background-modifier-success-rgb, var(--background-modifier-hover));
+}
+
+.scribian-picker {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  max-height: 14rem;
+  overflow-y: auto;
+}
+
+.scribian-picker-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-2-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  cursor: pointer;
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.scribian-picker-row:last-child {
+  border-bottom: none;
+}
+
+.scribian-picker-row.is-selected,
+.scribian-picker-row:hover {
+  background: var(--background-modifier-hover);
+}
+
+.scribian-picker-name {
+  font-size: var(--font-ui-small);
+  color: var(--text-normal);
+}
+
+.scribian-picker-folder {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.scribian-picker-empty {
+  padding: var(--size-2-2) var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Diff card — pending-approval write proposal */
+.scribian-diff {
+  display: flex;
+  flex-direction: column;
+  border: 2px solid var(--interactive-accent);
+  border-radius: var(--radius-s);
+  background: var(--background-primary);
+  overflow: hidden;
+}
+
+.scribian-diff-header {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-2-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+}
+
+.scribian-diff-kind {
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--interactive-accent);
+}
+
+.scribian-diff-path {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+}
+
+.scribian-diff-body {
+  display: flex;
+  flex-direction: column;
+  max-height: 20rem;
+  overflow-y: auto;
+  font-family: var(--font-monospace);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.45;
+}
+
+.scribian-diff-line {
+  display: flex;
+  gap: var(--size-2-2);
+  padding: 0 var(--size-4-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.scribian-diff-marker {
+  width: 1ch;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  user-select: none;
+}
+
+.scribian-diff-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.scribian-diff-same {
+  color: var(--text-muted);
+}
+
+.scribian-diff-add {
+  background: rgba(76, 175, 80, 0.15);
+  color: var(--text-normal);
+}
+
+.scribian-diff-add .scribian-diff-marker {
+  color: rgb(76, 175, 80);
+  font-weight: var(--font-semibold);
+}
+
+.scribian-diff-remove {
+  background: rgba(244, 67, 54, 0.15);
+  color: var(--text-normal);
+  text-decoration: line-through;
+  text-decoration-color: rgba(244, 67, 54, 0.5);
+}
+
+.scribian-diff-remove .scribian-diff-marker {
+  color: rgb(244, 67, 54);
+  font-weight: var(--font-semibold);
+  text-decoration: none;
+}
+
+.scribian-diff-actions {
+  display: flex;
+  gap: var(--size-2-1);
+  justify-content: flex-end;
+  padding: var(--size-2-2) var(--size-4-2);
+  background: var(--background-secondary);
+  border-top: 1px solid var(--background-modifier-border);
+}
+
+.scribian-diff-approve {
+  --icon-color: var(--text-success);
+}
+
+.scribian-diff-reject {
+  --icon-color: var(--text-error);
 }
 
 .scribian-status {
@@ -59,19 +277,6 @@
   color: var(--text-error);
 }
 
-.scribian-reconnect {
-  font-size: var(--font-ui-smaller);
-  padding: var(--size-2-1) var(--size-4-2);
-  border-radius: var(--radius-s);
-  border: 1px solid var(--background-modifier-border);
-  background: var(--background-secondary);
-  color: var(--text-normal);
-  cursor: pointer;
-}
-
-.scribian-reconnect:hover {
-  background: var(--background-modifier-hover);
-}
 
 .scribian-messages {
   flex: 1;
@@ -92,6 +297,28 @@
   display: flex;
   flex-direction: column;
   gap: var(--size-2-1);
+  padding: var(--size-2-2) var(--size-4-2);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+}
+
+.scribian-msg-user {
+  background: var(--background-modifier-hover);
+}
+
+.scribian-msg-streaming {
+  border-left: 2px solid var(--interactive-accent);
+  padding-left: var(--size-4-2);
+  animation: scribian-streaming-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes scribian-streaming-pulse {
+  0%, 100% {
+    border-left-color: var(--interactive-accent);
+  }
+  50% {
+    border-left-color: var(--background-modifier-border);
+  }
 }
 
 .scribian-msg-who {
@@ -110,6 +337,26 @@
   display: flex;
   flex-direction: column;
   gap: var(--size-2-2);
+}
+
+/* Per-message action row at the bottom of finalized assistant turns.
+   Always visible (no hover) — mobile-friendly. */
+.scribian-msg-actions {
+  display: flex;
+  gap: var(--size-2-1);
+  margin-top: var(--size-2-2);
+  opacity: 0.65;
+  transition: opacity 0.15s ease;
+}
+
+.scribian-msg:hover .scribian-msg-actions {
+  opacity: 1;
+}
+
+.scribian-msg-action {
+  --icon-size: var(--icon-xs);
+  padding: 4px;
+  border-radius: var(--radius-s);
 }
 
 /* Let MarkdownRenderer output breathe — its default styles assume
@@ -154,14 +401,22 @@
   border-radius: var(--radius-s);
 }
 
-.scribian-tool-use {
+.scribian-tool-use,
+.scribian-tool-call {
   display: flex;
-  flex-direction: column;
-  gap: var(--size-2-1);
-  padding: var(--size-2-2) var(--size-4-2);
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: var(--size-2-1) var(--size-4-2);
   background: var(--background-secondary);
   border: 1px solid var(--background-modifier-border);
   border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+}
+
+.scribian-tool-call .scribian-tool-name {
+  color: var(--text-normal);
+  font-weight: normal;
 }
 
 .scribian-tool-summary {
@@ -237,6 +492,17 @@
   overflow: auto;
 }
 
+.scribian-tool-result-row {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+  padding: var(--size-2-1) var(--size-4-2);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+}
+
 .scribian-tool-result-body pre {
   margin: 0;
   white-space: pre-wrap;
@@ -248,67 +514,57 @@
 
 .scribian-block-unknown {
   font-size: var(--font-ui-smaller);
-  margin: 0;
-  padding: var(--size-2-2);
-  background: var(--background-secondary);
+  font-style: italic;
+  padding: var(--size-2-1) var(--size-4-2);
   color: var(--text-muted);
-  border-radius: var(--radius-s);
-  overflow-x: auto;
 }
 
 .scribian-input-wrap {
   display: flex;
-  flex-direction: column;
+  align-items: flex-end;
   gap: var(--size-2-2);
+  padding: var(--size-2-2);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: var(--radius-m);
+  background: var(--background-primary);
+}
+
+.scribian-input-wrap:focus-within {
+  border-color: var(--interactive-accent);
 }
 
 .scribian-input {
-  resize: vertical;
-  min-height: 3rem;
+  flex: 1;
+  resize: none;
+  min-height: 2rem;
+  max-height: 8rem;
   font: inherit;
-  padding: var(--size-4-2);
-  border: 1px solid var(--background-modifier-border);
-  border-radius: var(--radius-s);
-  background: var(--background-primary);
-  color: var(--text-normal);
-}
-
-.scribian-input:focus {
-  border-color: var(--interactive-accent);
+  background: transparent;
+  border: none;
   outline: none;
+  padding: var(--size-2-1) 0;
+  color: var(--text-normal);
 }
 
 .scribian-button-row {
   display: flex;
-  gap: var(--size-2-2);
+  gap: var(--size-2-1);
+  flex-shrink: 0;
 }
 
 .scribian-send {
-  flex: 1;
-  background: var(--interactive-accent);
-  color: var(--text-on-accent);
-  border: none;
-  border-radius: var(--radius-s);
-  padding: var(--size-4-2);
-  font: inherit;
-  cursor: pointer;
+  --icon-color: var(--interactive-accent);
 }
 
-.scribian-send:hover {
-  background: var(--interactive-accent-hover);
+.scribian-send:not(:disabled):hover {
+  --icon-color: var(--interactive-accent-hover);
 }
 
 .scribian-send:disabled {
-  opacity: 0.5;
+  opacity: 0.4;
   cursor: not-allowed;
 }
 
 .scribian-stop {
-  background: var(--background-modifier-error);
-  color: var(--text-on-accent);
-  border: none;
-  border-radius: var(--radius-s);
-  padding: var(--size-4-2) var(--size-4-4);
-  font: inherit;
-  cursor: pointer;
+  --icon-color: var(--text-error);
 }

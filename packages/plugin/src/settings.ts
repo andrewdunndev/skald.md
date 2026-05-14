@@ -7,6 +7,8 @@ export interface ScribianSettings {
   anthropicApiKey: string;
   defaultModel: string;
   harnessFolder: string;
+  savedNotesFolder: string;
+  chatsFolder: string;
 }
 
 export const MODELS = [
@@ -21,6 +23,8 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   anthropicApiKey: '',
   defaultModel: 'claude-sonnet-4-6',
   harnessFolder: '.claude',
+  savedNotesFolder: 'Scribian/Saved',
+  chatsFolder: 'Scribian/Chats',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -86,6 +90,36 @@ export class ScribianSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         });
       });
+
+    new Setting(containerEl)
+      .setName('Saved notes folder')
+      .setDesc(
+        'Vault-relative folder where "Save as note" creates new notes from chat messages.',
+      )
+      .addText((t) =>
+        t
+          .setPlaceholder('Scribian/Saved')
+          .setValue(this.plugin.settings.savedNotesFolder)
+          .onChange(async (v) => {
+            this.plugin.settings.savedNotesFolder = v.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
+
+    new Setting(containerEl)
+      .setName('Chats folder')
+      .setDesc(
+        'Vault-relative folder where chat conversations are saved as markdown after each turn. Searchable via Obsidian. Set to empty to disable saving.',
+      )
+      .addText((t) =>
+        t
+          .setPlaceholder('Scribian/Chats')
+          .setValue(this.plugin.settings.chatsFolder)
+          .onChange(async (v) => {
+            this.plugin.settings.chatsFolder = v.trim();
+            await this.plugin.saveSettings();
+          }),
+      );
 
     new Setting(containerEl)
       .setName('Harness folder')
