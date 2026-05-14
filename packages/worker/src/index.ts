@@ -764,6 +764,7 @@ async function handleIndex(
       metadata: {
         path,
         title,
+        excerpt: buildExcerpt(content),
         sha256: await sha256Hex(content),
         mtime: Date.now(),
       },
@@ -771,6 +772,22 @@ async function handleIndex(
   }
   await upsertChunks(env, vectors);
   return Response.json({ indexed: vectors.length });
+}
+
+/**
+ * Strip frontmatter + collapse whitespace + take the first ~200
+ * chars. The excerpt is shown in find_related results so the
+ * caller / model sees why a match was returned. Short on purpose —
+ * Vectorize caps metadata at 10KiB per vector and we'd rather
+ * pack more vectors than verbose previews.
+ */
+function buildExcerpt(content: string): string {
+  // Strip a leading YAML frontmatter block if present.
+  const stripped = content.startsWith('---\n')
+    ? content.replace(/^---\n[\s\S]*?\n---\n?/, '')
+    : content;
+  const flat = stripped.replace(/\s+/g, ' ').trim();
+  return flat.length > 200 ? flat.slice(0, 197) + '…' : flat;
 }
 
 /**
@@ -803,6 +820,8 @@ async function handleSearch(
             : typeof meta.path === 'string'
               ? meta.path
               : h.id,
+        excerpt:
+          typeof meta.excerpt === 'string' ? meta.excerpt : undefined,
         score: h.score,
       };
     }),

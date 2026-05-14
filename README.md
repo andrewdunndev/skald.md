@@ -12,9 +12,12 @@ Anthropic API key. Read and write your vault under user approval;
 search the web inline; conversations save back into your vault as
 markdown.
 
-> **Status:** pre-alpha. The architecture is proven on iPhone + iPad.
-> Phase 3 (vault-native UX) shipped. Phase 4 (MCP server) and BRAT
-> distribution are next. Not yet in the community plugins directory.
+> **Status:** pre-alpha. Phases 0–6 shipped. Multi-provider
+> (Anthropic + OpenRouter) and vault-as-memory (Cloudflare Vectorize
+> + Workers AI embeddings) live as of 2026-05-14. BRAT + community
+> plugins listing pending — see `campaigns/factory/notes/scribian-roadmap.md`
+> in the [storr](https://gitlab.com/dunn.dev/storr) harness for the
+> full plan.
 
 ## What it is
 
@@ -22,11 +25,17 @@ Two artifacts in one repo:
 
 1. **`packages/plugin/`** — Obsidian community plugin. Chat pane,
    markdown-rendered messages (mermaid, tables, math, internal links),
-   diff-card approval for vault edits, server-side web search.
-2. **`packages/worker/`** — Cloudflare Worker. Durable Object with the
-   Hibernation API. Stateless relay between the plugin and the
-   Anthropic Messages API. Optional AI Gateway routing for
-   observability + caching. BYO-deployed (you own it, you pay for it).
+   diff-card approval for vault edits, server-side web search,
+   per-conversation Anthropic / OpenRouter provider switching,
+   semantic-search `find_related` over your vault, and a long-term
+   memory note Claude can read and propose updates to.
+2. **`packages/worker/`** — Cloudflare Worker. Durable Object with
+   Hibernation API. Provider-aware dispatch (Anthropic-direct +
+   OpenRouter via the Anthropic-compatible `/api/v1/messages`
+   endpoint). MCP server (`/mcp`) bridging external clients
+   (Claude Code, Cursor, Claude Desktop) to the plugin's vault tools.
+   Vectorize + Workers AI bindings for vault embeddings. Optional AI
+   Gateway routing. BYO-deployed (you own it, you pay for it).
 
 Plus `packages/protocol/` — the TypeScript wire types shared between
 plugin and Worker.
