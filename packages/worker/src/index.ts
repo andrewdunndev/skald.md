@@ -6,7 +6,6 @@ import type {
 } from '@scribian/protocol';
 import {
   MCP_TOOLS,
-  doNameForToken,
   rpcError,
   rpcResult,
   PARSE_ERROR,
@@ -16,9 +15,11 @@ import {
   INTERNAL_ERROR,
   type JsonRpcRequest,
 } from './mcp';
+import { TokenRegistry, hasScope, type AuthResult } from './auth';
 
 export interface Env {
-  SCRIBIAN_TOKEN: string;
+  SCRIBIAN_TOKEN?: string;
+  SCRIBIAN_TOKENS?: string;
   ANTHROPIC_API_KEY: string;
   SCRIBIAN_SESSION: DurableObjectNamespace;
   AI_GATEWAY_URL?: string;
@@ -29,78 +30,117 @@ const SCRIBIAN_USER_AGENT = 'scribian/0.0.1 (https://gitlab.com/dunn.dev/scribia
 const MCP_PROTOCOL_VERSION = '2025-06-18';
 const MCP_TOOL_TIMEOUT_MS = 8000;
 
-function timingSafeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) {
-    diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  }
-  return diff === 0;
-}
+// Single-vault DO name. All authenticated tokens reach this DO so the
+// MCP bridge can find the plugin's WS. Multi-vault would need to derive
+// this from a vault identifier on the token record (future work).
+const SESSION_DO_NAME = 'scribian-default';
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     const url = new URL(req.url);
+    const registry = new TokenRegistry(env);
 
     if (url.pathname === '/health') {
       return Response.json({
         ok: true,
         anthropic_key_present: !!env.ANTHROPIC_API_KEY,
         ai_gateway: !!env.AI_GATEWAY_URL,
-        version: 4,
+        tokens_configured: registry.hasAny(),
+        version: 5,
         mcp: '/mcp',
       });
     }
 
-    // MCP endpoint — HTTP JSON-RPC. Bearer-token auth (same SCRIBIAN_TOKEN
-    // as the plugin uses). Routes to the same DO instance as the plugin
-    // so we can forward tool calls over the plugin's existing WS.
+    if (!registry.hasAny()) {
+      return new Response(
+        'server misconfigured: set SCRIBIAN_TOKENS (preferred) or SCRIBIAN_TOKEN',
+        { status: 500 },
+      );
+    }
+
+    // MCP endpoint — HTTP JSON-RPC.
     if (url.pathname === '/mcp') {
-      const auth = req.headers.get('Authorization') ?? '';
-      if (!auth.startsWith('Bearer ')) {
-        return new Response('missing bearer', { status: 401 });
+      const auth = authBearer(req, registry);
+      if (!auth.ok) {
+        console.log(`mcp auth failed: ${auth.reason}`);
+        return new Response(auth.reason, { status: auth.status });
       }
-      const token = auth.slice(7).trim();
-      if (!env.SCRIBIAN_TOKEN || !timingSafeEqual(token, env.SCRIBIAN_TOKEN)) {
-        return new Response('bad token', { status: 401 });
+      if (!hasScope(auth.result.scopes, 'mcp:read')) {
+        console.log(
+          `mcp scope denied: label=${auth.result.label} scopes=${auth.result.scopes.join(',')}`,
+        );
+        return new Response('token lacks mcp:read scope', { status: 403 });
       }
-      const name = await doNameForToken(token);
-      const stub = env.SCRIBIAN_SESSION.get(env.SCRIBIAN_SESSION.idFromName(name));
-      return stub.fetch(req);
+      const stub = env.SCRIBIAN_SESSION.get(
+        env.SCRIBIAN_SESSION.idFromName(SESSION_DO_NAME),
+      );
+      // Pass caller label through a header so the DO can include it
+      // when forwarding to the plugin.
+      const fwd = new Request(req, { headers: new Headers(req.headers) });
+      fwd.headers.set('x-scribian-caller-label', auth.result.label);
+      return stub.fetch(fwd);
     }
 
     if (req.headers.get('Upgrade') !== 'websocket') {
       return new Response('expected websocket', { status: 426 });
     }
 
-    const rawProto = req.headers.get('Sec-WebSocket-Protocol') ?? '';
-    if (!rawProto) {
-      return new Response('missing protocol', { status: 401 });
+    const auth = authSubprotocol(req, registry);
+    if (!auth.ok) {
+      console.log(`ws auth failed: ${auth.reason}`);
+      return new Response(auth.reason, { status: auth.status });
     }
-    if (!env.SCRIBIAN_TOKEN) {
-      return new Response('server misconfigured: SCRIBIAN_TOKEN not set', {
-        status: 500,
-      });
+    if (!hasScope(auth.result.scopes, 'chat')) {
+      console.log(
+        `ws scope denied: label=${auth.result.label} scopes=${auth.result.scopes.join(',')}`,
+      );
+      return new Response('token lacks chat scope', { status: 403 });
     }
-    const candidate = rawProto.split(',')[0]?.trim() ?? '';
-    if (!timingSafeEqual(candidate, env.SCRIBIAN_TOKEN)) {
-      return new Response('bad token', { status: 401 });
-    }
+    console.log(`ws auth ok: label=${auth.result.label}`);
 
-    // Token-derived DO name so plugin + MCP client reach the same DO
-    // instance; the MCP bridge needs the plugin's WS to forward calls.
-    const name = await doNameForToken(candidate);
-    const stub = env.SCRIBIAN_SESSION.get(env.SCRIBIAN_SESSION.idFromName(name));
+    const stub = env.SCRIBIAN_SESSION.get(
+      env.SCRIBIAN_SESSION.idFromName(SESSION_DO_NAME),
+    );
     return stub.fetch(req);
   },
 };
+
+function authBearer(
+  req: Request,
+  registry: TokenRegistry,
+): { ok: true; result: AuthResult } | { ok: false; reason: string; status: number } {
+  const header = req.headers.get('Authorization') ?? '';
+  if (!header.startsWith('Bearer ')) {
+    return { ok: false, reason: 'missing bearer', status: 401 };
+  }
+  const candidate = header.slice(7).trim();
+  const auth = registry.authenticate(candidate);
+  if (!auth) {
+    return { ok: false, reason: 'bad token', status: 401 };
+  }
+  return { ok: true, result: auth };
+}
+
+function authSubprotocol(
+  req: Request,
+  registry: TokenRegistry,
+): { ok: true; result: AuthResult } | { ok: false; reason: string; status: number } {
+  const rawProto = req.headers.get('Sec-WebSocket-Protocol') ?? '';
+  if (!rawProto) {
+    return { ok: false, reason: 'missing protocol', status: 401 };
+  }
+  const candidate = rawProto.split(',')[0]?.trim() ?? '';
+  const auth = registry.authenticate(candidate);
+  if (!auth) {
+    return { ok: false, reason: 'bad token', status: 401 };
+  }
+  return { ok: true, result: auth };
+}
 
 export class ScribianSession {
   private readonly state: DurableObjectState;
   private readonly env: Env;
   private readonly activeChats: Map<string, AbortController> = new Map();
-  // MCP tool calls awaiting plugin response. Keyed by the id we generated
-  // when forwarding the call.
   private readonly pendingMcp: Map<
     string,
     (result: { content: string; is_error?: boolean }) => void
@@ -114,9 +154,9 @@ export class ScribianSession {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
 
-    // MCP requests come in via HTTP (no upgrade). Handle as JSON-RPC.
     if (url.pathname === '/mcp') {
-      return this.handleMcp(req);
+      const callerLabel = req.headers.get('x-scribian-caller-label') ?? 'unknown';
+      return this.handleMcp(req, callerLabel);
     }
 
     const pair = new WebSocketPair();
@@ -218,10 +258,11 @@ export class ScribianSession {
 
   // ─── MCP server ─────────────────────────────────────────────────
 
-  private async handleMcp(req: Request): Promise<Response> {
+  private async handleMcp(
+    req: Request,
+    callerLabel: string,
+  ): Promise<Response> {
     if (req.method !== 'POST') {
-      // Streamable HTTP MCP transport spec also supports GET for
-      // server-initiated SSE; we don't support that. Return 405.
       return new Response('method not allowed', {
         status: 405,
         headers: { Allow: 'POST' },
@@ -235,26 +276,29 @@ export class ScribianSession {
       return Response.json(rpcError(null, PARSE_ERROR, 'invalid JSON'));
     }
 
-    // Handle both single requests and batched requests.
     const requests = Array.isArray(body) ? body : [body];
     const responses: unknown[] = [];
     for (const r of requests) {
-      const reply = await this.handleRpc(r as JsonRpcRequest);
+      const reply = await this.handleRpc(r as JsonRpcRequest, callerLabel);
       if (reply !== null) responses.push(reply);
     }
 
     if (responses.length === 0) {
-      // All requests were notifications (no id); return 202.
       return new Response(null, { status: 202 });
     }
     return Response.json(Array.isArray(body) ? responses : responses[0]);
   }
 
-  private async handleRpc(rpc: JsonRpcRequest): Promise<unknown | null> {
+  private async handleRpc(
+    rpc: JsonRpcRequest,
+    callerLabel: string,
+  ): Promise<unknown | null> {
     if (!rpc || rpc.jsonrpc !== '2.0' || typeof rpc.method !== 'string') {
       return rpcError(rpc?.id ?? null, INVALID_REQUEST, 'invalid request');
     }
     const isNotification = rpc.id === undefined || rpc.id === null;
+
+    console.log(`mcp call: label=${callerLabel} method=${rpc.method}`);
 
     try {
       switch (rpc.method) {
@@ -266,7 +310,6 @@ export class ScribianSession {
           });
 
         case 'notifications/initialized':
-          // No response for notifications
           return isNotification ? null : rpcResult(rpc.id, {});
 
         case 'tools/list':
@@ -280,7 +323,11 @@ export class ScribianSession {
           if (typeof params.name !== 'string') {
             return rpcError(rpc.id, INVALID_PARAMS, 'name is required');
           }
-          const result = await this.bridgeToolCall(params.name, params.arguments);
+          const result = await this.bridgeToolCall(
+            params.name,
+            params.arguments,
+            callerLabel,
+          );
           return rpcResult(rpc.id, {
             content: [{ type: 'text', text: result.content }],
             isError: result.is_error ?? false,
@@ -304,14 +351,10 @@ export class ScribianSession {
     }
   }
 
-  /**
-   * Forward an MCP tool call to whichever plugin WS is attached to this
-   * DO. Returns the result the plugin produced, or an error if no
-   * plugin is connected / it times out.
-   */
   private async bridgeToolCall(
     name: string,
     input: unknown,
+    callerLabel: string,
   ): Promise<{ content: string; is_error?: boolean }> {
     const sockets = this.state.getWebSockets();
     if (sockets.length === 0) {
@@ -338,13 +381,12 @@ export class ScribianSession {
         }, MCP_TOOL_TIMEOUT_MS),
     );
 
-    // Send to the first connected plugin. If the user has Mac + iPhone
-    // both open, only the first ws gets the call — fine for v1.
     this.send(sockets[0], {
       type: 'mcp_call',
       id: callId,
       name,
       input,
+      caller_label: callerLabel,
     });
 
     return Promise.race([promise, timeout]);

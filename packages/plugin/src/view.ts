@@ -76,6 +76,17 @@ function describeToolResult(content: unknown, isError: boolean): string {
   return '✓ tool result';
 }
 
+/** Compact summary of tool input for audit log lines. */
+function summarizeToolInput(name: string, input: unknown): string {
+  const i = (input as Record<string, any>) ?? {};
+  if (name === 'read_note' || name === 'metadata') return `path=${i.path ?? '?'}`;
+  if (name === 'list_notes')
+    return `folder=${i.folder ?? '(all)'} limit=${i.limit ?? 50}`;
+  if (name === 'search_vault') return `query="${i.query ?? '?'}"`;
+  if (name === 'current_note') return '';
+  return JSON.stringify(input ?? {}).slice(0, 100);
+}
+
 // CSS.escape isn't always available; fall back to a regex strip for safety.
 function cssEscape(s: string): string {
   if (typeof (window as any).CSS?.escape === 'function') {
@@ -636,7 +647,7 @@ export class ScribianView extends ItemView {
    */
   private handleServerMessage(msg: import('@scribian/protocol').ServerMessage): void {
     if (msg.type === 'mcp_call') {
-      void this.handleMcpCall(msg.id, msg.name, msg.input);
+      void this.handleMcpCall(msg.id, msg.name, msg.input, msg.caller_label);
       return;
     }
     this.session?.handleServer(msg);
@@ -646,14 +657,29 @@ export class ScribianView extends ItemView {
     id: string,
     name: string,
     input: unknown,
+    callerLabel?: string,
   ): Promise<void> {
     if (!this.transport) return;
+    const caller = callerLabel ?? 'unknown';
+    const inputSummary = summarizeToolInput(name, input);
+    this.plugin.logger.info(
+      `mcp_call from=${caller} tool=${name} ${inputSummary}`,
+    );
     try {
       const result = await executeTool(this.app, name, input, id, async () => {
         // MCP read-only path: no write tools allowed, so no approval is
         // ever requested. Auto-reject any write-tool approval attempt.
         return false;
       });
+      if (result.is_error) {
+        this.plugin.logger.warn(
+          `mcp_call error from=${caller} tool=${name}: ${result.content.slice(0, 200)}`,
+        );
+      } else {
+        this.plugin.logger.info(
+          `mcp_call ok from=${caller} tool=${name} bytes=${result.content.length}`,
+        );
+      }
       this.transport.send({
         type: 'mcp_result',
         id,
@@ -661,10 +687,12 @@ export class ScribianView extends ItemView {
         ...(result.is_error ? { is_error: true } : {}),
       });
     } catch (err) {
+      const msg = err instanceof Error ? err.message : 'tool execution failed';
+      this.plugin.logger.error(`mcp_call exception from=${caller} tool=${name}: ${msg}`);
       this.transport.send({
         type: 'mcp_result',
         id,
-        content: err instanceof Error ? err.message : 'tool execution failed',
+        content: msg,
         is_error: true,
       });
     }

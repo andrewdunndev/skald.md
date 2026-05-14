@@ -73,10 +73,13 @@ export type ServerMessage =
   | { type: 'error'; id?: string; error: string; retryable?: boolean }
   // MCP bridge: Worker forwards a tool call from an MCP client over
   // the plugin's existing WS. Plugin executes locally against Vault
-  // API and replies with mcp_result.
+  // API and replies with mcp_result. caller_label identifies which
+  // token (and therefore which client — Claude Code, Cursor, etc.)
+  // made the request so the plugin can audit-log it.
   | {
       type: 'mcp_call';
       id: string;
       name: string;
       input: unknown;
+      caller_label?: string;
     };
