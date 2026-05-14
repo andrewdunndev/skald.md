@@ -25,19 +25,27 @@ scribian.dev — see `campaigns/factory/notes/scribian-website.md` in
 the storr repo) ships, *it* will conform to the design-system contract
 without exception. The plugin stays Obsidian-native.
 
-## repository: brand artifacts pending iconography pass
+## pipeline: catalog upstream gap
 
 **What fails:**
-- `repository/file-exists:avatar.svg` — missing
-- `repository/file-exists:hero.svg` — missing
-- `repository/file-exists:favicon.svg` — missing
-- `repository/file-exists:brand.png` — missing
+- `pipeline/file-contains:.gitlab-ci.yml` — does not reference any
+  `gitlab.com/dunn.dev/pipeline/<component>@X.Y.Z` catalog component
 
-**Why:** brand artifacts haven't been generated yet. The README
-already includes the `![hero](hero.svg)` embed line per contract,
-expecting the SVG to land later.
+**Why:** scribian's `.gitlab-ci.yml` is hand-rolled (typecheck +
+plugin esbuild + worker `wrangler deploy --dry-run`) because the
+`dunn.dev/pipeline` catalog has no TypeScript/Node build component
+yet. The estate is heavy on Go and Rust primitives; a Node primitive
+needs to land upstream before scribian can consume it. The closest
+existing component, `cloudflare-worker.yml`, deploys via wrangler —
+which scribian intentionally doesn't do from CI (Worker is
+BYO-deployed per user, not shipped from scribian's CI). Adopting it
+would conflict with that design.
 
-**Closure expires:** 2026-07-14 (60 days from initial scaffold). Brand
-artifacts get generated via the `iconography` skill (Ideogram API,
-Encyclopedie etching style per dunn.dev convention). Until then this
-deviation is open.
+**Closure path:** propose a `typescript-build` (or similar) component
+upstream in `dunn.dev/pipeline`: pnpm install with lockfile cache +
+recursive typecheck + optional build artifact emission. scribian
+becomes the first consumer once the component lands. See
+`campaigns/factory/notes/scribian-roadmap.md` Open question #1.
+
+**Closure expires:** 2026-08-14 (~90 days from filing). Estate-level
+work; scribian doesn't block on it for shipping.

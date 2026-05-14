@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Project favicon. Replace this group with the project's metaphorical glyph extracted from avatar.svg, sized for legibility at 16-32px.">
+  <!-- Default placeholder: the dunn.dev rune. A repo without its own
+       metaphor yet keeps this as a fallback so the favicon still
+       carries the estate identity. Replace with the project's glyph
+       (the same metaphor used in avatar.svg) the moment it exists.
+       Hardcode the moss accent #4a6741 on every stroke and fill;
+       currentColor inherits browser-UI text color and renders black
+       on light tab strips. -->
+  <line x1="32" y1="8" x2="48" y2="24" stroke="#4a6741" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="48" y1="24" x2="32" y2="40" stroke="#4a6741" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="32" y1="40" x2="16" y2="24" stroke="#4a6741" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="16" y1="24" x2="32" y2="8" stroke="#4a6741" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="32" y1="40" x2="18" y2="56" stroke="#4a6741" stroke-width="5.5" stroke-linecap="round"/>
+  <line x1="32" y1="40" x2="46" y2="56" stroke="#4a6741" stroke-width="5.5" stroke-linecap="round"/>
+  <circle cx="32" cy="24" r="2.75" fill="#4a6741"/>
+</svg>

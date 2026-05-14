@@ -1,0 +1,74 @@
+<svg viewBox="0 0 1200 430" width="1200" height="430" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="scribian hero — vault-native Claude client for Obsidian. Mobile-first, BYO Anthropic key, your CF Worker, your vault.">
+  <rect x="0" y="0" width="1200" height="430" fill="#f4f4f4"/>
+  <g font-family="IBM Plex Sans, Helvetica, Arial, sans-serif">
+
+  <!-- top metadata row: y 0-48 -->
+  <text x="60" y="34" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">SCRIBIAN · OBSIDIAN CLAUDE CLIENT</text>
+  <text x="1140" y="34" text-anchor="end" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">2026</text>
+  <line x1="60" y1="48" x2="1140" y2="48" stroke="#e0e0e0" stroke-width="1"/>
+
+  <!-- title block: y 60-200, left -->
+  <text x="60" y="138" font-size="72" font-weight="700" fill="#4a6741" letter-spacing="-2">scribian</text>
+  <text x="60" y="172" font-size="14" fill="#404040">vault-native Claude in Obsidian, mobile first.</text>
+  <text x="60" y="192" font-size="14" fill="#404040">your CF Worker, your Anthropic key, your vault.</text>
+
+  <!-- italic tagline: y 222 -->
+  <text x="60" y="222" font-size="12" font-style="italic" fill="#404040">a Claude client that lives where you write.</text>
+
+  <!-- metaphor mark: y 230-380. dunn.dev rune as placeholder glyph
+       (per repository contract — replace later with a scribian-
+       specific glyph once the metaphor is settled). -->
+  <g transform="translate(170 240) scale(2)" stroke="#4a6741" fill="none" stroke-linecap="round">
+    <line x1="33.8" y1="9.8"  x2="46.2" y2="22.2" stroke-width="2"/>
+    <line x1="46.2" y1="25.8" x2="33.8" y2="38.2" stroke-width="2"/>
+    <line x1="30.2" y1="38.2" x2="17.8" y2="25.8" stroke-width="2"/>
+    <line x1="17.8" y1="22.2" x2="30.2" y2="9.8"  stroke-width="2"/>
+    <line x1="30.4" y1="41.9" x2="19.6" y2="54.1" stroke-width="2"/>
+    <line x1="33.6" y1="41.9" x2="44.4" y2="54.1" stroke-width="2"/>
+    <circle cx="32" cy="8"  r="2.5" stroke-width="1.5"/>
+    <circle cx="48" cy="24" r="2.5" stroke-width="1.5"/>
+    <circle cx="32" cy="40" r="2.5" stroke-width="1.5"/>
+    <circle cx="16" cy="24" r="2.5" stroke-width="1.5"/>
+    <circle cx="18" cy="56" r="2.5" stroke-width="1.5"/>
+    <circle cx="46" cy="56" r="2.5" stroke-width="1.5"/>
+    <circle cx="32" cy="24" r="2"   stroke-width="1.5"/>
+  </g>
+
+  <!-- column headers: y 60-90, right -->
+  <text x="560" y="72" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">FLOW</text>
+  <text x="850" y="72" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">DISCIPLINE</text>
+
+  <!-- tile 1: top-left — IN -->
+  <rect x="560" y="84" width="270" height="130" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1"/>
+  <text x="578" y="106" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">IN</text>
+  <text x="578" y="152" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">your notes</text>
+  <text x="578" y="178" font-size="11" fill="#404040">active note · @-attach · vault search</text>
+  <text x="578" y="200" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">OBSIDIAN VAULT API · NATIVE TOOLS</text>
+
+  <!-- tile 2: top-right — POSTURE -->
+  <rect x="850" y="84" width="270" height="130" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1"/>
+  <text x="868" y="106" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">POSTURE</text>
+  <text x="868" y="152" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">BYO worker</text>
+  <text x="868" y="178" font-size="11" fill="#404040">your CF account, your keys, your data</text>
+  <text x="868" y="200" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">NO SHARED BACKEND · NO SCRIBIAN AUTH</text>
+
+  <!-- tile 3: bottom-left — OUT -->
+  <rect x="560" y="224" width="270" height="130" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1"/>
+  <text x="578" y="246" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">OUT</text>
+  <text x="578" y="292" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">markdown</text>
+  <text x="578" y="318" font-size="11" fill="#404040">mermaid · math · internal links · diff cards</text>
+  <text x="578" y="340" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">OBSIDIAN-NATIVE · APPROVED EDITS</text>
+
+  <!-- tile 4: bottom-right — REACH -->
+  <rect x="850" y="224" width="270" height="130" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1"/>
+  <text x="868" y="246" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">REACH</text>
+  <text x="868" y="292" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">vault MCP</text>
+  <text x="868" y="318" font-size="11" fill="#404040">Claude Code, Cursor, Claude Desktop</text>
+  <text x="868" y="340" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">STREAMABLE HTTP · BEARER AUTH</text>
+
+  <!-- bottom metadata row -->
+  <line x1="60" y1="386" x2="1140" y2="386" stroke="#e0e0e0" stroke-width="1"/>
+  <text x="60"   y="412" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">OBSIDIAN · CLOUDFLARE · ANTHROPIC · MCP · MOBILE</text>
+  <text x="1140" y="412" text-anchor="end" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">MIT · GITLAB.COM/DUNN.DEV/SCRIBIAN</text>
+  </g>
+</svg>

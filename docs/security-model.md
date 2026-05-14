@@ -106,6 +106,51 @@ self-host on hardware you control.
 - The vault where conversations and plugin data live
 - The Obsidian Sync (or other sync) configuration
 
+## OpenRouter as an alternative provider
+
+scribian supports OpenRouter as an opt-in fallback provider so users
+can route to non-Anthropic models (OpenAI, Gemini, Llama, Qwen,
+Mistral, etc.) without scribian needing per-provider integration code.
+This carries a privacy trade-off worth surfacing explicitly.
+
+**What changes when you select OpenRouter:**
+
+- Your prompts (system prompts, conversation history, attached vault
+  content, tool calls) traverse one extra hop: CF Worker (TLS) →
+  OpenRouter (TLS) → underlying model provider (TLS).
+- OpenRouter sees every byte of every request and response on routes
+  that go through them. What they do with it depends on their per-
+  model + per-provider data policy; see
+  <https://openrouter.ai/privacy>.
+- The underlying model provider you pick (OpenAI, Google, etc.) has
+  its own data-handling policy on top of OpenRouter's.
+
+**What stays the same:**
+
+- TLS protects every hop. Wire snooping isn't a risk.
+- Per-provider key isolation: scribian stores your OpenRouter key
+  separately from your Anthropic key. The Worker never mixes them.
+- OpenRouter is opt-in — you explicitly switch providers in settings.
+  No silent failover on Anthropic errors.
+- Anthropic-direct stays the default. If you don't touch the provider
+  setting, your prompts go to Anthropic only, exactly like before.
+
+**What scribian does to keep this honest:**
+
+- The plugin shows an inline privacy notice in settings when you
+  select OpenRouter, with a direct link to their privacy policy.
+- The Worker's audit log (visible at `/admin`) captures the provider
+  for every chat turn so you can verify what went where.
+- We do not promise OpenRouter doesn't train on your prompts. We
+  surface the trade-off and link to their docs.
+
+**Server tools on OpenRouter.** Anthropic's native web_search /
+web_fetch server tools are translated to OpenRouter's equivalents
+(`openrouter:web_search` / `openrouter:web_fetch`) so the feature
+works uniformly across providers. These run on OpenRouter's
+infrastructure (Exa as the default search engine) rather than
+Anthropic's — the data trade-off is the same as above.
+
 ## Honest README framing
 
 If you write about scribian publicly:
