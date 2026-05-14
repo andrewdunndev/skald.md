@@ -112,6 +112,38 @@
   gap: var(--size-2-2);
 }
 
+/* Let MarkdownRenderer output breathe — its default styles assume
+   it's the only thing in a container, but we wrap each text block. */
+.scribian-msg-body > .scribian-text > * {
+  margin-block: var(--size-2-1);
+}
+
+.scribian-msg-body > .scribian-text > *:first-child {
+  margin-block-start: 0;
+}
+
+.scribian-msg-body > .scribian-text > *:last-child {
+  margin-block-end: 0;
+}
+
+/* Code blocks within rendered chat content */
+.scribian-msg-body pre {
+  margin: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.scribian-msg-body img {
+  max-width: 100%;
+  height: auto;
+}
+
+.scribian-msg-body table {
+  display: block;
+  overflow-x: auto;
+  max-width: 100%;
+}
+
 .scribian-thinking {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
@@ -132,6 +164,30 @@
   border-radius: var(--radius-s);
 }
 
+.scribian-tool-summary {
+  cursor: pointer;
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-2);
+}
+
+.scribian-tool-summary::-webkit-details-marker {
+  display: none;
+}
+
+.scribian-tool-summary::before {
+  content: '▸';
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  transition: transform 0.1s ease;
+}
+
+.scribian-tool-use[open] > .scribian-tool-summary::before,
+.scribian-tool-result[open] > .scribian-tool-summary::before {
+  transform: rotate(90deg);
+}
+
 .scribian-tool-name {
   font-size: var(--font-ui-smaller);
   color: var(--text-accent);
@@ -140,7 +196,7 @@
 
 .scribian-tool-input {
   font-size: var(--font-ui-smaller);
-  margin: 0;
+  margin: var(--size-2-2) 0 0 0;
   padding: var(--size-2-2);
   background: var(--background-primary);
   border-radius: var(--radius-s);
@@ -173,13 +229,21 @@
 
 .scribian-tool-result-body {
   font-size: var(--font-ui-smaller);
-  margin: 0;
+  margin: var(--size-2-2) 0 0 0;
   padding: var(--size-2-2);
   background: var(--background-primary);
   border-radius: var(--radius-s);
-  max-height: 12rem;
+  max-height: 24rem;
   overflow: auto;
+}
+
+.scribian-tool-result-body pre {
+  margin: 0;
   white-space: pre-wrap;
+}
+
+.scribian-tool-web .scribian-tool-result-label {
+  color: var(--text-accent);
 }
 
 .scribian-block-unknown {

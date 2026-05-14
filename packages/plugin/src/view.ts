@@ -1,4 +1,12 @@
-import { ItemView, TFile, TFolder, WorkspaceLeaf, normalizePath } from 'obsidian';
+import {
+  Component,
+  ItemView,
+  MarkdownRenderer,
+  TFile,
+  TFolder,
+  WorkspaceLeaf,
+  normalizePath,
+} from 'obsidian';
 import type ScribianPlugin from './main';
 import { Transport } from './transport';
 import { ChatSession } from './chat-session';
@@ -7,6 +15,15 @@ import { READ_ONLY_TOOLS, executeTool } from './tools';
 import type { ContentBlock, Message } from '@scribian/protocol';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
+
+const RENDER_THROTTLE_MS = 150;
+
+interface MessageRow {
+  el: HTMLDivElement;
+  body: HTMLDivElement;
+  component: Component;
+  finalized: boolean;
+}
 
 export class ScribianView extends ItemView {
   private plugin: ScribianPlugin;
@@ -18,6 +35,8 @@ export class ScribianView extends ItemView {
   private inputEl!: HTMLTextAreaElement;
   private sendBtn!: HTMLButtonElement;
   private stopBtn!: HTMLButtonElement;
+  private rows: MessageRow[] = [];
+  private renderTimer: number | null = null;
 
   constructor(leaf: WorkspaceLeaf, plugin: ScribianPlugin) {
     super(leaf);
@@ -41,7 +60,6 @@ export class ScribianView extends ItemView {
     root.empty();
     root.addClass('scribian-root');
 
-    // Header — model picker + new-chat
     const header = root.createDiv({ cls: 'scribian-header' });
     this.modelSelect = header.createEl('select', { cls: 'scribian-model' });
     for (const m of MODELS) {
@@ -60,9 +78,8 @@ export class ScribianView extends ItemView {
       cls: 'scribian-new-chat',
       text: 'New chat',
     });
-    newChatBtn.addEventListener('click', () => this.session?.reset());
+    newChatBtn.addEventListener('click', () => this.resetChat());
 
-    // Status row — status + reconnect
     const statusRow = root.createDiv({ cls: 'scribian-status-row' });
     this.statusEl = statusRow.createDiv({ cls: 'scribian-status' });
     const reconnectBtn = statusRow.createEl('button', {
@@ -72,10 +89,8 @@ export class ScribianView extends ItemView {
     reconnectBtn.addEventListener('click', () => this.reconnect());
     this.setStatus('Disconnected');
 
-    // Messages
     this.messagesEl = root.createDiv({ cls: 'scribian-messages' });
 
-    // Input + send/stop
     const inputWrap = root.createDiv({ cls: 'scribian-input-wrap' });
     this.inputEl = inputWrap.createEl('textarea', {
       cls: 'scribian-input',
@@ -105,15 +120,24 @@ export class ScribianView extends ItemView {
   }
 
   override async onClose(): Promise<void> {
+    this.cancelRenderTimer();
+    this.tearDownRows();
     this.transport?.close();
     this.transport = null;
     this.session = null;
+  }
+
+  private resetChat(): void {
+    this.session?.reset();
+    this.tearDownRows();
+    this.requestRender();
   }
 
   private reconnect(): void {
     this.transport?.close();
     this.transport = null;
     this.session = null;
+    this.tearDownRows();
     this.connect();
   }
 
@@ -144,20 +168,18 @@ export class ScribianView extends ItemView {
       READ_ONLY_TOOLS,
       (name, input) => executeTool(this.app, name, input),
       {
-        onUpdate: () => this.renderMessages(),
+        onUpdate: () => this.requestRender(),
         onError: (err) => this.setStatus(`Chat error: ${err}`, 'error'),
         onDone: (stopReason, usage) => this.onTurnDone(stopReason, usage),
       },
     );
-    this.renderMessages();
+    this.requestRender();
   }
 
   private async loadSystemPrompt(): Promise<string | undefined> {
     const folderSetting = this.plugin.settings.harnessFolder.trim();
-    // Empty setting disables harness loading entirely.
     if (!folderSetting) return undefined;
 
-    // `.` or `/` means "use vault root".
     const folderPath =
       folderSetting === '.' || folderSetting === '/'
         ? ''
@@ -165,9 +187,7 @@ export class ScribianView extends ItemView {
 
     const parts: string[] = [];
 
-    const claudeMdPath = folderPath
-      ? `${folderPath}/CLAUDE.md`
-      : 'CLAUDE.md';
+    const claudeMdPath = folderPath ? `${folderPath}/CLAUDE.md` : 'CLAUDE.md';
     const claudeMd = this.app.vault.getAbstractFileByPath(claudeMdPath);
     if (claudeMd instanceof TFile) {
       try {
@@ -220,70 +240,164 @@ export class ScribianView extends ItemView {
     void this.session.sendUserText(text);
   }
 
-  private onTurnDone(stopReason: string, usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number; cache_creation_input_tokens?: number }): void {
+  private onTurnDone(
+    stopReason: string,
+    usage: {
+      input_tokens: number;
+      output_tokens: number;
+      cache_read_input_tokens?: number;
+      cache_creation_input_tokens?: number;
+    },
+  ): void {
     this.sendBtn.disabled = false;
     this.stopBtn.style.display = 'none';
     const cache = usage.cache_read_input_tokens
       ? ` (cache hit ${usage.cache_read_input_tokens})`
       : '';
+    const stop = stopReason !== 'end_turn' ? ` · ${stopReason}` : '';
     this.setStatus(
-      `Connected · last turn: ${usage.input_tokens} in / ${usage.output_tokens} out${cache}${stopReason !== 'end_turn' ? ` · ${stopReason}` : ''}`,
+      `Connected · last turn: ${usage.input_tokens} in / ${usage.output_tokens} out${cache}${stop}`,
       'connected',
     );
+    // Force a final render to lock the finalized message rendering.
+    this.flushRender();
   }
 
-  private renderMessages(): void {
-    if (!this.session) return;
-    this.messagesEl.empty();
+  // ─── Render pipeline ────────────────────────────────────────────
 
-    for (const m of this.session.getMessages()) {
-      this.renderMessage(m);
+  private requestRender(): void {
+    if (this.renderTimer !== null) return;
+    this.renderTimer = window.setTimeout(() => {
+      this.renderTimer = null;
+      void this.flushRender();
+    }, RENDER_THROTTLE_MS);
+  }
+
+  private cancelRenderTimer(): void {
+    if (this.renderTimer !== null) {
+      window.clearTimeout(this.renderTimer);
+      this.renderTimer = null;
     }
+  }
+
+  private async flushRender(): Promise<void> {
+    if (!this.session) return;
+    const history = this.session.getMessages();
     const inFlight = this.session.getInFlight();
-    if (inFlight) {
-      this.renderMessage({
-        role: 'assistant',
-        content: inFlight.blocks,
-      });
+    const totalCount = history.length + (inFlight ? 1 : 0);
+
+    while (this.rows.length < totalCount) {
+      this.appendRow();
+    }
+    while (this.rows.length > totalCount) {
+      this.popRow();
+    }
+
+    for (let i = 0; i < totalCount; i++) {
+      const isInFlight = i >= history.length;
+      const msg: Message = isInFlight
+        ? { role: 'assistant', content: inFlight!.blocks }
+        : history[i];
+      const row = this.rows[i];
+      if (row.finalized && !isInFlight) continue;
+      await this.renderRow(row, msg);
+      if (!isInFlight) row.finalized = true;
     }
 
     this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
   }
 
-  private renderMessage(m: Message): void {
-    const row = this.messagesEl.createDiv({
-      cls: `scribian-msg scribian-msg-${m.role}`,
-    });
-    row.createSpan({
-      cls: 'scribian-msg-who',
-      text: m.role === 'user' ? 'You' : 'Claude',
-    });
+  private appendRow(): void {
+    const el = this.messagesEl.createDiv({ cls: 'scribian-msg' });
+    el.createSpan({ cls: 'scribian-msg-who' });
+    const body = el.createDiv({ cls: 'scribian-msg-body' });
+    const component = new Component();
+    this.addChild(component);
+    this.rows.push({ el, body, component, finalized: false });
+  }
 
-    const body = row.createDiv({ cls: 'scribian-msg-body' });
-    if (typeof m.content === 'string') {
-      body.createSpan({ text: m.content });
+  private popRow(): void {
+    const row = this.rows.pop();
+    if (!row) return;
+    row.component.unload();
+    this.removeChild(row.component);
+    row.el.remove();
+  }
+
+  private tearDownRows(): void {
+    while (this.rows.length > 0) this.popRow();
+    this.messagesEl.empty();
+  }
+
+  private async renderRow(row: MessageRow, msg: Message): Promise<void> {
+    // Refresh role class
+    row.el.removeClass('scribian-msg-user', 'scribian-msg-assistant');
+    row.el.addClass(`scribian-msg-${msg.role}`);
+
+    const whoEl = row.el.querySelector(
+      '.scribian-msg-who',
+    ) as HTMLElement | null;
+    if (whoEl) whoEl.setText(msg.role === 'user' ? 'You' : 'Claude');
+
+    // Replace the component so previous renders' subscribers are unloaded.
+    row.component.unload();
+    this.removeChild(row.component);
+    row.component = new Component();
+    this.addChild(row.component);
+
+    row.body.empty();
+
+    if (typeof msg.content === 'string') {
+      if (msg.content.trim()) {
+        await this.renderMarkdownInto(row.body, msg.content, row.component);
+      }
       return;
     }
-    for (const block of m.content) {
-      this.renderBlock(body, block);
+
+    for (const block of msg.content) {
+      await this.renderBlock(row.body, block, row.component);
     }
   }
 
-  private renderBlock(parent: HTMLElement, block: ContentBlock): void {
+  private async renderMarkdownInto(
+    el: HTMLElement,
+    md: string,
+    component: Component,
+  ): Promise<void> {
+    // sourcePath empty -> [[Note]] / ![[Note]] resolves from vault root,
+    // matching the user's mental model of "Claude references my notes."
+    await MarkdownRenderer.render(this.app, md, el, '', component);
+  }
+
+  private async renderBlock(
+    parent: HTMLElement,
+    block: ContentBlock,
+    component: Component,
+  ): Promise<void> {
     const b = block as Record<string, unknown>;
-    const type = b.type as string;
+    const type = b.type as string | undefined;
+
     if (type === 'text') {
-      parent.createSpan({ text: (b.text as string) ?? '' });
+      const text = (b.text as string) ?? '';
+      if (!text) return;
+      const wrap = parent.createDiv({ cls: 'scribian-text' });
+      await this.renderMarkdownInto(wrap, text, component);
       return;
     }
+
     if (type === 'thinking') {
       const t = parent.createDiv({ cls: 'scribian-thinking' });
-      t.setText(`💭 ${(b.thinking as string) ?? ''}`);
+      t.createSpan({ cls: 'scribian-thinking-icon', text: '💭' });
+      t.createSpan({ text: (b.thinking as string) ?? '' });
       return;
     }
+
     if (type === 'tool_use') {
-      const card = parent.createDiv({ cls: 'scribian-tool-use' });
-      card.createSpan({
+      const card = parent.createEl('details', { cls: 'scribian-tool-use' });
+      const summary = card.createEl('summary', {
+        cls: 'scribian-tool-summary',
+      });
+      summary.createSpan({
         cls: 'scribian-tool-name',
         text: `🔧 ${(b.name as string) ?? 'tool'}`,
       });
@@ -296,24 +410,78 @@ export class ScribianView extends ItemView {
       }
       return;
     }
+
     if (type === 'tool_result') {
       const isError = b.is_error === true;
-      const card = parent.createDiv({
+      const card = parent.createEl('details', {
         cls: `scribian-tool-result${isError ? ' scribian-tool-result-error' : ''}`,
       });
-      card.createSpan({
+      const summary = card.createEl('summary', {
+        cls: 'scribian-tool-summary',
+      });
+      summary.createSpan({
         cls: 'scribian-tool-result-label',
         text: isError ? '⚠️ tool error' : '✓ tool result',
       });
-      const content =
-        typeof b.content === 'string'
-          ? b.content
-          : JSON.stringify(b.content, null, 2);
-      const pre = card.createEl('pre', { cls: 'scribian-tool-result-body' });
-      pre.setText(content);
+      const body = card.createDiv({ cls: 'scribian-tool-result-body' });
+      const content = b.content;
+      if (typeof content === 'string') {
+        await this.renderMarkdownInto(body, content, component);
+      } else {
+        const pre = body.createEl('pre');
+        pre.setText(JSON.stringify(content, null, 2));
+      }
       return;
     }
-    // Unknown block type — render as JSON for visibility while we iterate.
+
+    if (type === 'web_search_tool_result') {
+      const card = parent.createEl('details', {
+        cls: 'scribian-tool-result scribian-tool-web',
+      });
+      const summary = card.createEl('summary', {
+        cls: 'scribian-tool-summary',
+      });
+      summary.createSpan({
+        cls: 'scribian-tool-result-label',
+        text: '🌐 web search results',
+      });
+      const body = card.createDiv({ cls: 'scribian-tool-result-body' });
+      const content = b.content;
+      if (Array.isArray(content)) {
+        const md = content
+          .map((entry: any) => {
+            if (entry?.type === 'web_search_result') {
+              const title = entry.title ?? entry.url ?? 'result';
+              const url = entry.url ?? '';
+              const age = entry.page_age ? ` · ${entry.page_age}` : '';
+              return `- [${title}](${url})${age}`;
+            }
+            return `- ${JSON.stringify(entry)}`;
+          })
+          .join('\n');
+        await this.renderMarkdownInto(body, md, component);
+      } else {
+        const pre = body.createEl('pre');
+        pre.setText(JSON.stringify(content, null, 2));
+      }
+      return;
+    }
+
+    if (type === 'server_tool_use') {
+      const card = parent.createDiv({ cls: 'scribian-tool-use' });
+      card.createSpan({
+        cls: 'scribian-tool-name',
+        text: `🌐 ${(b.name as string) ?? 'server_tool'}`,
+      });
+      const input = b.input;
+      if (input) {
+        const pre = card.createEl('pre', { cls: 'scribian-tool-input' });
+        pre.setText(JSON.stringify(input, null, 2));
+      }
+      return;
+    }
+
+    // Unknown block type — render JSON for visibility while we iterate.
     const pre = parent.createEl('pre', { cls: 'scribian-block-unknown' });
     pre.setText(JSON.stringify(b, null, 2));
   }
