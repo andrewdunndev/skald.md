@@ -2,12 +2,8 @@ import {
   Component,
   ItemView,
   MarkdownRenderer,
-  Notice,
   TFile,
-  TFolder,
   WorkspaceLeaf,
-  normalizePath,
-  prepareFuzzySearch,
   setIcon,
   setTooltip,
 } from 'obsidian';
@@ -18,8 +14,10 @@ import { MODELS } from './settings';
 import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
-import { buildMemorySection } from './memory-prompt';
-import { buildPersonaSection } from './persona-prompt';
+import { renderDiffCard } from './view/diff-card';
+import { loadSystemPrompt } from './view/system-prompt';
+import { renderMessageActions } from './view/message-actions';
+import { NotePicker } from './view/note-picker';
 import {
   attachmentsFromClipboard,
   attachmentsFromFiles,
@@ -107,47 +105,6 @@ function cssEscape(s: string): string {
 }
 
 // LCS-based line diff. Produces a unified-style change list.
-interface DiffLine {
-  type: 'same' | 'add' | 'remove';
-  text: string;
-}
-
-function lineDiff(before: string, after: string): DiffLine[] {
-  const a = before.split('\n');
-  const b = after.split('\n');
-  const m = a.length;
-  const n = b.length;
-  const dp: number[][] = Array.from({ length: m + 1 }, () =>
-    new Array(n + 1).fill(0),
-  );
-  for (let i = 1; i <= m; i++) {
-    for (let j = 1; j <= n; j++) {
-      if (a[i - 1] === b[j - 1]) {
-        dp[i][j] = dp[i - 1][j - 1] + 1;
-      } else {
-        dp[i][j] = Math.max(dp[i - 1][j], dp[i][j - 1]);
-      }
-    }
-  }
-  const out: DiffLine[] = [];
-  let i = m;
-  let j = n;
-  while (i > 0 || j > 0) {
-    if (i > 0 && j > 0 && a[i - 1] === b[j - 1]) {
-      out.unshift({ type: 'same', text: a[i - 1] });
-      i -= 1;
-      j -= 1;
-    } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
-      out.unshift({ type: 'add', text: b[j - 1] });
-      j -= 1;
-    } else {
-      out.unshift({ type: 'remove', text: a[i - 1] });
-      i -= 1;
-    }
-  }
-  return out;
-}
-
 interface MessageRow {
   el: HTMLDivElement;
   body: HTMLDivElement;
@@ -171,10 +128,7 @@ export class ScribianView extends ItemView {
   private chipEl!: HTMLDivElement;
   private pickedFiles: TFile[] = [];
   private pickedImages: ImageAttachment[] = [];
-  private pickerEl: HTMLDivElement | null = null;
-  private pickerAnchor: number = -1;
-  private pickerSelectedIdx: number = 0;
-  private pickerResults: TFile[] = [];
+  private notePicker!: NotePicker;
   private readonly approvals = new ApprovalManager({
     onPendingChange: () => this.flushRender(),
     onResolve: (proposal, approved) => {
@@ -334,44 +288,46 @@ export class ScribianView extends ItemView {
       e.preventDefault();
       void this.handleImagePaste(e);
     });
-    this.inputEl.addEventListener('input', () => this.updatePickerForCursor());
-    this.inputEl.addEventListener('click', () => this.updatePickerForCursor());
+    this.notePicker = new NotePicker(this.app, this.inputEl, this.chipEl, {
+      onPick: (file) => {
+        if (!this.pickedFiles.includes(file)) this.pickedFiles.push(file);
+        this.renderChip();
+      },
+    });
+
+    const recomputePicker = () => this.notePicker.updateForCursor();
+    this.inputEl.addEventListener('input', recomputePicker);
+    this.inputEl.addEventListener('click', recomputePicker);
     this.inputEl.addEventListener('keyup', (e) => {
-      // arrow/home/end land here too; trigger picker recompute
       if (
         e.key === 'ArrowLeft' ||
         e.key === 'ArrowRight' ||
         e.key === 'Home' ||
         e.key === 'End'
       ) {
-        this.updatePickerForCursor();
+        recomputePicker();
       }
     });
     this.inputEl.addEventListener('keydown', (e) => {
-      if (this.pickerEl && this.pickerResults.length > 0) {
+      if (this.notePicker.isOpen()) {
         if (e.key === 'ArrowDown') {
           e.preventDefault();
-          this.pickerSelectedIdx =
-            (this.pickerSelectedIdx + 1) % this.pickerResults.length;
-          this.renderPicker();
+          this.notePicker.moveSelection(1);
           return;
         }
         if (e.key === 'ArrowUp') {
           e.preventDefault();
-          this.pickerSelectedIdx =
-            (this.pickerSelectedIdx - 1 + this.pickerResults.length) %
-            this.pickerResults.length;
-          this.renderPicker();
+          this.notePicker.moveSelection(-1);
           return;
         }
         if (e.key === 'Enter' && !e.shiftKey) {
           e.preventDefault();
-          this.pickResult(this.pickerSelectedIdx);
+          this.notePicker.acceptSelection();
           return;
         }
         if (e.key === 'Escape') {
           e.preventDefault();
-          this.closePicker();
+          this.notePicker.close();
           return;
         }
       }
@@ -428,7 +384,7 @@ export class ScribianView extends ItemView {
     this.session = new ChatSession(
       this.transport,
       () => this.modelSelect.value,
-      () => this.loadSystemPrompt(),
+      () => loadSystemPrompt(this.app, this.plugin.settings),
       () => {
         const s = this.plugin.settings;
         const provider = s.provider ?? 'anthropic';
@@ -458,73 +414,6 @@ export class ScribianView extends ItemView {
     this.requestRender();
   }
 
-  private async loadSystemPrompt(): Promise<string | undefined> {
-    const parts: string[] = [];
-
-    // 1. Persona (phase 9b). Layers first so harness + memory
-    // build on top of the persona's voice — domain guidance
-    // refines the persona, not the other way around.
-    const personaSection = await buildPersonaSection(this.app, {
-      path: this.plugin.settings.activePersona,
-    });
-    if (personaSection) parts.push(personaSection);
-
-    // 2. Harness context (CLAUDE.md + skills). Optional.
-    const folderSetting = this.plugin.settings.harnessFolder.trim();
-    if (folderSetting) {
-      const folderPath =
-        folderSetting === '.' || folderSetting === '/'
-          ? ''
-          : normalizePath(folderSetting);
-
-      const claudeMdPath = folderPath ? `${folderPath}/CLAUDE.md` : 'CLAUDE.md';
-      const claudeMd = this.app.vault.getAbstractFileByPath(claudeMdPath);
-      if (claudeMd instanceof TFile) {
-        try {
-          parts.push(await this.app.vault.read(claudeMd));
-        } catch {
-          // ignore unreadable file
-        }
-      }
-
-      const skillsPath = folderPath ? `${folderPath}/skills` : 'skills';
-      const skillsFolder = this.app.vault.getAbstractFileByPath(skillsPath);
-      if (skillsFolder instanceof TFolder) {
-        const skills = await this.collectSkills(skillsFolder);
-        if (skills.length > 0) {
-          parts.push('## Skills\n\n' + skills.join('\n\n---\n\n'));
-        }
-      }
-    }
-
-    // 3. Memory note. Phase 6: Claude's long-term state, read at
-    // every chat start. Shape owned by memory-prompt.ts.
-    const memSection = await buildMemorySection(this.app, {
-      enabled: this.plugin.settings.memoryEnabled,
-      path: this.plugin.settings.memoryPath,
-    });
-    if (memSection) parts.push(memSection);
-
-    return parts.length > 0 ? parts.join('\n\n---\n\n') : undefined;
-  }
-
-  private async collectSkills(folder: TFolder): Promise<string[]> {
-    const out: string[] = [];
-    for (const child of folder.children) {
-      if (child instanceof TFile && child.extension === 'md') {
-        try {
-          const content = await this.app.vault.read(child);
-          out.push(`### ${child.basename}\n\n${content}`);
-        } catch {
-          // skip unreadable
-        }
-      } else if (child instanceof TFolder) {
-        const nested = await this.collectSkills(child);
-        out.push(...nested);
-      }
-    }
-    return out;
-  }
 
   /**
    * Drop text into the chat input from outside the view (e.g. a
@@ -671,116 +560,6 @@ export class ScribianView extends ItemView {
       this.chipEl.childElementCount === 0 ? 'none' : '';
   }
 
-  // ─── @ picker ────────────────────────────────────────────────────
-
-  private updatePickerForCursor(): void {
-    const text = this.inputEl.value;
-    const cursor = this.inputEl.selectionStart ?? text.length;
-    const before = text.slice(0, cursor);
-    const atMatch = before.match(/(^|\s)@([^\s@]*)$/);
-    if (!atMatch) {
-      this.closePicker();
-      return;
-    }
-    const query = atMatch[2];
-    const atIndex = cursor - query.length - 1;
-    this.openPicker(atIndex, query);
-  }
-
-  private openPicker(atIndex: number, query: string): void {
-    this.pickerAnchor = atIndex;
-    this.pickerResults = this.searchVault(query);
-    this.pickerSelectedIdx = 0;
-    if (!this.pickerEl) {
-      this.pickerEl = this.chipEl.insertAdjacentElement(
-        'afterend',
-        createDiv({ cls: 'scribian-picker' }),
-      ) as HTMLDivElement;
-    }
-    this.renderPicker();
-  }
-
-  private closePicker(): void {
-    if (!this.pickerEl) return;
-    this.pickerEl.remove();
-    this.pickerEl = null;
-    this.pickerResults = [];
-    this.pickerAnchor = -1;
-  }
-
-  private renderPicker(): void {
-    if (!this.pickerEl) return;
-    this.pickerEl.empty();
-    if (this.pickerResults.length === 0) {
-      const empty = this.pickerEl.createDiv({ cls: 'scribian-picker-empty' });
-      empty.setText('No matching notes');
-      return;
-    }
-    this.pickerResults.forEach((file, idx) => {
-      const row = this.pickerEl!.createDiv({
-        cls: `scribian-picker-row${idx === this.pickerSelectedIdx ? ' is-selected' : ''}`,
-      });
-      row.createSpan({
-        cls: 'scribian-picker-name',
-        text: file.basename,
-      });
-      const folder = file.parent?.path;
-      if (folder && folder !== '/') {
-        row.createSpan({
-          cls: 'scribian-picker-folder',
-          text: folder,
-        });
-      }
-      row.addEventListener('click', (e) => {
-        e.preventDefault();
-        this.pickResult(idx);
-      });
-      // Avoid stealing focus from the textarea on mousedown
-      row.addEventListener('mousedown', (e) => e.preventDefault());
-    });
-  }
-
-  private pickResult(idx: number): void {
-    const file = this.pickerResults[idx];
-    if (!file) return;
-    // Replace "@query" text in the input with empty (or a space)
-    const text = this.inputEl.value;
-    const cursor = this.inputEl.selectionStart ?? text.length;
-    const replaced =
-      text.slice(0, this.pickerAnchor) + text.slice(cursor);
-    this.inputEl.value = replaced;
-    this.inputEl.setSelectionRange(this.pickerAnchor, this.pickerAnchor);
-    this.inputEl.focus();
-
-    // Add to attachments unless already present
-    if (!this.pickedFiles.includes(file)) {
-      this.pickedFiles.push(file);
-    }
-    this.closePicker();
-    this.renderChip();
-  }
-
-  private searchVault(query: string): TFile[] {
-    const all = this.app.vault.getMarkdownFiles();
-    if (!query) {
-      // Empty query: most-recently-modified first
-      return [...all]
-        .sort((a, b) => b.stat.mtime - a.stat.mtime)
-        .slice(0, 8);
-    }
-    const fuzzy = prepareFuzzySearch(query);
-    type Scored = { file: TFile; score: number };
-    const scored: Scored[] = [];
-    for (const f of all) {
-      const result =
-        fuzzy(f.basename) ?? fuzzy(f.path);
-      if (result) {
-        scored.push({ file: f, score: result.score });
-      }
-    }
-    scored.sort((a, b) => b.score - a.score);
-    return scored.slice(0, 8).map((s) => s.file);
-  }
 
   private onTurnDone(
     stopReason: string,
@@ -996,110 +775,13 @@ export class ScribianView extends ItemView {
     // Per-message action row at the bottom of every finalized Claude turn.
     // Hover-based actions don't work on mobile, so these are always visible.
     if (msg.role === 'assistant' && !isInFlight) {
-      this.renderMessageActions(row.el, msg);
+      renderMessageActions(row.el, msg, {
+        app: this.app,
+        savedNotesFolder: this.plugin.settings.savedNotesFolder,
+      });
     }
   }
 
-  private renderMessageActions(row: HTMLElement, msg: Message): void {
-    const actions = row.createDiv({ cls: 'scribian-msg-actions' });
-    const text = this.messageText(msg);
-
-    const copyBtn = actions.createEl('button', {
-      cls: 'clickable-icon scribian-msg-action',
-      attr: { 'aria-label': 'Copy message' },
-    });
-    setIcon(copyBtn, 'copy');
-    setTooltip(copyBtn, 'Copy');
-    copyBtn.addEventListener('click', () => this.copyMessage(text, copyBtn));
-
-    const saveBtn = actions.createEl('button', {
-      cls: 'clickable-icon scribian-msg-action',
-      attr: { 'aria-label': 'Save as note' },
-    });
-    setIcon(saveBtn, 'file-plus');
-    setTooltip(saveBtn, 'Save as new note');
-    saveBtn.addEventListener('click', () => this.saveAsNote(text));
-
-    const appendBtn = actions.createEl('button', {
-      cls: 'clickable-icon scribian-msg-action',
-      attr: { 'aria-label': 'Append to current note' },
-    });
-    setIcon(appendBtn, 'file-down');
-    setTooltip(appendBtn, 'Append to current note');
-    appendBtn.addEventListener('click', () => this.appendToCurrent(text));
-  }
-
-  /**
-   * Concatenate the message's textual content for copy / save operations.
-   * Skips thinking blocks (internal), tool calls (UI noise), and any
-   * non-textual blocks. Returns the rendered-source markdown so the
-   * saved note matches what's shown.
-   */
-  private messageText(msg: Message): string {
-    if (typeof msg.content === 'string') return msg.content;
-    const parts: string[] = [];
-    for (const block of msg.content) {
-      const b = block as Record<string, unknown>;
-      const t = b.type as string | undefined;
-      if (t === 'text' && typeof b.text === 'string') {
-        parts.push(b.text);
-      }
-    }
-    return parts.join('\n\n');
-  }
-
-  private async copyMessage(text: string, btn: HTMLButtonElement): Promise<void> {
-    try {
-      await navigator.clipboard.writeText(text);
-      // Brief visual ack — swap the icon to a check for ~1s.
-      setIcon(btn, 'check');
-      setTimeout(() => setIcon(btn, 'copy'), 1200);
-    } catch {
-      new Notice('Copy failed');
-    }
-  }
-
-  private async saveAsNote(text: string): Promise<void> {
-    if (!text.trim()) {
-      new Notice('Nothing to save');
-      return;
-    }
-    const folder = this.plugin.settings.savedNotesFolder.trim() || 'Scribian/Saved';
-    const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-    const path = normalizePath(`${folder}/${ts}.md`);
-    try {
-      // Make sure folder exists
-      const folderItem = this.app.vault.getAbstractFileByPath(folder);
-      if (!folderItem) {
-        await this.app.vault.createFolder(folder);
-      }
-      const created = await this.app.vault.create(path, text);
-      new Notice(`Saved to ${path}`);
-      this.app.workspace.openLinkText(created.path, '', false);
-    } catch (err) {
-      new Notice(
-        `Save failed: ${err instanceof Error ? err.message : 'unknown'}`,
-      );
-    }
-  }
-
-  private async appendToCurrent(text: string): Promise<void> {
-    const file = this.app.workspace.getActiveFile();
-    if (!file || file.extension !== 'md') {
-      new Notice('No active note to append to');
-      return;
-    }
-    try {
-      const existing = await this.app.vault.read(file);
-      const sep = existing.endsWith('\n') ? '\n' : '\n\n';
-      await this.app.vault.modify(file, existing + sep + text);
-      new Notice(`Appended to ${file.basename}`);
-    } catch (err) {
-      new Notice(
-        `Append failed: ${err instanceof Error ? err.message : 'unknown'}`,
-      );
-    }
-  }
 
   private async renderMarkdownInto(
     el: HTMLElement,
@@ -1173,7 +855,10 @@ export class ScribianView extends ItemView {
       });
       const pending = id ? this.approvals.get(id) : undefined;
       if (pending) {
-        this.renderDiffCard(parent, pending.proposal);
+        renderDiffCard(parent, pending.proposal, {
+          onApprove: (tid) => this.resolveApprovalUi(tid, true),
+          onReject: (tid) => this.resolveApprovalUi(tid, false),
+        });
       }
       return;
     }
@@ -1324,62 +1009,6 @@ export class ScribianView extends ItemView {
     card?.remove();
   }
 
-  private renderDiffCard(
-    parent: HTMLElement,
-    proposal: WriteProposal,
-  ): void {
-    const card = parent.createDiv({ cls: 'scribian-diff' });
-    card.setAttr('data-tool-use-id', proposal.toolUseId);
-
-    const header = card.createDiv({ cls: 'scribian-diff-header' });
-    const kindLabel = {
-      create: '🆕 Create',
-      overwrite: '✏️ Overwrite',
-      edit: '✏️ Edit',
-      append: '➕ Append',
-    }[proposal.kind];
-    header.createSpan({
-      cls: 'scribian-diff-kind',
-      text: kindLabel,
-    });
-    header.createSpan({
-      cls: 'scribian-diff-path',
-      text: proposal.path,
-    });
-
-    const body = card.createDiv({ cls: 'scribian-diff-body' });
-    const diff = lineDiff(proposal.before ?? '', proposal.after);
-    for (const line of diff) {
-      const row = body.createDiv({
-        cls: `scribian-diff-line scribian-diff-${line.type}`,
-      });
-      const marker = row.createSpan({ cls: 'scribian-diff-marker' });
-      marker.setText(
-        line.type === 'add' ? '+' : line.type === 'remove' ? '−' : ' ',
-      );
-      row.createSpan({ cls: 'scribian-diff-text', text: line.text });
-    }
-
-    const actions = card.createDiv({ cls: 'scribian-diff-actions' });
-    const approve = actions.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn scribian-diff-approve',
-      attr: { 'aria-label': 'Approve write' },
-    });
-    setIcon(approve, 'check');
-    setTooltip(approve, 'Approve');
-    const reject = actions.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn scribian-diff-reject',
-      attr: { 'aria-label': 'Reject write' },
-    });
-    setIcon(reject, 'x');
-    setTooltip(reject, 'Reject');
-    approve.addEventListener('click', () =>
-      this.resolveApprovalUi(proposal.toolUseId, true),
-    );
-    reject.addEventListener('click', () =>
-      this.resolveApprovalUi(proposal.toolUseId, false),
-    );
-  }
 
   private setStatus(text: string, modifier?: 'connected' | 'error'): void {
     this.statusEl.setText(text);
