@@ -14,11 +14,17 @@
 import { setIcon, setTooltip } from 'obsidian';
 import { lineDiff } from '../diff';
 import type { WriteProposal } from '../tools';
+import { haptic } from './haptics';
 
 export interface DiffCardHooks {
   onApprove: (toolUseId: string) => void;
   onReject: (toolUseId: string) => void;
 }
+
+/** Horizontal swipe threshold (px) to fire approve/reject via
+ * gesture. Higher than typical accidental drift; low enough that
+ * a confident swipe is comfortable. */
+const SWIPE_THRESHOLD_PX = 70;
 
 const KIND_LABELS: Record<WriteProposal['kind'], string> = {
   create: '🆕 Create',
@@ -86,6 +92,80 @@ export function renderDiffCard(
   });
   setIcon(reject, 'x');
   setTooltip(reject, 'Reject');
-  approve.addEventListener('click', () => hooks.onApprove(proposal.toolUseId));
-  reject.addEventListener('click', () => hooks.onReject(proposal.toolUseId));
+  approve.addEventListener('click', () => {
+    haptic('approve');
+    hooks.onApprove(proposal.toolUseId);
+  });
+  reject.addEventListener('click', () => {
+    haptic('reject');
+    hooks.onReject(proposal.toolUseId);
+  });
+
+  attachSwipeGesture(card, proposal, hooks);
+}
+
+/**
+ * Touch-only swipe gesture: drag the diff card right to approve,
+ * left to reject. The visual displacement during the drag is the
+ * feedback; crossing SWIPE_THRESHOLD_PX commits the decision.
+ *
+ * passive: true on the listeners — we don't preventDefault scroll,
+ * we just snap the card visually. Vertical scrolling continues to
+ * work normally. Mouse drags are ignored deliberately; desktop
+ * users have the icon buttons.
+ */
+function attachSwipeGesture(
+  card: HTMLDivElement,
+  proposal: WriteProposal,
+  hooks: DiffCardHooks,
+): void {
+  let startX = 0;
+  let startY = 0;
+  let active = false;
+  card.addEventListener(
+    'touchstart',
+    (e) => {
+      const t = e.touches[0];
+      if (!t) return;
+      startX = t.clientX;
+      startY = t.clientY;
+      active = true;
+    },
+    { passive: true },
+  );
+  card.addEventListener(
+    'touchmove',
+    (e) => {
+      if (!active) return;
+      const t = e.touches[0];
+      if (!t) return;
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+      // If the gesture is more vertical than horizontal, defer to
+      // native scroll instead of hijacking it.
+      if (Math.abs(dy) > Math.abs(dx)) {
+        active = false;
+        card.style.transform = '';
+        return;
+      }
+      card.style.transform = `translate3d(${dx}px, 0, 0)`;
+    },
+    { passive: true },
+  );
+  const finish = (e: TouchEvent): void => {
+    if (!active) return;
+    active = false;
+    const t = e.changedTouches[0];
+    const dx = t ? t.clientX - startX : 0;
+    card.style.transform = '';
+    if (dx >= SWIPE_THRESHOLD_PX) {
+      haptic('approve');
+      hooks.onApprove(proposal.toolUseId);
+    } else if (dx <= -SWIPE_THRESHOLD_PX) {
+      haptic('reject');
+      hooks.onReject(proposal.toolUseId);
+    }
+  };
+  card.addEventListener('touchend', finish, { passive: true });
+  card.addEventListener('touchcancel', finish, { passive: true });
 }

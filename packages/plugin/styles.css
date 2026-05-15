@@ -163,6 +163,11 @@
   border-radius: var(--radius-s);
   background: var(--background-primary);
   overflow: hidden;
+  /* Smooth snap-back when a touch swipe is released without
+     crossing the threshold. transform during the gesture is
+     instant; only the release animates. */
+  transition: transform 0.18s ease-out;
+  touch-action: pan-y;
 }
 
 .scribian-diff-header {

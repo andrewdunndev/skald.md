@@ -46,7 +46,19 @@ export class Composer {
     const inputWrap = root.createDiv({ cls: 'scribian-input-wrap' });
     this.inputEl = inputWrap.createEl('textarea', {
       cls: 'scribian-input',
-      attr: { placeholder: 'Ask Claude…', rows: '2' },
+      attr: {
+        placeholder: 'Ask Claude…',
+        rows: '2',
+        // Mobile signals: capitalize starts of sentences, autocorrect
+        // on, show "Send" instead of "Return" on the iOS keyboard.
+        // The iOS mic icon on the keyboard is the dictation entry —
+        // these attributes make it feel native rather than fighting
+        // the OS.
+        autocapitalize: 'sentences',
+        autocorrect: 'on',
+        spellcheck: 'true',
+        enterkeyhint: 'send',
+      },
     });
     const buttonRow = inputWrap.createDiv({ cls: 'scribian-button-row' });
 
