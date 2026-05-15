@@ -65,7 +65,7 @@ machine-readability):
 
 | File | Effective cap | Expires | Note |
 |---|---|---|---|
-| `packages/plugin/src/view.ts` | 1500 | 2026-06-30 | Extract chat-renderer + input-row + diff-card |
+| `packages/plugin/src/view.ts` | 850 | 2026-06-30 | Down from 1389 over three commits; extract composer (input row + chips + paste/file handlers) and chat-session integration (handleServerMessage + handleMcpCall + persistConversation) for the next cycle |
 | `packages/worker/src/index.ts` | 1200 | 2026-06-30 | Extract HTTP handlers (memory / capture / mcp) to per-route modules |
 | `packages/plugin/src/tools.ts` | 700 | 2026-06-30 | Split into read-tools + write-tools + tool-context |
 

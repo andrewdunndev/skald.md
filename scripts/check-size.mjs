@@ -45,9 +45,9 @@ const SOURCE_ROOTS = ['packages/plugin/src', 'packages/worker/src', 'packages/pr
 const DEVIATIONS = [
   {
     file: 'packages/plugin/src/view.ts',
-    cap: 1500,
+    cap: 850,
     expires: '2026-06-30',
-    note: 'Split into chat-renderer + input-row + diff-card modules. Tracked.',
+    note: 'Extract composer (input row + chips + paste/file handlers) and chat-session integration (handleServerMessage + handleMcpCall + persistConversation) for the next refactor cycle. Down from 1389 over three commits.',
   },
   {
     file: 'packages/worker/src/index.ts',
