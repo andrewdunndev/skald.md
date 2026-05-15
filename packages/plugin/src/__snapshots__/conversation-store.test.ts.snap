@@ -1,0 +1,31 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`renderConversationMarkdown > full render snapshot (representative conversation) 1`] = `
+"---
+scribian-conversation-id: 00000000-0000-0000-0000-000000000abc
+scribian-model: claude-sonnet-4-6
+created: 2026-05-15T08:30:00.000Z
+updated: 2026-05-15T08:35:00.000Z
+input_tokens: 482
+output_tokens: 1503
+cache_read_input_tokens: 9300
+estimated_cost_usd: 0.024700
+---
+
+## You
+
+> 📎 [[Bailey.md]]
+
+Is Bailey allergic to anything?
+
+## Claude
+
+Let me check the note.
+
+> 🔧 _Reading Bailey.md_
+
+> ✓ tool result: She is a dog.
+
+Yes — the note doesn't say. Want me to ask the vet?
+"
+`;

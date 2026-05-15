@@ -41,6 +41,11 @@ file-size:
   script:
     - pnpm check:size
 
+plugin-lint:
+  stage: test
+  script:
+    - pnpm check:lint
+
 build-plugin:
   stage: build
   needs: ['typecheck']

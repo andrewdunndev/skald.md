@@ -94,18 +94,44 @@ export function renderConversationMarkdown(
   for (let i = 0; i < messages.length; i++) {
     const m = messages[i];
     if (m.role === 'user') {
-      const text = typeof m.content === 'string' ? m.content : '';
-      const { text: clean, attachedPaths } = stripContext(text);
       lines.push('## You');
       lines.push('');
-      if (attachedPaths.length > 0) {
-        lines.push(
-          attachedPaths.map((p) => `> 📎 [[${p}]]`).join('\n'),
-        );
+      if (typeof m.content === 'string') {
+        const { text: clean, attachedPaths } = stripContext(m.content);
+        if (attachedPaths.length > 0) {
+          lines.push(attachedPaths.map((p) => `> 📎 [[${p}]]`).join('\n'));
+          lines.push('');
+        }
+        lines.push(clean || '(empty message)');
         lines.push('');
+      } else {
+        // Multi-modal user turn (text + images). Render text blocks
+        // as prose; images get a placeholder so saved files stay
+        // readable (the in-memory ChatSession still holds the full
+        // base64 payload for any model continuation).
+        for (const block of m.content) {
+          const b = block as Record<string, any>;
+          if (b.type === 'text' && typeof b.text === 'string') {
+            const { text: clean, attachedPaths } = stripContext(b.text);
+            if (attachedPaths.length > 0) {
+              lines.push(
+                attachedPaths.map((p) => `> 📎 [[${p}]]`).join('\n'),
+              );
+              lines.push('');
+            }
+            lines.push(clean || '(empty message)');
+            lines.push('');
+          } else if (b.type === 'image') {
+            const source = b.source as Record<string, unknown> | undefined;
+            const mt =
+              source && typeof source.media_type === 'string'
+                ? source.media_type
+                : 'image';
+            lines.push(`> 🖼 _attached ${mt} (omitted from saved record)_`);
+            lines.push('');
+          }
+        }
       }
-      lines.push(clean || '(empty message)');
-      lines.push('');
     } else if (m.role === 'assistant') {
       lines.push('## Claude');
       lines.push('');

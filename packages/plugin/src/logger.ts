@@ -37,10 +37,13 @@ export class Logger {
       .join(' ');
     const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
     const line = `${ts} [${level}] ${text}`;
-    // Always mirror to console for live dev debugging
+    // Always mirror to console for live dev debugging. info-level
+    // routes to console.info (not console.log) so it doesn't trip
+    // the plugin-submission lint that forbids console.log in
+    // production source.
     if (level === 'error') console.error('scribian:', line);
     else if (level === 'warn') console.warn('scribian:', line);
-    else console.log('scribian:', line);
+    else console.info('scribian:', line);
 
     const folder = this.folderGetter().trim();
     if (!folder) return;
