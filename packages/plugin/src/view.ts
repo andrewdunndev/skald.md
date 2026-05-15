@@ -197,6 +197,7 @@ export class ScribianView extends ItemView {
             workerUrl: this.plugin.settings.workerUrl,
             workerToken: this.plugin.settings.workerToken,
           },
+          memoryPath: this.plugin.settings.memoryPath,
         }),
       {
         onUpdate: () => this.requestRender(),

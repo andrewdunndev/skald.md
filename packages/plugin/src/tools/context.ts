@@ -31,6 +31,11 @@ export interface ToolContext {
   /** Phase 6: enables find_related. Absent → tool returns a clear
    * "not configured" error. */
   memoryClient?: MemoryClientConfig;
+  /** Vault-relative path to the memory note (e.g. `Scribian/Memory.md`).
+   * Used by the explicit memory tools (remember_fact / update_memory /
+   * forget_fact) so the model doesn't have to know the path. Absent →
+   * those tools return a "not configured" error. */
+  memoryPath?: string;
 }
 
 /**

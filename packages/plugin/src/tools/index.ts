@@ -10,10 +10,14 @@ import {
   runMetadata,
 } from './read';
 import {
+  MEMORY_TOOLS,
   WRITE_TOOLS,
   runWriteNote,
   runEditNote,
   runAppendToNote,
+  runRememberFact,
+  runUpdateMemory,
+  runForgetFact,
 } from './write';
 import { SERVER_TOOLS } from './server';
 
@@ -24,16 +28,18 @@ export type {
   WriteKind,
   WriteProposal,
 } from './context';
-export { READ_ONLY_TOOLS, WRITE_TOOLS, SERVER_TOOLS };
+export { READ_ONLY_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS };
 
 /**
  * Every tool definition shipped on a chat request. Plugin dispatches
- * READ_ONLY_TOOLS + WRITE_TOOLS through executeTool; SERVER_TOOLS
- * execute on the provider side and never reach the executor.
+ * READ_ONLY_TOOLS + WRITE_TOOLS + MEMORY_TOOLS through executeTool;
+ * SERVER_TOOLS execute on the provider side and never reach the
+ * executor.
  */
 export const ALL_TOOLS: ToolDefinition[] = [
   ...READ_ONLY_TOOLS,
   ...WRITE_TOOLS,
+  ...MEMORY_TOOLS,
   ...SERVER_TOOLS,
 ];
 
@@ -62,6 +68,30 @@ export async function executeTool(
         return await runEditNote(ctx.app, args, toolUseId, ctx.approve);
       case 'append_to_note':
         return await runAppendToNote(ctx.app, args, toolUseId, ctx.approve);
+      case 'remember_fact':
+        return await runRememberFact(
+          ctx.app,
+          args,
+          toolUseId,
+          ctx.approve,
+          ctx.memoryPath,
+        );
+      case 'update_memory':
+        return await runUpdateMemory(
+          ctx.app,
+          args,
+          toolUseId,
+          ctx.approve,
+          ctx.memoryPath,
+        );
+      case 'forget_fact':
+        return await runForgetFact(
+          ctx.app,
+          args,
+          toolUseId,
+          ctx.approve,
+          ctx.memoryPath,
+        );
       case 'find_related':
         if (!ctx.memoryClient) {
           return {

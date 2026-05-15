@@ -217,6 +217,11 @@ async function bridgeToolCall(
 
 function isWriteToolName(name: string): boolean {
   return (
-    name === 'write_note' || name === 'edit_note' || name === 'append_to_note'
+    name === 'write_note' ||
+    name === 'edit_note' ||
+    name === 'append_to_note' ||
+    name === 'remember_fact' ||
+    name === 'update_memory' ||
+    name === 'forget_fact'
   );
 }
