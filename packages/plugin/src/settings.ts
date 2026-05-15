@@ -36,6 +36,16 @@ export interface ScribianSettings {
    */
   memoryEnabled: boolean;
   memoryPath: string;
+  /**
+   * Phase 9b: personas.
+   * personasFolder: where the user keeps persona notes. Surfaces
+   *   the "[Open personas folder]" button in settings.
+   * activePersona: vault-relative path of the active persona note.
+   *   Empty → no persona. The note's body (frontmatter stripped)
+   *   prefixes the system prompt.
+   */
+  personasFolder: string;
+  activePersona: string;
 }
 
 export const MODELS = [
@@ -58,6 +68,8 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   logsFolder: '',
   memoryEnabled: true,
   memoryPath: 'Scribian/Memory.md',
+  personasFolder: 'Scribian/Personas',
+  activePersona: '',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -303,6 +315,30 @@ export class ScribianSettingTab extends PluginSettingTab {
           void this.plugin.reindexVault();
         }),
       );
+
+    // ── Personas ─────────────────────────────────────────────────
+    new Setting(containerEl).setName('Personas').setHeading();
+
+    this.addFolderSetting(
+      'Personas folder',
+      'Where persona notes live. Each persona is a markdown note; its body (frontmatter stripped) becomes a system-prompt prefix when active. Default: Scribian/Personas',
+      'Scribian/Personas',
+      'personasFolder',
+    );
+
+    new Setting(containerEl)
+      .setName('Active persona')
+      .setDesc(
+        'Vault-relative path of the active persona note (e.g. "Scribian/Personas/code-reviewer.md"). Empty to disable. The persona\'s body prefixes Claude\'s system prompt on every chat.',
+      )
+      .addText((t) => {
+        t.setPlaceholder('Scribian/Personas/code-reviewer.md')
+          .setValue(this.plugin.settings.activePersona)
+          .onChange(async (v) => {
+            this.plugin.settings.activePersona = v.trim();
+            await this.plugin.saveSettings();
+          });
+      });
   }
 
   /**
@@ -317,7 +353,8 @@ export class ScribianSettingTab extends PluginSettingTab {
       | 'harnessFolder'
       | 'chatsFolder'
       | 'savedNotesFolder'
-      | 'logsFolder',
+      | 'logsFolder'
+      | 'personasFolder',
   ): void {
     new Setting(this.containerEl)
       .setName(name)

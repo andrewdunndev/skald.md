@@ -18,6 +18,7 @@ import { MODELS } from './settings';
 import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { buildMemorySection } from './memory-prompt';
+import { buildPersonaSection } from './persona-prompt';
 import { saveConversation } from './conversation-store';
 import type { ContentBlock, Message } from '@scribian/protocol';
 
@@ -407,7 +408,15 @@ export class ScribianView extends ItemView {
   private async loadSystemPrompt(): Promise<string | undefined> {
     const parts: string[] = [];
 
-    // 1. Harness context (CLAUDE.md + skills). Optional.
+    // 1. Persona (phase 9b). Layers first so harness + memory
+    // build on top of the persona's voice — domain guidance
+    // refines the persona, not the other way around.
+    const personaSection = await buildPersonaSection(this.app, {
+      path: this.plugin.settings.activePersona,
+    });
+    if (personaSection) parts.push(personaSection);
+
+    // 2. Harness context (CLAUDE.md + skills). Optional.
     const folderSetting = this.plugin.settings.harnessFolder.trim();
     if (folderSetting) {
       const folderPath =
@@ -435,8 +444,8 @@ export class ScribianView extends ItemView {
       }
     }
 
-    // 2. Memory note. Phase 6: Claude's long-term state, read at every
-    // chat start. Shape owned by memory-prompt.ts.
+    // 3. Memory note. Phase 6: Claude's long-term state, read at
+    // every chat start. Shape owned by memory-prompt.ts.
     const memSection = await buildMemorySection(this.app, {
       enabled: this.plugin.settings.memoryEnabled,
       path: this.plugin.settings.memoryPath,
