@@ -777,6 +777,41 @@
   /* Inherits the .scribian-msg-who size + weight set above */
 }
 
+/* ── Active-note indicator ───────────────────────────────────────── */
+.scribian-active-note {
+  display: flex;
+  align-items: center;
+  gap: var(--size-2-1);
+  padding: var(--size-2-1) var(--size-4-2);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  max-width: 100%;
+  align-self: flex-start;
+}
+
+.scribian-active-note-icon {
+  --icon-size: var(--icon-xs);
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-muted);
+}
+
+.scribian-active-note-label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text-normal);
+}
+
+.scribian-active-note-attach {
+  --icon-size: var(--icon-xs);
+  padding: 2px;
+  border-radius: 999px;
+}
+
 /* ── Security: setup confirm modal ───────────────────────────────── */
 .scribian-setup-confirm h2 {
   margin-top: 0;

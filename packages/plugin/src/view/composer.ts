@@ -210,6 +210,17 @@ export class Composer {
   }
 
   /**
+   * Attach a vault file to the next turn from outside the composer
+   * (e.g. the active-note indicator's paperclip button). Idempotent —
+   * attaching the same file twice is a no-op.
+   */
+  attachFile(file: TFile): void {
+    if (this.pickedFiles.includes(file)) return;
+    this.pickedFiles.push(file);
+    this.renderChip();
+  }
+
+  /**
    * Catch image clipboard data on the input element. Convert to
    * base64 attachments + render chips; the actual image content
    * blocks are built by the caller on submit.

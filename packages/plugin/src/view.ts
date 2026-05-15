@@ -6,6 +6,7 @@ import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
 import { loadSystemPrompt } from './view/system-prompt';
+import { ActiveNoteIndicator } from './view/active-note';
 import { Composer } from './view/composer';
 import { loadStarterChips } from './view/empty-state';
 import { renderHeader } from './view/header';
@@ -26,6 +27,7 @@ export class ScribianView extends ItemView {
   private statusEl!: HTMLDivElement;
   private composer!: Composer;
   private messageList!: MessageList;
+  private activeNote: ActiveNoteIndicator | null = null;
   private readonly approvals = new ApprovalManager({
     onPendingChange: () => this.flushRender(),
     onResolve: (proposal, approved) => {
@@ -80,6 +82,10 @@ export class ScribianView extends ItemView {
     reconnectBtn.addEventListener('click', () => this.reconnect());
     this.setStatus('Disconnected');
 
+    this.activeNote = new ActiveNoteIndicator(root, this.app, {
+      onAttach: (file) => this.composer?.attachFile(file),
+    });
+
     maybeRenderSetupBanner(root, this.app, {
       workerUrl: this.plugin.settings.workerUrl,
       workerToken: this.plugin.settings.workerToken,
@@ -110,6 +116,8 @@ export class ScribianView extends ItemView {
   }
 
   override async onClose(): Promise<void> {
+    this.activeNote?.dispose();
+    this.activeNote = null;
     this.messageList?.cancelPendingRender();
     this.messageList?.tearDown();
     this.transport?.close();
