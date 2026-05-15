@@ -2,11 +2,13 @@ import {
   App,
   Component,
   MarkdownRenderer,
+  setIcon,
   type ItemView,
 } from 'obsidian';
 import type { Message } from '@scribian/protocol';
 import { renderBlock, type BlockContext } from './block-renderer';
 import { renderMessageActions } from './message-actions';
+import { renderEmptyState, type StarterChip } from './empty-state';
 import type { WriteProposal } from '../tools';
 
 const RENDER_THROTTLE_MS = 150;
@@ -32,6 +34,13 @@ export interface MessageListContext {
   /** Where finalized assistant messages can be saved to from the
    * "Save as new note" / "Append to current note" action row. */
   savedNotesFolder: string;
+  /** Called when the user taps a starter chip in the empty state.
+   * The host fills the composer with the chip's prompt — the user
+   * reviews + sends in the normal flow. */
+  onStarterPick: (prompt: string) => void;
+  /** Optional override for the empty-state starter chips. Defaults
+   * to DEFAULT_STARTER_CHIPS from view/empty-state.ts. */
+  starterChips?: StarterChip[];
 }
 
 /**
@@ -46,10 +55,26 @@ export class MessageList {
   private readonly ctx: MessageListContext;
   private rows: MessageRow[] = [];
   private renderTimer: number | null = null;
+  private emptyStateEl: HTMLDivElement | null = null;
 
   constructor(parent: HTMLElement, ctx: MessageListContext) {
     this.ctx = ctx;
     this.messagesEl = parent.createDiv({ cls: 'scribian-messages' });
+    this.renderEmptyState();
+  }
+
+  private renderEmptyState(): void {
+    this.emptyStateEl?.remove();
+    this.emptyStateEl = renderEmptyState(
+      this.messagesEl,
+      { onChipPick: (prompt) => this.ctx.onStarterPick(prompt) },
+      this.ctx.starterChips,
+    );
+  }
+
+  private clearEmptyState(): void {
+    this.emptyStateEl?.remove();
+    this.emptyStateEl = null;
   }
 
   el(): HTMLDivElement {
@@ -77,6 +102,14 @@ export class MessageList {
   ): Promise<void> {
     const totalCount = history.length + (inFlight ? 1 : 0);
 
+    if (totalCount === 0) {
+      // No messages — render (or keep) the empty-state welcome.
+      if (!this.emptyStateEl) this.renderEmptyState();
+    } else {
+      // First message arriving clears the welcome.
+      this.clearEmptyState();
+    }
+
     while (this.rows.length < totalCount) {
       this.appendRow();
     }
@@ -97,7 +130,17 @@ export class MessageList {
       if (!isInFlight) row.finalized = true;
     }
 
-    this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    // Smooth scroll to the latest content. Falls back to instant on
+    // engines that don't support the scrollTo options bag (older
+    // mobile webviews) — scrollTop assignment is the safe baseline.
+    if (typeof this.messagesEl.scrollTo === 'function') {
+      this.messagesEl.scrollTo({
+        top: this.messagesEl.scrollHeight,
+        behavior: 'smooth',
+      });
+    } else {
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    }
   }
 
   cancelPendingRender(): void {
@@ -108,10 +151,13 @@ export class MessageList {
   }
 
   /** Tear down every row and clear the messages container — invoked
-   * on new chat / disconnect. */
+   * on new chat / disconnect. Restores the empty-state welcome
+   * since the user is now staring at an empty pane. */
   tearDown(): void {
     while (this.rows.length > 0) this.popRow();
     this.messagesEl.empty();
+    this.emptyStateEl = null;
+    this.renderEmptyState();
   }
 
   /** DOM query helper for approval card removal (the diff card lives
@@ -151,7 +197,15 @@ export class MessageList {
     const whoEl = row.el.querySelector(
       '.scribian-msg-who',
     ) as HTMLElement | null;
-    if (whoEl) whoEl.setText(msg.role === 'user' ? 'You' : 'Claude');
+    if (whoEl) {
+      whoEl.empty();
+      const avatar = whoEl.createSpan({ cls: 'scribian-msg-avatar' });
+      setIcon(avatar, msg.role === 'user' ? 'user' : 'sparkles');
+      whoEl.createSpan({
+        cls: 'scribian-msg-label',
+        text: msg.role === 'user' ? 'You' : 'Claude',
+      });
+    }
 
     // Replace the component so previous renders' subscribers are unloaded.
     row.component.unload();
@@ -180,12 +234,22 @@ export class MessageList {
           '',
           row.component,
         );
+      } else if (isInFlight) {
+        renderTypingDots(row.body);
       }
       return;
     }
 
     for (const block of msg.content) {
       await renderBlock(row.body, block, blockCtx);
+    }
+
+    // First-token delay: assistant streamed turn that hasn't emitted
+    // any rendered content yet. Show three pulsing dots so the user
+    // knows something is happening (the row's streaming border-pulse
+    // is subtle on mobile).
+    if (isInFlight && msg.role === 'assistant' && !hasRenderedContent(msg)) {
+      renderTypingDots(row.body);
     }
 
     // Per-message action row at the bottom of every finalized Claude
@@ -197,6 +261,34 @@ export class MessageList {
       });
     }
   }
+}
+
+/** Render three pulsing dots into a row body. Pure CSS animation —
+ * see styles.css `.scribian-typing-dot`. */
+function renderTypingDots(parent: HTMLElement): void {
+  const wrap = parent.createDiv({ cls: 'scribian-typing' });
+  wrap.createSpan({ cls: 'scribian-typing-dot' });
+  wrap.createSpan({ cls: 'scribian-typing-dot' });
+  wrap.createSpan({ cls: 'scribian-typing-dot' });
+}
+
+/**
+ * True when an in-flight assistant message has at least one block
+ * that produces visible content (text/thinking with non-empty text,
+ * tool_use, image, etc.). Used to decide whether to show typing
+ * dots while waiting for the first token.
+ */
+function hasRenderedContent(msg: Message): boolean {
+  if (typeof msg.content === 'string') {
+    return msg.content.trim().length > 0;
+  }
+  for (const block of msg.content) {
+    const b = block as { type: string; text?: string; thinking?: string };
+    if (b.type === 'text' && (b.text ?? '').trim()) return true;
+    if (b.type === 'thinking' && (b.thinking ?? '').trim()) return true;
+    if (b.type !== 'text' && b.type !== 'thinking') return true;
+  }
+  return false;
 }
 
 // CSS.escape isn't always available; fall back to a regex strip for

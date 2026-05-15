@@ -1,0 +1,75 @@
+import { setIcon, setTooltip } from 'obsidian';
+import { MODELS } from '../settings';
+import type { ScribianSettings } from '../settings';
+
+export interface HeaderHooks {
+  onModelChange: (newModel: string) => void | Promise<void>;
+  onNewChat: () => void;
+}
+
+export interface HeaderRefs {
+  /** The active <select> the host reads via `.value`. For OpenRouter
+   * this is a hidden one-option select whose value is the configured
+   * model id; for Anthropic it's the visible dropdown. */
+  modelSelect: HTMLSelectElement;
+}
+
+/**
+ * Top-of-pane header: model picker (Anthropic dropdown OR OpenRouter
+ * label + hidden select) + new-chat button. Returns the hooks/refs
+ * the host needs to keep wired (modelSelect for reading the active
+ * model on send).
+ */
+export function renderHeader(
+  parent: HTMLElement,
+  settings: ScribianSettings,
+  hooks: HeaderHooks,
+): HeaderRefs {
+  const header = parent.createDiv({ cls: 'scribian-header' });
+  const provider = settings.provider ?? 'anthropic';
+
+  let modelSelect: HTMLSelectElement;
+  if (provider === 'anthropic') {
+    // Anthropic-direct: small fixed dropdown of Anthropic models.
+    modelSelect = header.createEl('select', { cls: 'scribian-model' });
+    for (const m of MODELS) {
+      const opt = modelSelect.createEl('option', {
+        text: m.label,
+        value: m.id,
+      });
+      if (m.id === settings.defaultModel) opt.selected = true;
+    }
+    modelSelect.addEventListener('change', () => {
+      void hooks.onModelChange(modelSelect.value);
+    });
+  } else {
+    // OpenRouter: hundreds-of-models catalog. The chat header shows
+    // the active model as a non-editable label; model selection
+    // lives in settings (ModelSuggest fuzzy search). The hidden
+    // <select> below is a stand-in so `.value` keeps working — its
+    // single option carries the user's configured OpenRouter model.
+    const label = header.createEl('span', {
+      cls: 'scribian-model-label',
+      text: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
+    });
+    label.setAttr('title', 'Active OpenRouter model. Change in settings.');
+    modelSelect = header.createEl('select', {
+      cls: 'scribian-model scribian-model-hidden',
+    });
+    const opt = modelSelect.createEl('option', {
+      text: settings.openrouterModel,
+      value: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
+    });
+    opt.selected = true;
+  }
+
+  const newChatBtn = header.createEl('button', {
+    cls: 'clickable-icon scribian-icon-btn',
+    attr: { 'aria-label': 'New chat' },
+  });
+  setIcon(newChatBtn, 'square-pen');
+  setTooltip(newChatBtn, 'New chat');
+  newChatBtn.addEventListener('click', () => hooks.onNewChat());
+
+  return { modelSelect };
+}

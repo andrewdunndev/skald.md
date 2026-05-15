@@ -650,3 +650,175 @@
   color: var(--text-muted);
   margin-top: 0.2rem;
 }
+
+/* ── Polish sweep: empty-state welcome ───────────────────────────── */
+.scribian-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: var(--size-4-2);
+  padding: var(--size-4-4) var(--size-4-2);
+  text-align: center;
+  color: var(--text-muted);
+}
+
+.scribian-empty-icon {
+  --icon-size: var(--icon-l);
+  color: var(--text-accent);
+  opacity: 0.7;
+}
+
+.scribian-empty-title {
+  font-size: var(--font-ui-medium);
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+.scribian-empty-subtitle {
+  font-size: var(--font-ui-small);
+  max-width: 28rem;
+  line-height: 1.4;
+}
+
+.scribian-empty-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--size-2-2);
+  margin-top: var(--size-2-2);
+}
+
+.scribian-empty-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-1);
+  padding: var(--size-2-1) var(--size-4-2);
+  font: inherit;
+  font-size: var(--font-ui-smaller);
+  color: var(--text-normal);
+  background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.12s ease, border-color 0.12s ease;
+}
+
+.scribian-empty-chip:hover {
+  background: var(--background-modifier-hover);
+  border-color: var(--interactive-accent);
+  color: var(--text-normal);
+}
+
+.scribian-empty-chip-icon {
+  --icon-size: var(--icon-xs);
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-accent);
+}
+
+/* ── Polish sweep: typing indicator ──────────────────────────────── */
+.scribian-typing {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: var(--size-2-1) var(--size-2-2);
+}
+
+.scribian-typing-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-muted);
+  opacity: 0.4;
+  animation: scribian-typing-bounce 1.2s ease-in-out infinite;
+}
+
+.scribian-typing-dot:nth-child(2) {
+  animation-delay: 0.15s;
+}
+
+.scribian-typing-dot:nth-child(3) {
+  animation-delay: 0.3s;
+}
+
+@keyframes scribian-typing-bounce {
+  0%, 60%, 100% {
+    opacity: 0.4;
+    transform: translateY(0);
+  }
+  30% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+/* ── Polish sweep: avatar icons on message rows ──────────────────── */
+.scribian-msg-who {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-1);
+}
+
+.scribian-msg-avatar {
+  --icon-size: var(--icon-xs);
+  display: inline-flex;
+  align-items: center;
+  color: var(--text-accent);
+  opacity: 0.85;
+}
+
+.scribian-msg-user .scribian-msg-avatar {
+  color: var(--text-accent);
+}
+
+.scribian-msg-label {
+  /* Inherits the .scribian-msg-who size + weight set above */
+}
+
+/* ── Polish sweep: first-run setup banner ────────────────────────── */
+.scribian-setup-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-4-2);
+  padding: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  background: var(--background-modifier-info, var(--background-secondary));
+  border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--interactive-accent);
+  border-radius: var(--radius-s);
+}
+
+.scribian-setup-banner-icon {
+  --icon-size: var(--icon-m);
+  color: var(--interactive-accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.scribian-setup-banner-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-1);
+  min-width: 0;
+}
+
+.scribian-setup-banner-title {
+  font-size: var(--font-ui-small);
+  font-weight: var(--font-semibold);
+  color: var(--text-normal);
+}
+
+.scribian-setup-banner-detail {
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.scribian-setup-banner-action {
+  flex-shrink: 0;
+  align-self: center;
+  font-size: var(--font-ui-smaller);
+}

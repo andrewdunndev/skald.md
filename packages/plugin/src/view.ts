@@ -2,14 +2,15 @@ import { ItemView, WorkspaceLeaf, setIcon, setTooltip } from 'obsidian';
 import type ScribianPlugin from './main';
 import { Transport } from './transport';
 import { ChatSession } from './chat-session';
-import { MODELS } from './settings';
 import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
 import { loadSystemPrompt } from './view/system-prompt';
 import { Composer } from './view/composer';
+import { renderHeader } from './view/header';
 import { handleMcpCall } from './view/mcp-bridge';
 import { MessageList } from './view/message-list';
+import { maybeRenderSetupBanner } from './view/setup-banner';
 import { toImageContentBlock } from './image-attach';
 import { saveConversation } from './conversation-store';
 import type { ContentBlock } from '@scribian/protocol';
@@ -58,53 +59,14 @@ export class ScribianView extends ItemView {
     root.empty();
     root.addClass('scribian-root');
 
-    const header = root.createDiv({ cls: 'scribian-header' });
-    const settings = this.plugin.settings;
-    const provider = settings.provider ?? 'anthropic';
-
-    if (provider === 'anthropic') {
-      // Anthropic-direct: small fixed dropdown of Anthropic models.
-      this.modelSelect = header.createEl('select', { cls: 'scribian-model' });
-      for (const m of MODELS) {
-        const opt = this.modelSelect.createEl('option', {
-          text: m.label,
-          value: m.id,
-        });
-        if (m.id === settings.defaultModel) opt.selected = true;
-      }
-      this.modelSelect.addEventListener('change', async () => {
-        this.plugin.settings.defaultModel = this.modelSelect.value;
+    const refs = renderHeader(root, this.plugin.settings, {
+      onModelChange: async (newModel) => {
+        this.plugin.settings.defaultModel = newModel;
         await this.plugin.saveSettings();
-      });
-    } else {
-      // OpenRouter: hundreds-of-models catalog. The chat header shows
-      // the active model as a non-editable label; model selection
-      // lives in settings (ModelSuggest fuzzy search). The hidden
-      // <select> below is a stand-in so `.value` keeps working — its
-      // single option carries the user's configured OpenRouter model.
-      // Styles in styles.css (.scribian-model-label).
-      const label = header.createEl('span', {
-        cls: 'scribian-model-label',
-        text: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
-      });
-      label.setAttr('title', 'Active OpenRouter model. Change in settings.');
-      this.modelSelect = header.createEl('select', {
-        cls: 'scribian-model scribian-model-hidden',
-      });
-      const opt = this.modelSelect.createEl('option', {
-        text: settings.openrouterModel,
-        value: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
-      });
-      opt.selected = true;
-    }
-
-    const newChatBtn = header.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn',
-      attr: { 'aria-label': 'New chat' },
+      },
+      onNewChat: () => this.resetChat(),
     });
-    setIcon(newChatBtn, 'square-pen');
-    setTooltip(newChatBtn, 'New chat');
-    newChatBtn.addEventListener('click', () => this.resetChat());
+    this.modelSelect = refs.modelSelect;
 
     const statusRow = root.createDiv({ cls: 'scribian-status-row' });
     this.statusEl = statusRow.createDiv({ cls: 'scribian-status' });
@@ -117,6 +79,11 @@ export class ScribianView extends ItemView {
     reconnectBtn.addEventListener('click', () => this.reconnect());
     this.setStatus('Disconnected');
 
+    maybeRenderSetupBanner(root, this.app, {
+      workerUrl: this.plugin.settings.workerUrl,
+      workerToken: this.plugin.settings.workerToken,
+    });
+
     this.messageList = new MessageList(root, {
       app: this.app,
       host: this,
@@ -124,6 +91,7 @@ export class ScribianView extends ItemView {
       onApprove: (id) => this.resolveApprovalUi(id, true),
       onReject: (id) => this.resolveApprovalUi(id, false),
       savedNotesFolder: this.plugin.settings.savedNotesFolder,
+      onStarterPick: (prompt) => this.composer?.fillText(prompt),
     });
 
     this.composer = new Composer(root, this.app, {
