@@ -106,6 +106,12 @@ export class ScribianView extends ItemView {
         this.composer.fillText(chip.prompt);
         if (chip.attachImage) this.composer.pickImage();
       },
+      onSuggestWrite: (path) => {
+        if (!this.composer) return;
+        this.composer.fillText(
+          `Propose a write_note or append_to_note targeting \`${path}\` with the content from your last message. I'll approve via the diff card.`,
+        );
+      },
       loadStarterChips: () =>
         loadStarterChips(this.app, this.plugin.settings.startersPath),
     });

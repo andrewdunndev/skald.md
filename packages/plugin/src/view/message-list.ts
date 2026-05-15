@@ -48,6 +48,10 @@ export interface MessageListContext {
    * edits to a vault-side Starters.md show up on the next clean
    * pane. Returns DEFAULT_STARTER_CHIPS when not provided. */
   loadStarterChips?: () => Promise<StarterChip[]>;
+  /** Called when the user taps a "Propose write to X.md" nudge on a
+   * finalized assistant turn. Host fills the composer with a
+   * follow-up prompt asking Claude to actually emit the write. */
+  onSuggestWrite?: (path: string) => void;
 }
 
 /**
@@ -280,6 +284,7 @@ export class MessageList {
       renderMessageActions(row.el, msg, {
         app: this.ctx.app,
         savedNotesFolder: this.ctx.savedNotesFolder,
+        onSuggestWrite: this.ctx.onSuggestWrite,
       });
     }
   }

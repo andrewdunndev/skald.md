@@ -23,10 +23,18 @@ import {
   hasAnyAction,
   summarizeVaultActions,
 } from './vault-action-summary';
+import {
+  extractMentionedPaths,
+  unwrittenMentions,
+} from './mention-extraction';
 
 export interface MessageActionsConfig {
   app: App;
   savedNotesFolder: string;
+  /** Called when the user taps a "Propose write to X.md" nudge.
+   * Host fills the composer with a follow-up prompt and lets the
+   * user send. */
+  onSuggestWrite?: (path: string) => void;
 }
 
 export function renderMessageActions(
@@ -35,6 +43,7 @@ export function renderMessageActions(
   cfg: MessageActionsConfig,
 ): void {
   renderVaultActionBadge(row, msg);
+  renderWriteNudges(row, msg, cfg);
   const actions = row.createDiv({ cls: 'scribian-msg-actions' });
   const text = messageText(msg);
 
@@ -113,6 +122,38 @@ async function saveAsNote(
     new Notice(
       `Save failed: ${err instanceof Error ? err.message : 'unknown'}`,
     );
+  }
+}
+
+/**
+ * Mid-turn write nudge. When Claude SAYS "I'd add this to X.md" but
+ * doesn't emit a write tool call, surface a chip per unwritten
+ * mention. Tapping the chip lets the host fill the composer with a
+ * follow-up prompt asking Claude to actually propose the write.
+ * Closes the say-do gap that's the real risk of the vault-action
+ * default — the model that knows where it should land but never
+ * proposes the write.
+ */
+function renderWriteNudges(
+  row: HTMLElement,
+  msg: Message,
+  cfg: MessageActionsConfig,
+): void {
+  if (!cfg.onSuggestWrite) return;
+  const text = messageText(msg);
+  if (!text.trim()) return;
+  const summary = summarizeVaultActions(msg);
+  const mentioned = extractMentionedPaths(text);
+  const unwritten = unwrittenMentions(mentioned, summary.writes);
+  if (unwritten.length === 0) return;
+  const wrap = row.createDiv({ cls: 'scribian-write-nudges' });
+  for (const path of unwritten) {
+    const chip = wrap.createEl('button', {
+      cls: 'scribian-write-nudge',
+      attr: { type: 'button' },
+      text: `Propose write to ${path}`,
+    });
+    chip.addEventListener('click', () => cfg.onSuggestWrite?.(path));
   }
 }
 
