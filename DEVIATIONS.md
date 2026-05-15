@@ -63,14 +63,14 @@ change.
 **Current exceptions** (also listed in `scripts/check-size.mjs` for
 machine-readability):
 
-| File | Effective cap | Expires | Note |
-|---|---|---|---|
-| `packages/plugin/src/tools.ts` | 700 | 2026-06-30 | Split into read-tools + write-tools + tool-context |
+_None._ Every TS source file is currently under the 400-line cap.
+Past deviations (view.ts, worker/src/index.ts, tools.ts) have all
+been refactored into per-responsibility modules.
 
-**Why:** these three files predate the size cap and house complete
+**Why deviations exist at all:** files that house complete
 subsystems whose decomposition is a real refactor, not a renaming
-pass. Each exception names the next move; an expired deviation fails
-the check.
+pass, may earn a temporary cap-override with a hard expiration date
+and a one-line "next move." An expired deviation fails the check.
 
 **Closure path:** refactor by the date; the check fails as
 `EXPIRED-DEVIATION` after expiry, forcing the work. The script also

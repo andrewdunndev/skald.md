@@ -46,14 +46,7 @@ const SOURCE_ROOTS = [
  * `DEVIATIONS.md` — when one entry resolves (the file gets
  * refactored under cap), remove from both.
  */
-const DEVIATIONS = [
-  {
-    file: 'packages/plugin/src/tools.ts',
-    cap: 700,
-    expires: '2026-06-30',
-    note: 'Split into read-tools + write-tools + tool-context.',
-  },
-];
+const DEVIATIONS = [];
 
 async function walk(dir) {
   const out = [];
