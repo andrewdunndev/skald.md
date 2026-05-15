@@ -44,12 +44,33 @@ variables available:
 - `{{date}}` — today as YYYY-MM-DD
 - `{{var|default}}` — fall through to default when no value
 
+## Starter chips
+
+`examples/Starters.md` — overrides the chat pane's empty-state
+starter chips. Copy into `Scribian/Starters.md` in your vault
+(or set a custom path via Settings → Share-sheet capture →
+Starter chips note).
+
+Format per line:
+
+```
+- :icon-name: Label — full prompt text
+```
+
+The `:icon-name:` prefix is optional (Lucide icon names — same
+catalog Obsidian uses). The separator can be em-dash, `--`, or
+`-`. YAML frontmatter is stripped before parsing.
+
+The chips refresh on every "new chat" — edit `Starters.md` and
+the next clean pane shows the update.
+
 ## Authoring your own
 
-Personas and commands are just markdown notes. Edit them in
-Obsidian, version them with your vault, sync them across devices
-for free. No plugin restart needed — the next chat start (for
-personas) / next palette open (for commands) picks up the change.
+Personas, commands, and starters are just markdown notes. Edit
+them in Obsidian, version them with your vault, sync them across
+devices for free. No plugin restart needed — the next chat start
+(for personas) / next palette open (for commands) / next new
+chat (for starters) picks up the change.
 
 If you write something useful, send a PR — these examples ship in
 the repo so new users find them on install.

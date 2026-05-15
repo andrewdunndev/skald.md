@@ -77,6 +77,13 @@ export interface ScribianSettings {
    */
   capturesFolder: string;
   capturePromptPath: string;
+  /**
+   * Polish sweep: configurable empty-state starter chips.
+   * startersPath: vault note holding the list of starter chips.
+   *   Empty → use the baked-in DEFAULT_STARTER_CHIPS. Format is a
+   *   markdown list with optional `:icon-name:` prefix per line.
+   */
+  startersPath: string;
 }
 
 /** Re-export for backwards-compatible imports. */
@@ -101,6 +108,7 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   commandsFolder: 'Scribian/Commands',
   capturesFolder: 'Scribian/Captures',
   capturePromptPath: '',
+  startersPath: 'Scribian/Starters.md',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {

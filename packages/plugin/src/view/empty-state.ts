@@ -1,4 +1,4 @@
-import { setIcon } from 'obsidian';
+import { TFile, normalizePath, setIcon, type App } from 'obsidian';
 
 export interface StarterChip {
   /** Lucide icon name (or null for no icon). */
@@ -61,6 +61,73 @@ export const DEFAULT_STARTER_CHIPS: StarterChip[] = [
 ];
 
 /**
+ * Parse a Starters.md vault note into a chip list. Format mirrors
+ * what an Obsidian power user would naturally write — a markdown
+ * list where each item is `- :icon-name: Label — prompt text`, or
+ * with the icon omitted: `- Label — prompt text`. The em-dash OR
+ * a regular double-hyphen separates label from prompt. YAML
+ * frontmatter is stripped before parsing.
+ *
+ * Returns an empty array on parse failure / missing file — the
+ * caller falls back to DEFAULT_STARTER_CHIPS.
+ *
+ * The icon syntax `:list-checks:` uses Lucide names (same as
+ * Obsidian's setIcon catalog).
+ */
+export function parseStartersNote(body: string): StarterChip[] {
+  const stripped = stripFrontmatter(body);
+  const out: StarterChip[] = [];
+  for (const rawLine of stripped.split('\n')) {
+    const line = rawLine.trim();
+    if (!line.startsWith('- ')) continue;
+    const item = line.slice(2).trim();
+    // Split on em-dash OR " -- " OR " - " (last wins; treat first
+    // such separator as the label/prompt boundary).
+    const sep = item.search(/\s+(?:—|--|-)\s+/);
+    if (sep < 0) continue;
+    const labelHalf = item.slice(0, sep).trim();
+    const promptHalf = item.slice(sep).replace(/^\s+(?:—|--|-)\s+/, '').trim();
+    if (!promptHalf) continue;
+    // Optional :icon-name: prefix on the label half.
+    const iconMatch = labelHalf.match(/^:([a-z0-9-]+):\s*(.*)$/i);
+    const icon = iconMatch ? iconMatch[1] : null;
+    const label = (iconMatch ? iconMatch[2] : labelHalf).trim();
+    if (!label) continue;
+    out.push({ icon, label, prompt: promptHalf });
+  }
+  return out;
+}
+
+function stripFrontmatter(content: string): string {
+  if (!content.startsWith('---\n')) return content;
+  return content.replace(/^---\n[\s\S]*?\n---\n?/, '');
+}
+
+/**
+ * Load starter chips from a vault note. The note's path is
+ * configurable (defaults to `Scribian/Starters.md`). Returns the
+ * default chip list when the note is missing, empty, or parses
+ * to no chips — keeping the empty state useful out of the box.
+ */
+export async function loadStarterChips(
+  app: App,
+  path: string,
+): Promise<StarterChip[]> {
+  const trimmed = path?.trim() ?? '';
+  if (!trimmed) return DEFAULT_STARTER_CHIPS;
+  const normalized = normalizePath(trimmed);
+  const file = app.vault.getAbstractFileByPath(normalized);
+  if (!(file instanceof TFile)) return DEFAULT_STARTER_CHIPS;
+  try {
+    const body = await app.vault.cachedRead(file);
+    const parsed = parseStartersNote(body);
+    return parsed.length > 0 ? parsed : DEFAULT_STARTER_CHIPS;
+  } catch {
+    return DEFAULT_STARTER_CHIPS;
+  }
+}
+
+/**
  * Render an empty-state welcome into the messages container. Shown
  * when the chat has no messages — the host removes it on first
  * message arrival.
@@ -90,6 +157,22 @@ export function renderEmptyState(
   });
 
   const chipRow = wrap.createDiv({ cls: 'scribian-empty-chips' });
+  renderChipsInto(chipRow, chips, hooks.onChipPick);
+
+  return wrap;
+}
+
+/**
+ * Re-render a chip row in place. Used when the host loads starter
+ * chips asynchronously from the vault and wants to swap them in
+ * after the initial defaults rendered.
+ */
+export function renderChipsInto(
+  chipRow: HTMLElement,
+  chips: StarterChip[],
+  onChipPick: (prompt: string) => void,
+): void {
+  chipRow.empty();
   for (const chip of chips) {
     const btn = chipRow.createEl('button', {
       cls: 'scribian-empty-chip',
@@ -100,8 +183,6 @@ export function renderEmptyState(
       setIcon(ic, chip.icon);
     }
     btn.createSpan({ cls: 'scribian-empty-chip-label', text: chip.label });
-    btn.addEventListener('click', () => hooks.onChipPick(chip.prompt));
+    btn.addEventListener('click', () => onChipPick(chip.prompt));
   }
-
-  return wrap;
 }

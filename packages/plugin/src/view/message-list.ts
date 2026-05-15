@@ -8,7 +8,11 @@ import {
 import type { Message } from '@scribian/protocol';
 import { renderBlock, type BlockContext } from './block-renderer';
 import { renderMessageActions } from './message-actions';
-import { renderEmptyState, type StarterChip } from './empty-state';
+import {
+  renderChipsInto,
+  renderEmptyState,
+  type StarterChip,
+} from './empty-state';
 import type { WriteProposal } from '../tools';
 
 const RENDER_THROTTLE_MS = 150;
@@ -38,9 +42,11 @@ export interface MessageListContext {
    * The host fills the composer with the chip's prompt — the user
    * reviews + sends in the normal flow. */
   onStarterPick: (prompt: string) => void;
-  /** Optional override for the empty-state starter chips. Defaults
-   * to DEFAULT_STARTER_CHIPS from view/empty-state.ts. */
-  starterChips?: StarterChip[];
+  /** Optional async loader for the empty-state starter chips. Called
+   * each time the empty state is rendered (open + new chat), so
+   * edits to a vault-side Starters.md show up on the next clean
+   * pane. Returns DEFAULT_STARTER_CHIPS when not provided. */
+  loadStarterChips?: () => Promise<StarterChip[]>;
 }
 
 /**
@@ -65,11 +71,26 @@ export class MessageList {
 
   private renderEmptyState(): void {
     this.emptyStateEl?.remove();
-    this.emptyStateEl = renderEmptyState(
-      this.messagesEl,
-      { onChipPick: (prompt) => this.ctx.onStarterPick(prompt) },
-      this.ctx.starterChips,
-    );
+    this.emptyStateEl = renderEmptyState(this.messagesEl, {
+      onChipPick: (prompt) => this.ctx.onStarterPick(prompt),
+    });
+    // Async refresh of starter chips from the vault — replaces the
+    // default set the renderEmptyState call mounted synchronously.
+    // Guards against TOCTOU: only patch if the empty state is still
+    // the one we just rendered (user may have started a turn).
+    const target = this.emptyStateEl;
+    if (this.ctx.loadStarterChips) {
+      void this.ctx.loadStarterChips().then((chips) => {
+        if (this.emptyStateEl !== target) return;
+        const chipRow = target.querySelector(
+          '.scribian-empty-chips',
+        ) as HTMLDivElement | null;
+        if (!chipRow) return;
+        renderChipsInto(chipRow, chips, (prompt) =>
+          this.ctx.onStarterPick(prompt),
+        );
+      });
+    }
   }
 
   private clearEmptyState(): void {

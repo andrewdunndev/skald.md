@@ -7,6 +7,7 @@ import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
 import { loadSystemPrompt } from './view/system-prompt';
 import { Composer } from './view/composer';
+import { loadStarterChips } from './view/empty-state';
 import { renderHeader } from './view/header';
 import { handleMcpCall } from './view/mcp-bridge';
 import { MessageList } from './view/message-list';
@@ -92,6 +93,8 @@ export class ScribianView extends ItemView {
       onReject: (id) => this.resolveApprovalUi(id, false),
       savedNotesFolder: this.plugin.settings.savedNotesFolder,
       onStarterPick: (prompt) => this.composer?.fillText(prompt),
+      loadStarterChips: () =>
+        loadStarterChips(this.app, this.plugin.settings.startersPath),
     });
 
     this.composer = new Composer(root, this.app, {

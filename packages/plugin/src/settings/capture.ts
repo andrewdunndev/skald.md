@@ -34,4 +34,18 @@ export function renderCaptureSection(
           await plugin.saveSettings();
         });
     });
+
+  new Setting(containerEl)
+    .setName('Starter chips note')
+    .setDesc(
+      'Vault note holding the empty-state starter chips. Format: markdown list `- :icon: Label — prompt text` per line. Empty uses the baked-in defaults. Default: Scribian/Starters.md',
+    )
+    .addText((t) => {
+      t.setPlaceholder('Scribian/Starters.md')
+        .setValue(plugin.settings.startersPath)
+        .onChange(async (v) => {
+          plugin.settings.startersPath = v.trim();
+          await plugin.saveSettings();
+        });
+    });
 }

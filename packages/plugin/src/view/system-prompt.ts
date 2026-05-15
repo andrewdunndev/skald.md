@@ -1,11 +1,15 @@
 /**
  * System-prompt assembly for chat sessions.
  *
- * Three optional layers, composed in this order so domain guidance
- * builds on top of the persona's voice:
- *   1. Persona (vault note) — phase 9b
- *   2. Harness context (`<folder>/CLAUDE.md` + `<folder>/skills/`)
- *   3. Memory note (vault note) — phase 6
+ * Four layers, composed in this order:
+ *   1. Scribian baseline — operating context (mobile, vault-action
+ *      default); always loaded so Claude knows what kind of
+ *      session this is
+ *   2. Persona (vault note) — voice/personality on top of baseline;
+ *      phase 9b
+ *   3. Harness context (`<folder>/CLAUDE.md` + `<folder>/skills/`)
+ *      — domain-specific guidance
+ *   4. Memory note (vault note) — long-term state; phase 6
  *
  * Pure-ish: depends on App + plugin settings but has no view-layer
  * coupling. Extracted from view.ts as part of the LOC-cap refactor.
@@ -14,6 +18,7 @@
 import { TFile, TFolder, normalizePath, type App } from 'obsidian';
 import { buildMemorySection } from '../memory-prompt';
 import { buildPersonaSection } from '../persona-prompt';
+import { buildScribianBaseline } from './scribian-baseline';
 import type { ScribianSettings } from '../settings';
 
 export async function loadSystemPrompt(
@@ -21,6 +26,10 @@ export async function loadSystemPrompt(
   settings: ScribianSettings,
 ): Promise<string | undefined> {
   const parts: string[] = [];
+
+  parts.push(
+    buildScribianBaseline({ memoryPath: settings.memoryPath }),
+  );
 
   const personaSection = await buildPersonaSection(app, {
     path: settings.activePersona,
