@@ -71,6 +71,25 @@ export class AbstractInputSuggest<T> {
     void this;
   }
 }
+export class Modal {
+  contentEl: HTMLElement = {} as HTMLElement;
+  constructor(_app: App) {
+    void _app;
+    void this;
+  }
+  open(): void {}
+  close(): void {}
+  onOpen(): void {}
+  onClose(): void {}
+}
+export function setIcon(_el: HTMLElement, _icon: string): void {
+  void _el;
+  void _icon;
+}
+export function setTooltip(_el: HTMLElement, _text: string): void {
+  void _el;
+  void _text;
+}
 export class Notice {
   constructor(_msg: string, _ttl?: number) {
     void _msg;

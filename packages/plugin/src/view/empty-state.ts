@@ -121,8 +121,22 @@ export async function loadStarterChips(
   try {
     const body = await app.vault.cachedRead(file);
     const parsed = parseStartersNote(body);
-    return parsed.length > 0 ? parsed : DEFAULT_STARTER_CHIPS;
-  } catch {
+    if (parsed.length === 0) {
+      // File exists but parsed to zero chips — most likely a format
+      // issue (no list items, all separators missing). Surface this
+      // so the user knows why their custom starters aren't showing
+      // instead of silently falling back.
+      console.warn(
+        `scribian: starters note at ${normalized} parsed to zero chips — check the list format (\`- :icon: Label — prompt\` per line). Using defaults.`,
+      );
+      return DEFAULT_STARTER_CHIPS;
+    }
+    return parsed;
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(
+      `scribian: failed to load starters at ${normalized}: ${msg}. Using defaults.`,
+    );
     return DEFAULT_STARTER_CHIPS;
   }
 }

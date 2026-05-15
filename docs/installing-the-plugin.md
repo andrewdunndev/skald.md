@@ -94,17 +94,30 @@ The intended flow:
 2. Send the URI to yourself (Apple Notes, Messages-to-self,
    AirDrop). Open it on the target device.
 
-3. Obsidian foregrounds, scribian's protocol handler accepts the
-   URI, and you'll see:
+3. Obsidian foregrounds, scribian's protocol handler parses the
+   URI, and a confirmation modal appears showing the endpoint
+   and a masked preview of the token (`abcd…wxyz`). If scribian
+   was already configured, the modal also warns that current
+   settings will be overwritten.
+
+4. Review and tap **Apply setup**. You'll see a Notice:
 
    ```
-   scribian: configured against wss://… . Open the chat pane to verify.
+   scribian: configured against wss://… . Don't share that link
+   — it contains your Worker token.
    ```
+
+   Tap **Cancel** if you don't recognize the endpoint — this
+   confirmation step is what makes the URI safe to use even on
+   shared / synced devices.
 
 The token is bearer-grade. Sharing this URI is sharing the token —
-treat it the same as the raw secret. The plugin rejects URIs whose
-`endpoint` isn't `http`/`https` so `file://` and `javascript:`
-payloads can't reach settings.
+treat it the same as the raw secret. The plugin:
+- rejects URIs whose `endpoint` isn't `http`/`https`
+  (`file://` and `javascript:` payloads can't reach settings)
+- never silently rewrites settings — every setup URI goes
+  through the confirmation modal even when scribian was
+  unconfigured
 
 ## Vault sync setup (for the wife-test)
 

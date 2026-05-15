@@ -777,6 +777,76 @@
   /* Inherits the .scribian-msg-who size + weight set above */
 }
 
+/* ── Security: setup confirm modal ───────────────────────────────── */
+.scribian-setup-confirm h2 {
+  margin-top: 0;
+}
+
+.scribian-confirm-intro {
+  margin: 0 0 var(--size-4-2) 0;
+  font-size: var(--font-ui-small);
+  line-height: 1.45;
+}
+
+.scribian-confirm-replace {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--size-2-2);
+  padding: var(--size-2-2) var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  background: var(--background-modifier-error-rgb, var(--background-secondary));
+  border: 1px solid var(--background-modifier-error, var(--text-error));
+  border-radius: var(--radius-s);
+  font-size: var(--font-ui-smaller);
+  line-height: 1.4;
+}
+
+.scribian-confirm-icon {
+  --icon-size: var(--icon-s);
+  color: var(--text-error);
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.scribian-confirm-fields {
+  display: flex;
+  flex-direction: column;
+  gap: var(--size-2-2);
+  padding: var(--size-4-2);
+  margin-bottom: var(--size-4-2);
+  background: var(--background-secondary);
+  border-radius: var(--radius-s);
+}
+
+.scribian-confirm-field {
+  display: flex;
+  align-items: baseline;
+  gap: var(--size-4-2);
+}
+
+.scribian-confirm-field-label {
+  flex: 0 0 5rem;
+  font-size: var(--font-ui-smaller);
+  font-weight: var(--font-semibold);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.scribian-confirm-field-value {
+  font-size: var(--font-ui-small);
+  font-family: var(--font-monospace);
+  word-break: break-all;
+  background: transparent;
+  padding: 0;
+}
+
+.scribian-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--size-2-2);
+}
+
 /* ── Polish sweep: first-run setup banner ────────────────────────── */
 .scribian-setup-banner {
   display: flex;

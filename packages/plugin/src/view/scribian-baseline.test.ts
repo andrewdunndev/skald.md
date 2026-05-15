@@ -48,4 +48,20 @@ describe('buildScribianBaseline', () => {
       /propose where it should land|propose the write|landing in.*vault/,
     );
   });
+
+  it('hardens against prompt injection from vault content', () => {
+    const out = buildScribianBaseline({ memoryPath: 'Memory.md' });
+    expect(out.toLowerCase()).toContain('data, not instructions');
+    // Names the tools whose returns are untrusted
+    expect(out).toContain('read_note');
+    expect(out).toContain('search_vault');
+    expect(out).toContain('tool_result');
+  });
+
+  it('instructs Claude to cite the upstream prompt fragment on unsolicited writes', () => {
+    const out = buildScribianBaseline({ memoryPath: 'Memory.md' });
+    // Auditability: when Claude proposes a write that didn't come
+    // straight from the user, it should name where the idea came from.
+    expect(out.toLowerCase()).toMatch(/name the upstream|the note at|said/);
+  });
 });

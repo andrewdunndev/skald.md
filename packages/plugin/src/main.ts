@@ -7,6 +7,7 @@ import { emptyManifest, type IndexManifest } from './index-manifest';
 import { ConversationSearchModal } from './conversation-search';
 import { CaptureService } from './capture';
 import { parseSetupParams } from './setup-uri';
+import { SetupConfirmModal } from './setup-confirm-modal';
 import {
   loadSlashCommands,
   renderCommand,
@@ -186,10 +187,11 @@ export default class ScribianPlugin extends Plugin {
 
   /**
    * Handle obsidian://scribian-setup. Validates the URI's endpoint +
-   * token via the pure parser, then writes them into plugin settings
-   * and surfaces a Notice describing what landed. Errors surface as
-   * Notices too — silent failure here would leave the user staring
-   * at an inert install.
+   * token via the pure parser, then surfaces a confirmation modal
+   * before writing both fields to settings. The setup URI is
+   * bearer-grade — a silent rewrite would turn a forwarded link
+   * into a phishing vector, so the user must explicitly accept
+   * the endpoint + masked token preview.
    */
   private async handleSetupUri(data: Record<string, string>): Promise<void> {
     const result = parseSetupParams(data);
@@ -199,14 +201,30 @@ export default class ScribianPlugin extends Plugin {
       return;
     }
     const { endpoint, token } = result.params;
-    this.settings.workerUrl = endpoint;
-    this.settings.workerToken = token;
-    await this.saveSettings();
-    this.logger.info(`scribian-setup applied: endpoint=${endpoint}`);
-    new Notice(
-      `scribian: configured against ${endpoint}. Open the chat pane to verify the connection.`,
-      6000,
-    );
+    this.logger.info(`scribian-setup preview shown: endpoint=${endpoint}`);
+    new SetupConfirmModal(
+      this.app,
+      {
+        endpoint,
+        token,
+        currentEndpoint: this.settings.workerUrl,
+      },
+      {
+        onConfirm: async () => {
+          this.settings.workerUrl = endpoint;
+          this.settings.workerToken = token;
+          await this.saveSettings();
+          this.logger.info(`scribian-setup applied: endpoint=${endpoint}`);
+          new Notice(
+            `scribian: configured against ${endpoint}. Don't share that link — it contains your Worker token. Open the chat pane to verify the connection.`,
+            10000,
+          );
+        },
+        onCancel: () => {
+          this.logger.info('scribian-setup cancelled by user');
+        },
+      },
+    ).open();
   }
 
   /**

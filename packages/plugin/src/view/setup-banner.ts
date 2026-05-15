@@ -1,4 +1,4 @@
-import { App, setIcon } from 'obsidian';
+import { App, Notice, setIcon } from 'obsidian';
 
 export interface SetupBannerInput {
   workerUrl: string;
@@ -48,8 +48,9 @@ export function maybeRenderSetupBanner(
  * Use Obsidian's settings API to open the plugin's settings tab.
  * The settings surface is private API typed as `unknown`-ish on the
  * App type, so we cast through `any` for the call. If the API
- * changes in a future Obsidian release the button silently
- * no-ops — better than throwing.
+ * isn't available (Obsidian rev change, or running in a context
+ * without it), we fall back to a Notice telling the user how to
+ * find settings manually — better than a silent no-op button.
  */
 function openSettingsForPlugin(app: App): void {
   const setting = (app as any).setting;
@@ -58,5 +59,10 @@ function openSettingsForPlugin(app: App): void {
     if (typeof setting.openTabById === 'function') {
       setting.openTabById('scribian');
     }
+    return;
   }
+  new Notice(
+    'scribian: open Settings → Community plugins → Scribian to add your Worker URL + token.',
+    8000,
+  );
 }
