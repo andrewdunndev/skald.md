@@ -10,6 +10,7 @@ import { ActiveNoteIndicator } from './view/active-note';
 import { Composer } from './view/composer';
 import { loadStarterChips } from './view/empty-state';
 import { renderHeader } from './view/header';
+import { augmentUserText } from './view/augment-user-text';
 import { readsBeforeToolUse } from './view/inflight-reads';
 import { handleMcpCall } from './view/mcp-bridge';
 import { MessageList } from './view/message-list';
@@ -238,28 +239,8 @@ export class ScribianView extends ItemView {
     }
   }
 
-  /**
-   * Wrap the user's text in a <context> block listing any explicitly
-   * @-attached notes. Active vault file is NOT included automatically —
-   * users opt in by @-attaching what they want Claude to see.
-   */
   private async augmentUserText(text: string): Promise<string> {
-    const pickedFiles = this.composer.attachedFiles();
-    if (pickedFiles.length === 0) return text;
-
-    const blocks: string[] = ['<context>'];
-    for (const file of pickedFiles) {
-      try {
-        const content = await this.app.vault.read(file);
-        blocks.push(`  <file path="${file.path}">`);
-        blocks.push(content);
-        blocks.push('  </file>');
-      } catch {
-        // skip unreadable
-      }
-    }
-    blocks.push('</context>', '', text);
-    return blocks.join('\n');
+    return augmentUserText(this.app, text, this.composer.attachedFiles());
   }
 
   private onTurnDone(
