@@ -33,7 +33,11 @@ const __filename = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(__filename), '..');
 
 const CAP = 400;
-const SOURCE_ROOTS = ['packages/plugin/src', 'packages/worker/src', 'packages/protocol/src'];
+const SOURCE_ROOTS = [
+  'packages/plugin/src',
+  'packages/worker/src',
+  'packages/protocol/src',
+];
 
 /**
  * Files explicitly granted a temporary exception, each with a hard
@@ -48,12 +52,6 @@ const DEVIATIONS = [
     cap: 850,
     expires: '2026-06-30',
     note: 'Extract composer (input row + chips + paste/file handlers) and chat-session integration (handleServerMessage + handleMcpCall + persistConversation) for the next refactor cycle. Down from 1389 over three commits.',
-  },
-  {
-    file: 'packages/worker/src/index.ts',
-    cap: 1200,
-    expires: '2026-06-30',
-    note: 'Extract HTTP handlers (memory, capture, mcp) to per-route modules.',
   },
   {
     file: 'packages/plugin/src/tools.ts',
