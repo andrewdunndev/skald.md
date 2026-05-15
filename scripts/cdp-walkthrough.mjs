@@ -96,9 +96,22 @@ async function evaluate(client, expression) {
 /** Run an expression for its side effect and discard the result.
  * Some Obsidian APIs (app.setting.open(), modal closers) return
  * objects whose JSON serialization trips CDP's "reference chain
- * too long" guard. Wrapping in a void IIFE forces a null return. */
+ * too long" guard. Wrapping in a void IIFE forces a null return.
+ *
+ * The outer IIFE is async so a thenable expression (e.g. an inner
+ * async IIFE) is awaited before evalVoid resolves. evaluate already
+ * passes awaitPromise:true, so the whole pipeline waits for inner
+ * async work to settle before the next CDP step runs. */
 async function evalVoid(client, expression) {
-  return evaluate(client, `(function(){ ${expression}; return null; })()`);
+  // Inner async IIFE so multi-statement expressions (with ;) work
+  // AND so any inner thenable is awaited before evalVoid resolves.
+  return evaluate(
+    client,
+    `(async function(){
+      await (async () => { ${expression} })();
+      return null;
+    })()`,
+  );
 }
 
 async function screenshot(client, name) {
@@ -300,6 +313,201 @@ async function sceneSetupURI(client) {
   await delay(200);
 }
 
+async function sceneVaultActionBadge(client) {
+  // Inject a finalized assistant turn into the chat session +
+  // re-render so the vault-action badge appears. The message has
+  // a read tool_use AND a successful write tool_result → badge
+  // reads "📖 read 1 · ✏️ wrote …".
+  //
+  // Start with a new-chat button click so any prior scene's DOM
+  // rows + session messages get a clean teardown via the same
+  // path the user uses. The button does view.resetChat() which
+  // calls session.reset() + messageList.tearDown() + requestRender,
+  // and crucially waits one event-loop turn so the throttled
+  // requestRender resolves before we inject.
+  await evalVoid(
+    client,
+    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+  );
+  await delay(300);
+  await evalVoid(
+    client,
+    `(async function() {
+       const leaf = app.workspace.getLeavesOfType('scribian-chat')[0];
+       const view = leaf.view;
+       const session = view.session;
+       if (!session) return;
+       const messages = session.getMessages();
+       messages.push({ role: 'user', content: 'What flower is this and where should I file it?' });
+       messages.push({
+         role: 'assistant',
+         content: [
+           { type: 'text', text: "Let me check what's in your flower index." },
+           {
+             type: 'tool_use', id: 'tu-read-1', name: 'read_note',
+             input: { path: 'Garden/Flower Index.md' }
+           },
+           {
+             type: 'tool_result', tool_use_id: 'tu-read-1',
+             content: '# Flower Index\\n- Tulip\\n- Daffodil'
+           },
+           { type: 'text', text: "I'd append a Tulip entry to Garden/Flower Index.md." },
+           {
+             type: 'tool_use', id: 'tu-write-1', name: 'append_to_note',
+             input: { path: 'Garden/Flower Index.md', content: '- Tulip (red, 2026-05-15)' }
+           },
+           {
+             type: 'tool_result', tool_use_id: 'tu-write-1',
+             content: 'Appended 28 chars to Garden/Flower Index.md.'
+           },
+         ],
+       });
+       await view.messageList.flushRender(messages, null);
+     })()`,
+  );
+  await delay(300);
+  const probe = await evaluate(
+    client,
+    `JSON.stringify({
+       badgeText: document.querySelector('.scribian-vault-badge-active')?.textContent ?? null,
+       badgeIdle: document.querySelector('.scribian-vault-badge-idle')?.textContent ?? null,
+     })`,
+  );
+  const parsed = JSON.parse(probe);
+  if (!parsed.badgeText || !parsed.badgeText.includes('Garden/Flower Index.md')) {
+    record('vault-action-badge', 'fail', `badge missing or wrong path: ${parsed.badgeText}`);
+    return;
+  }
+  record('vault-action-badge', 'pass', `badge: ${parsed.badgeText}`);
+  await screenshot(client, '08-vault-action-badge');
+}
+
+async function sceneWriteNudge(client) {
+  // Inject an assistant turn that SAYS a path but doesn't write to
+  // it. Write nudge chips should appear for the unwritten path.
+  // Use the new-chat button to fully reset DOM + session before
+  // injection — session.reset() alone leaves a throttled-render
+  // race that can let the prior scene's rows survive into the
+  // next probe.
+  await evalVoid(
+    client,
+    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+  );
+  await delay(300);
+  await evalVoid(
+    client,
+    `(async function() {
+       const leaf = app.workspace.getLeavesOfType('scribian-chat')[0];
+       const view = leaf.view;
+       const session = view.session;
+       if (!session) return;
+       const messages = session.getMessages();
+       messages.push({ role: 'user', content: 'Plan my trip to Tokyo.' });
+       messages.push({
+         role: 'assistant',
+         content: [
+           { type: 'text', text: "Here's a draft. I'd put this in Travel/Tokyo.md or [[Trips Tokyo]] depending on your structure." },
+         ],
+       });
+       await view.messageList.flushRender(messages, null);
+     })()`,
+  );
+  await delay(300);
+  const probe = await evaluate(
+    client,
+    `JSON.stringify({
+       nudges: Array.from(document.querySelectorAll('.scribian-write-nudge'))
+         .map(b => b.textContent.trim()),
+       msgCount: app.workspace.getLeavesOfType('scribian-chat')[0]?.view?.session?.getMessages?.()?.length,
+       lastText: (() => {
+         const last = app.workspace.getLeavesOfType('scribian-chat')[0]?.view?.session?.getMessages?.()?.slice(-1)[0];
+         if (!last) return null;
+         if (typeof last.content === 'string') return last.content;
+         return last.content.find(b => b.type === 'text')?.text;
+       })(),
+       renderedTexts: Array.from(document.querySelectorAll('.scribian-msg-assistant .scribian-text')).map(e => e.textContent.slice(0, 80)),
+     })`,
+  );
+  const parsed = JSON.parse(probe);
+  if (!parsed.nudges || parsed.nudges.length === 0) {
+    record('write-nudge', 'fail', 'no nudges rendered');
+    return;
+  }
+  const expected = new Set([
+    'Propose write to Travel/Tokyo.md',
+    'Propose write to Trips Tokyo.md',
+  ]);
+  const matched = parsed.nudges.filter((n) => expected.has(n));
+  if (matched.length !== 2) {
+    record('write-nudge', 'warn', `got ${parsed.nudges.length} nudges; expected both .md + wiki: ${parsed.nudges.join(' | ')}`);
+  } else {
+    record('write-nudge', 'pass', `${parsed.nudges.length} nudges: ${parsed.nudges.join(' | ')}`);
+  }
+  await screenshot(client, '09-write-nudge');
+}
+
+async function sceneIdleBadge(client) {
+  // Plain text-only assistant turn → idle badge ("💭 no vault action").
+  await evalVoid(
+    client,
+    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+  );
+  await delay(300);
+  await evalVoid(
+    client,
+    `(async function() {
+       const leaf = app.workspace.getLeavesOfType('scribian-chat')[0];
+       const view = leaf.view;
+       const session = view.session;
+       if (!session) return;
+       const messages = session.getMessages();
+       messages.push({ role: 'user', content: 'What is 2 + 2?' });
+       messages.push({
+         role: 'assistant',
+         content: [{ type: 'text', text: '4.' }],
+       });
+       await view.messageList.flushRender(messages, null);
+     })()`,
+  );
+  await delay(300);
+  const probe = await evaluate(
+    client,
+    `JSON.stringify({
+       idle: document.querySelector('.scribian-vault-badge-idle')?.textContent ?? null,
+     })`,
+  );
+  const parsed = JSON.parse(probe);
+  if (!parsed.idle || !parsed.idle.includes('no vault action')) {
+    record('idle-badge', 'fail', `idle badge missing: ${parsed.idle}`);
+    return;
+  }
+  record('idle-badge', 'pass', parsed.idle);
+  await screenshot(client, '10-idle-badge');
+}
+
+async function sceneNewChatReset(client) {
+  // Tap the new-chat button + verify the empty state returns.
+  await evalVoid(
+    client,
+    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+  );
+  await delay(400);
+  const probe = await evaluate(
+    client,
+    `JSON.stringify({
+       hasEmpty: !!document.querySelector('.scribian-empty'),
+       msgCount: document.querySelectorAll('.scribian-msg').length,
+     })`,
+  );
+  const parsed = JSON.parse(probe);
+  if (!parsed.hasEmpty || parsed.msgCount > 0) {
+    record('new-chat-reset', 'fail', `empty=${parsed.hasEmpty} msgs=${parsed.msgCount}`);
+    return;
+  }
+  record('new-chat-reset', 'pass', 'empty state returned, message list cleared');
+  await screenshot(client, '11-after-new-chat');
+}
+
 async function sceneSettingsTab(client) {
   // Open the Obsidian settings, switch to the scribian tab,
   // capture the scribian-specific UI.
@@ -378,6 +586,10 @@ try {
   await sceneActiveNote(client);
   await sceneStarterPick(client);
   await sceneSetupURI(client);
+  await sceneVaultActionBadge(client);
+  await sceneWriteNudge(client);
+  await sceneIdleBadge(client);
+  await sceneNewChatReset(client);
   await sceneSettingsTab(client);
 } finally {
   client.close();
