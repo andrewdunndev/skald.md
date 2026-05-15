@@ -65,7 +65,6 @@ machine-readability):
 
 | File | Effective cap | Expires | Note |
 |---|---|---|---|
-| `packages/plugin/src/view.ts` | 850 | 2026-06-30 | Down from 1389 over three commits; extract composer (input row + chips + paste/file handlers) and chat-session integration (handleServerMessage + handleMcpCall + persistConversation) for the next cycle |
 | `packages/plugin/src/tools.ts` | 700 | 2026-06-30 | Split into read-tools + write-tools + tool-context |
 
 **Why:** these three files predate the size cap and house complete
