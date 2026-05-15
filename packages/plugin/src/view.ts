@@ -489,6 +489,21 @@ export class ScribianView extends ItemView {
     return out;
   }
 
+  /**
+   * Drop text into the chat input from outside the view (e.g. a
+   * slash command modal expanding a template). Focuses the input
+   * and moves the cursor to the end so the user can review +
+   * augment before sending.
+   */
+  fillInput(text: string): void {
+    this.inputEl.value = text;
+    this.inputEl.focus();
+    this.inputEl.setSelectionRange(text.length, text.length);
+    // Trigger input event so the @-picker (and any future input
+    // listeners) recompute for the new text.
+    this.inputEl.dispatchEvent(new Event('input'));
+  }
+
   private async send(): Promise<void> {
     const text = this.inputEl.value.trim();
     if (!text && this.pickedImages.length === 0) return;

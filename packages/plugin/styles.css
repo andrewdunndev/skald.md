@@ -637,3 +637,16 @@
   margin-top: 0.25rem;
   line-height: 1.35;
 }
+
+/* ── Phase 9a: slash command modal ───────────────────────────────── */
+.scribian-slash-suggest {
+  padding: 0.5rem 0.75rem;
+}
+.scribian-slash-suggest-name {
+  font-weight: 600;
+}
+.scribian-slash-suggest-desc {
+  font-size: 0.82rem;
+  color: var(--text-muted);
+  margin-top: 0.2rem;
+}

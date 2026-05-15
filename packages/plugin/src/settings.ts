@@ -46,6 +46,13 @@ export interface ScribianSettings {
    */
   personasFolder: string;
   activePersona: string;
+  /**
+   * Phase 9a: slash commands.
+   * commandsFolder: where the user keeps slash-command notes. Each
+   *   note is a Mustache-style template expanded + dropped into the
+   *   chat input when picked from the modal.
+   */
+  commandsFolder: string;
 }
 
 export const MODELS = [
@@ -70,6 +77,7 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   memoryPath: 'Scribian/Memory.md',
   personasFolder: 'Scribian/Personas',
   activePersona: '',
+  commandsFolder: 'Scribian/Commands',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -339,6 +347,16 @@ export class ScribianSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
       });
+
+    // ── Slash commands ───────────────────────────────────────────
+    new Setting(containerEl).setName('Slash commands').setHeading();
+
+    this.addFolderSetting(
+      'Commands folder',
+      'Where command notes live. Each command is a markdown note; the body is a Mustache template expanded into the chat input when picked. Run via the "Scribian: Run command" command-palette entry. Default: Scribian/Commands',
+      'Scribian/Commands',
+      'commandsFolder',
+    );
   }
 
   /**
@@ -354,7 +372,8 @@ export class ScribianSettingTab extends PluginSettingTab {
       | 'chatsFolder'
       | 'savedNotesFolder'
       | 'logsFolder'
-      | 'personasFolder',
+      | 'personasFolder'
+      | 'commandsFolder',
   ): void {
     new Setting(this.containerEl)
       .setName(name)

@@ -4,6 +4,11 @@ import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './s
 import { Logger } from './logger';
 import { reindexVault } from './memory-client';
 import { ConversationSearchModal } from './conversation-search';
+import {
+  loadSlashCommands,
+  renderCommand,
+  SlashCommandModal,
+} from './slash-commands';
 
 export default class ScribianPlugin extends Plugin {
   settings: ScribianSettings = DEFAULT_SETTINGS;
@@ -45,6 +50,15 @@ export default class ScribianPlugin extends Plugin {
       callback: () => {
         new ConversationSearchModal(this.app, this.settings.chatsFolder).open();
       },
+    });
+
+    // Phase 9a: slash commands. Each user-authored command note is
+    // a Mustache-style template; on pick, the rendered template
+    // drops into the active chat input for review + send.
+    this.addCommand({
+      id: 'scribian-run-command',
+      name: 'Run command (slash command)',
+      callback: () => void this.runSlashCommand(),
     });
 
     this.addSettingTab(new ScribianSettingTab(this.app, this));
@@ -106,6 +120,37 @@ export default class ScribianPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * Load every command note from the configured folder, present a
+   * picker modal, and drop the rendered template into the active
+   * chat view's input on pick. The user reviews + sends in the
+   * regular chat flow.
+   *
+   * Activates the chat pane first so there's always somewhere for
+   * the template to land — invoking from anywhere in the workspace
+   * shouldn't fail silently.
+   */
+  private async runSlashCommand(): Promise<void> {
+    const commands = await loadSlashCommands(
+      this.app,
+      this.settings.commandsFolder,
+    );
+    new SlashCommandModal(this.app, commands, (cmd) => {
+      void (async () => {
+        const rendered = await renderCommand(this.app, cmd);
+        await this.activateView();
+        const view = this.findChatView();
+        if (view) view.fillInput(rendered);
+      })();
+    }).open();
+  }
+
+  private findChatView(): ScribianView | null {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SCRIBIAN);
+    const view = leaves[0]?.view;
+    return view instanceof ScribianView ? view : null;
   }
 
   async activateView() {
