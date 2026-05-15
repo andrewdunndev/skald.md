@@ -73,6 +73,8 @@ export default {
   },
 };
 
+const AUDIT_STORAGE_KEY = 'recentEvents';
+
 export class ScribianSession {
   private readonly state: DurableObjectState;
   private readonly env: Env;
@@ -81,11 +83,21 @@ export class ScribianSession {
     string,
     (result: { content: string; is_error?: boolean }) => void
   > = new Map();
-  private readonly recentEvents: AuditEvent[] = [];
+  private recentEvents: AuditEvent[] = [];
 
   constructor(state: DurableObjectState, env: Env) {
     this.state = state;
     this.env = env;
+    // Block input until we've restored the audit ring buffer from
+    // storage. Without this, events recorded between cold-start and
+    // first read would silently miss prior history. blockConcurrencyWhile
+    // is DO's idiomatic "initialize before any request lands" hook.
+    state.blockConcurrencyWhile(async () => {
+      const stored = await state.storage.get<AuditEvent[]>(
+        AUDIT_STORAGE_KEY,
+      );
+      if (Array.isArray(stored)) this.recentEvents = stored;
+    });
   }
 
   private record(
@@ -98,6 +110,11 @@ export class ScribianSession {
     while (this.recentEvents.length > MAX_RECENT_EVENTS) {
       this.recentEvents.shift();
     }
+    // Persist asynchronously. We don't await — losing the most
+    // recent event on a crash is acceptable; blocking every audit
+    // event behind a storage write isn't. DO storage writes are
+    // fire-and-forget durable on the same DO.
+    void this.state.storage.put(AUDIT_STORAGE_KEY, this.recentEvents);
   }
 
   async fetch(req: Request): Promise<Response> {
