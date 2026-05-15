@@ -75,6 +75,14 @@ export default {
 
 const AUDIT_STORAGE_KEY = 'recentEvents';
 
+/** WS message size cap. Chat messages with attached note context
+ * + multi-modal payloads can be large; 1 MB is generous for a real
+ * turn (an attached note + a base64-encoded image hits roughly
+ * 700KB at the 5MB-pre-encoding image cap). Above this, the message
+ * is rejected with an error before JSON.parse — bounds memory
+ * pressure on the DO from a misbehaving (or compromised) client. */
+const WS_MAX_MESSAGE_BYTES = 1024 * 1024;
+
 export class ScribianSession {
   private readonly state: DurableObjectState;
   private readonly env: Env;
@@ -186,6 +194,20 @@ export class ScribianSession {
     ws: WebSocket,
     message: string | ArrayBuffer,
   ): Promise<void> {
+    // Size cap before parse: a 50MB JSON string would crash JSON.parse
+    // (and burn DO memory) before any validation runs.
+    const messageBytes =
+      typeof message === 'string'
+        ? new TextEncoder().encode(message).byteLength
+        : message.byteLength;
+    if (messageBytes > WS_MAX_MESSAGE_BYTES) {
+      this.send(ws, {
+        type: 'error',
+        error: `message exceeds ${WS_MAX_MESSAGE_BYTES}-byte cap`,
+      });
+      return;
+    }
+
     let msg: ClientMessage;
     try {
       const raw =

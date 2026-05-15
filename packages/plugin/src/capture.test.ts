@@ -194,7 +194,7 @@ describe('routeCapture', () => {
 
   it('routes to the top hit when auto-route + score above threshold', async () => {
     const route = await routeCapture(
-      async () => [hit('Projects/Flowers.md', 0.84)],
+      async () => [hit('Projects/Flowers.md', 0.92)],
       {
         mode: 'auto-route',
         title: 'A tulip',
@@ -204,13 +204,17 @@ describe('routeCapture', () => {
     );
     expect(route.kind).toBe('append');
     expect(route.path).toBe('Projects/Flowers.md');
-    expect(route.matchScore).toBe(0.84);
+    expect(route.matchScore).toBe(0.92);
     expect(route.candidates).toHaveLength(1);
   });
 
-  it('falls back to inbox-create when top score below threshold', async () => {
+  it('falls back to inbox-create when top score below threshold (post-hardening: 0.85)', async () => {
+    // Security audit raised the threshold from 0.7 to 0.85. A 0.8
+    // match — which would have appended pre-hardening — now falls
+    // back to inbox, reducing the malicious-URI-targets-existing-
+    // note attack surface.
     const route = await routeCapture(
-      async () => [hit('Random/Note.md', 0.5)],
+      async () => [hit('Random/Note.md', 0.8)],
       {
         mode: 'auto-route',
         title: 'A tulip',
@@ -221,7 +225,7 @@ describe('routeCapture', () => {
     expect(route.kind).toBe('create');
     expect(route.path).toMatch(/^Scribian\/Captures\//);
     expect(route.candidates).toHaveLength(1);
-    expect(route.candidates[0].score).toBe(0.5);
+    expect(route.candidates[0].score).toBe(0.8);
   });
 
   it('falls back to inbox-create when search yields no hits', async () => {

@@ -16,6 +16,11 @@ import { authBearer } from './auth-helpers';
 
 const MCP_PROTOCOL_VERSION = '2025-06-18';
 const MCP_TOOL_TIMEOUT_MS = 8000;
+/** Max bytes for an /mcp request body. JSON-RPC payloads are tiny
+ * in practice (method + small params); a multi-MB body is either
+ * a misconfigured client or someone trying to drain the DO's
+ * parse compute. */
+const MCP_MAX_BODY_BYTES = 256 * 1024;
 
 /**
  * Top-level /mcp route. Auth + scope check, then forward to the
@@ -75,9 +80,19 @@ export async function handleMcpRpc(
     });
   }
 
+  // Cap before parse: a multi-MB JSON body would burn DO compute
+  // on JSON.parse before any RPC validation runs.
+  const lenHeader = req.headers.get('content-length');
+  if (lenHeader && parseInt(lenHeader, 10) > MCP_MAX_BODY_BYTES) {
+    return new Response('mcp body exceeds size cap', { status: 413 });
+  }
+  const raw = await req.text();
+  if (raw.length > MCP_MAX_BODY_BYTES) {
+    return new Response('mcp body exceeds size cap', { status: 413 });
+  }
   let body: unknown;
   try {
-    body = await req.json();
+    body = JSON.parse(raw);
   } catch {
     return Response.json(rpcError(null, PARSE_ERROR, 'invalid JSON'));
   }

@@ -4,6 +4,14 @@ import { TokenRegistry, hasScope } from '../auth';
 import { dispatchFor, resolveProviderKey } from '../providers';
 import { authBearer } from './auth-helpers';
 
+/** Max bytes for a capture prompt. The captured payload (article
+ * body, image OCR target, etc.) is built into the prompt client-
+ * side, so this caps the upstream LLM request size. 100KB is
+ * generous for "shared from Safari Reader" content while bounding
+ * a malicious payload from one URL trigger draining the user's
+ * Anthropic / OpenRouter spend. */
+export const CAPTURE_MAX_PROMPT_BYTES = 100 * 1024;
+
 interface CaptureRequestBody {
   prompt?: string;
   kind?: string;
@@ -51,6 +59,12 @@ async function handleCapture(req: Request, env: Env): Promise<Response> {
   const prompt = typeof body.prompt === 'string' ? body.prompt : '';
   if (!prompt.trim()) {
     return new Response('expected { prompt: "..." }', { status: 400 });
+  }
+  if (new TextEncoder().encode(prompt).length > CAPTURE_MAX_PROMPT_BYTES) {
+    return new Response(
+      `prompt exceeds ${CAPTURE_MAX_PROMPT_BYTES}-byte cap`,
+      { status: 413 },
+    );
   }
   const provider: 'anthropic' | 'openrouter' =
     body.provider === 'openrouter'

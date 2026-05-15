@@ -129,6 +129,11 @@ export class ScribianView extends ItemView {
     this.activeNote = null;
     this.messageList?.cancelPendingRender();
     this.messageList?.tearDown();
+    // Resolve any pending write-approvals as rejected so the tool
+    // runner Promises don't dangle. Without this, an in-flight
+    // diff card at view-close time leaves the runner waiting
+    // forever on a pane that no longer exists.
+    this.approvals.abandonAll();
     this.transport?.close();
     this.transport = null;
     this.session = null;
@@ -137,6 +142,10 @@ export class ScribianView extends ItemView {
   private resetChat(): void {
     this.session?.reset();
     this.messageList.tearDown();
+    // New-chat with a pending approval: the diff card vanishes
+    // with the message rows, so resolve it as rejected — same
+    // effect the user would see if they tapped the X.
+    this.approvals.abandonAll();
     this.requestRender();
   }
 
@@ -145,6 +154,9 @@ export class ScribianView extends ItemView {
     this.transport = null;
     this.session = null;
     this.messageList.tearDown();
+    // Reconnect drops the current session; pending approvals are
+    // orphaned from any executor that might still be waiting.
+    this.approvals.abandonAll();
     this.connect();
   }
 

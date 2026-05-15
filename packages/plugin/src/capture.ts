@@ -46,9 +46,19 @@ export type CaptureMode = 'auto-route' | 'inbox';
 
 /** Min similarity score for routing a capture to an existing note.
  *  Below this, the capture falls back to creating in captureFolder.
- *  Tuned empirically — 0.7 is the threshold below which the top hit
- *  is plausibly unrelated even if the embedding space puts it near. */
-export const CAPTURE_ROUTE_THRESHOLD = 0.7;
+ *
+ *  Tuned to 0.85: high enough that a malicious capture URI can't
+ *  easily target an existing user note (would require attacker
+ *  knowledge of vault content AND a payload that embeds close to
+ *  it), low enough that genuinely-related captures route correctly.
+ *
+ *  Lower threshold (0.7) was the initial heuristic; raised after
+ *  the security audit identified malicious-URI append as a real
+ *  risk surface. False negatives (route to inbox when an append
+ *  would've been better) are recoverable by the user; false
+ *  positives (silent append to a wrong note) are not.
+ */
+export const CAPTURE_ROUTE_THRESHOLD = 0.85;
 
 export interface CaptureRoute {
   kind: 'create' | 'append';

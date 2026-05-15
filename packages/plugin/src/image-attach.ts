@@ -33,8 +33,31 @@ const SUPPORTED_MEDIA_TYPES: ReadonlySet<string> = new Set<string>([
   'image/webp',
 ]);
 
-/** ~5MB raw, comfortably under Anthropic's per-image cap. */
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+/**
+ * Per-image cap, post-base64 + chat envelope. Cloudflare's WebSocket
+ * platform limit is 1 MiB per receive on the server side — that's
+ * the hard ceiling for a chat turn carrying an image, because the
+ * full ClientMessage (turn + image content block) ships in one WS
+ * frame. Base64 inflates by ~33%, plus the JSON envelope + system
+ * prompt + headers ~= 80 KB overhead. So:
+ *
+ *   1 MiB platform cap
+ *   − ~80 KB envelope/system-prompt overhead
+ *   = ~970 KB usable
+ *   ÷ 1.33 (base64 inflation)
+ *   = ~730 KB raw image
+ *
+ * We round down to 700 KB. That covers screenshots, scanned
+ * receipts, document photos, and most phone-camera output at
+ * reasonable JPEG compression. Larger photos must be down-sampled
+ * by the user — the chip shows "skipped (too large)" with the
+ * concrete cap so they know what they're up against.
+ *
+ * Previous v1 cap was 5 MB raw which silently broke on WS send;
+ * the security review caught this when it noticed real CF limits
+ * vs. our advertised cap.
+ */
+const MAX_IMAGE_BYTES = 700 * 1024;
 
 /**
  * One image attached to the in-flight user turn. Held in plugin

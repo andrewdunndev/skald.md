@@ -82,6 +82,28 @@ describe('handleSearchRoute', () => {
     expect(body.hits[0]).not.toHaveProperty('excerpt');
   });
 
+  it('rejects with 413 when query exceeds SEARCH_MAX_QUERY_BYTES', async () => {
+    const env = {
+      AI: { run: vi.fn() } as any,
+      VECTORIZE: { query: vi.fn() } as any,
+    } as Env;
+    const huge = 'a'.repeat(4 * 1024 + 1);
+    const r = await handleSearchRoute(
+      new Request('https://w.example/search', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer tok-plugin',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ query: huge }),
+      }),
+      env,
+      makeRegistry(),
+    );
+    expect(r.status).toBe(413);
+    expect(await r.text()).toContain('exceeds');
+  });
+
   it('preserves heading_path in hits when present', async () => {
     const env = {
       AI: { run: vi.fn().mockResolvedValue({ data: [[0.5]] }) },

@@ -5,6 +5,17 @@ import { chunkBySection } from '../memory/chunk';
 import type { ScribianVector } from '../memory/types';
 import { authBearer } from './auth-helpers';
 
+/** DOS-resistance caps. An authenticated client could otherwise
+ * ship a multi-MB body to drain Workers AI compute (embeddings are
+ * billed per call + per byte). These caps are well above realistic
+ * vault sizes — a 50KB markdown note is already an outlier; 200
+ * notes/batch keeps reindex of even a 10k-note vault under 50
+ * batches. Reject early with a clear error so the plugin can
+ * adjust if it ever needs more. */
+export const INDEX_MAX_NOTES_PER_BATCH = 200;
+export const INDEX_MAX_CONTENT_BYTES = 50 * 1024;
+export const INDEX_MAX_DELETES_PER_BATCH = 500;
+
 interface IndexRequestBody {
   notes?: Array<{ path?: string; title?: string; content?: string }>;
   /** Vault-relative paths whose vectors should be removed. The
@@ -83,14 +94,37 @@ async function handleIndex(req: Request, env: MemoryEnv): Promise<Response> {
   if (!Array.isArray(body.notes)) {
     return new Response('expected { notes: [...] }', { status: 400 });
   }
+  if (body.notes.length > INDEX_MAX_NOTES_PER_BATCH) {
+    return new Response(
+      `too many notes in batch (${body.notes.length} > ${INDEX_MAX_NOTES_PER_BATCH}); split into smaller batches`,
+      { status: 413 },
+    );
+  }
+  if (
+    Array.isArray(body.deletes) &&
+    body.deletes.length > INDEX_MAX_DELETES_PER_BATCH
+  ) {
+    return new Response(
+      `too many deletes in batch (${body.deletes.length} > ${INDEX_MAX_DELETES_PER_BATCH})`,
+      { status: 413 },
+    );
+  }
   const vectors: ScribianVector[] = [];
   let indexedSummaries = 0;
   let indexedSections = 0;
+  let skippedOversize = 0;
   for (const n of body.notes) {
     const path = typeof n.path === 'string' ? n.path : '';
     const title = typeof n.title === 'string' ? n.title : path;
     const content = typeof n.content === 'string' ? n.content : '';
     if (!path || !content.trim()) continue;
+    // Per-note content cap: skip outsize notes rather than failing
+    // the whole batch (the plugin's reindex shouldn't choke on one
+    // huge note; it should still process the rest + report).
+    if (byteLength(content) > INDEX_MAX_CONTENT_BYTES) {
+      skippedOversize++;
+      continue;
+    }
 
     // 1. note-summary vector: always emitted. Title + head excerpt.
     const headExcerpt = content.slice(0, 1500);
@@ -159,6 +193,7 @@ async function handleIndex(req: Request, env: MemoryEnv): Promise<Response> {
     indexed_summaries: indexedSummaries,
     indexed_sections: indexedSections,
     deleted,
+    skipped_oversize: skippedOversize,
   });
 }
 
@@ -173,4 +208,10 @@ async function sha256Hex(s: string): Promise<string> {
   return Array.from(new Uint8Array(buf))
     .map((b) => b.toString(16).padStart(2, '0'))
     .join('');
+}
+
+/** UTF-8 byte length — measures the actual wire/embedding cost,
+ * not JS string length (which is UTF-16 code units). */
+function byteLength(s: string): number {
+  return new TextEncoder().encode(s).length;
 }

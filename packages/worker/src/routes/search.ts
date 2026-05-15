@@ -4,6 +4,13 @@ import { querySimilar } from '../memory';
 import type { ChunkKind } from '../memory/types';
 import { authMemoryRoute } from './index';
 
+/** Max bytes for a search query. Embedding cost scales with input
+ * length AND Workers AI rejects strings past its own internal cap
+ * (~512 tokens for bge-base). 4KB is generous for "free-text query"
+ * use; rejects outright when an authenticated client tries to ship
+ * a 1MB string to drain compute. */
+export const SEARCH_MAX_QUERY_BYTES = 4 * 1024;
+
 interface SearchRequestBody {
   query?: string;
   top_k?: number;
@@ -37,6 +44,12 @@ async function handleSearch(req: Request, env: MemoryEnv): Promise<Response> {
   const query = typeof body.query === 'string' ? body.query.trim() : '';
   if (!query) {
     return new Response('expected { query: "..." }', { status: 400 });
+  }
+  if (new TextEncoder().encode(query).length > SEARCH_MAX_QUERY_BYTES) {
+    return new Response(
+      `query exceeds ${SEARCH_MAX_QUERY_BYTES}-byte cap`,
+      { status: 413 },
+    );
   }
   const topK = Math.min(Math.max(Number(body.top_k ?? 8), 1), 20);
   const kind = body.kind ?? 'note-summary';

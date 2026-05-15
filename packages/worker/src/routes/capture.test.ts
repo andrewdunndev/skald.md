@@ -74,6 +74,24 @@ describe('handleCaptureRoute', () => {
     );
   });
 
+  it('rejects with 413 when prompt exceeds CAPTURE_MAX_PROMPT_BYTES', async () => {
+    const huge = 'x'.repeat(100 * 1024 + 1);
+    const r = await handleCaptureRoute(
+      new Request('https://w.example/capture', {
+        method: 'POST',
+        headers: {
+          Authorization: 'Bearer tok-plugin',
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: huge }),
+      }),
+      { ANTHROPIC_API_KEY: 'k' } as Env,
+      makeRegistry(),
+    );
+    expect(r.status).toBe(413);
+    expect(await r.text()).toContain('exceeds');
+  });
+
   it('falls back to openrouter when no provider in body and ANTHROPIC_API_KEY unset', async () => {
     // Default routing: empty body.provider + no ANTHROPIC_API_KEY
     // forces the openrouter branch (which is also unconfigured here).
