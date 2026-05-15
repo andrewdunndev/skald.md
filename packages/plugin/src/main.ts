@@ -6,6 +6,7 @@ import { reindexVault } from './memory-client';
 import { emptyManifest, type IndexManifest } from './index-manifest';
 import { ConversationSearchModal } from './conversation-search';
 import { CaptureService } from './capture';
+import { parseSetupParams } from './setup-uri';
 import {
   loadSlashCommands,
   renderCommand,
@@ -43,6 +44,15 @@ export default class ScribianPlugin extends Plugin {
     this.registerObsidianProtocolHandler('scribian-capture', (data) => {
       this.logger.info(`protocol: scribian-capture kind=${data.kind ?? 'text'}`);
       void this.captureService.handleProtocol(data);
+    });
+
+    // Setup URI: second-device onboarding without retyping the
+    // Worker URL + token on a phone keyboard. The host machine
+    // (where the Worker was deployed) generates the URI; the iPad
+    // opens it and the plugin populates settings. The token is
+    // bearer-grade — sharing this URI is sharing the token.
+    this.registerObsidianProtocolHandler('scribian-setup', (data) => {
+      void this.handleSetupUri(data);
     });
 
     this.addCommand({
@@ -172,6 +182,31 @@ export default class ScribianPlugin extends Plugin {
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /**
+   * Handle obsidian://scribian-setup. Validates the URI's endpoint +
+   * token via the pure parser, then writes them into plugin settings
+   * and surfaces a Notice describing what landed. Errors surface as
+   * Notices too — silent failure here would leave the user staring
+   * at an inert install.
+   */
+  private async handleSetupUri(data: Record<string, string>): Promise<void> {
+    const result = parseSetupParams(data);
+    if (!result.ok) {
+      this.logger.warn(`scribian-setup rejected: ${result.reason}`);
+      new Notice(`scribian: setup link invalid — ${result.reason}`, 8000);
+      return;
+    }
+    const { endpoint, token } = result.params;
+    this.settings.workerUrl = endpoint;
+    this.settings.workerToken = token;
+    await this.saveSettings();
+    this.logger.info(`scribian-setup applied: endpoint=${endpoint}`);
+    new Notice(
+      `scribian: configured against ${endpoint}. Open the chat pane to verify the connection.`,
+      6000,
+    );
   }
 
   /**

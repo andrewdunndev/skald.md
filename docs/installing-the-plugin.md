@@ -71,6 +71,41 @@ After install:
 Open the chat pane via the speech-bubble ribbon icon or run
 **Scribian: Open chat** from the command palette.
 
+## Quick onboarding via setup URI
+
+The plugin registers a protocol handler at
+`obsidian://scribian-setup?endpoint=<worker-url>&token=<worker-token>`.
+Tap a link in that shape on a configured Obsidian device and the
+plugin writes both fields into settings without keyboard entry.
+
+The intended flow:
+
+1. On your desktop, after `wrangler deploy` finishes and you've
+   minted a token, build the URI:
+
+   ```
+   obsidian://scribian-setup?endpoint=wss://scribian.you.workers.dev&token=<hex>
+   ```
+
+   URL-encode the token if it contains anything beyond hex (the
+   recommended `openssl rand -hex 32` token doesn't, but custom
+   tokens may).
+
+2. Send the URI to yourself (Apple Notes, Messages-to-self,
+   AirDrop). Open it on the target device.
+
+3. Obsidian foregrounds, scribian's protocol handler accepts the
+   URI, and you'll see:
+
+   ```
+   scribian: configured against wss://… . Open the chat pane to verify.
+   ```
+
+The token is bearer-grade. Sharing this URI is sharing the token —
+treat it the same as the raw secret. The plugin rejects URIs whose
+`endpoint` isn't `http`/`https` so `file://` and `javascript:`
+payloads can't reach settings.
+
 ## Vault sync setup (for the wife-test)
 
 If you're installing on a vault shared between people / devices, the
