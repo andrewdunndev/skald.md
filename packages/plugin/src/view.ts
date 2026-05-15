@@ -19,6 +19,13 @@ import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { buildMemorySection } from './memory-prompt';
 import { buildPersonaSection } from './persona-prompt';
+import {
+  attachmentsFromClipboard,
+  clipboardHasImage,
+  humanByteCount,
+  toImageContentBlock,
+  type ImageAttachment,
+} from './image-attach';
 import { saveConversation } from './conversation-store';
 import type { ContentBlock, Message } from '@scribian/protocol';
 
@@ -161,6 +168,7 @@ export class ScribianView extends ItemView {
   private renderTimer: number | null = null;
   private chipEl!: HTMLDivElement;
   private pickedFiles: TFile[] = [];
+  private pickedImages: ImageAttachment[] = [];
   private pickerEl: HTMLDivElement | null = null;
   private pickerAnchor: number = -1;
   private pickerSelectedIdx: number = 0;
@@ -281,6 +289,14 @@ export class ScribianView extends ItemView {
 
     this.sendBtn.addEventListener('click', () => this.send());
     this.stopBtn.addEventListener('click', () => this.session?.cancel());
+    // Vision (phase 7): pasted images become attached image content
+    // blocks on the next send. Caught here on the input so plain
+    // markdown / text paste flows through normally to the textarea.
+    this.inputEl.addEventListener('paste', (e) => {
+      if (!clipboardHasImage(e)) return;
+      e.preventDefault();
+      void this.handleImagePaste(e);
+    });
     this.inputEl.addEventListener('input', () => this.updatePickerForCursor());
     this.inputEl.addEventListener('click', () => this.updatePickerForCursor());
     this.inputEl.addEventListener('keyup', (e) => {
@@ -475,7 +491,7 @@ export class ScribianView extends ItemView {
 
   private async send(): Promise<void> {
     const text = this.inputEl.value.trim();
-    if (!text) return;
+    if (!text && this.pickedImages.length === 0) return;
     if (!this.transport?.isOpen() || !this.session) {
       this.setStatus('Not connected.', 'error');
       return;
@@ -483,8 +499,38 @@ export class ScribianView extends ItemView {
     this.inputEl.value = '';
     this.sendBtn.disabled = true;
     this.stopBtn.style.display = '';
-    const augmented = await this.augmentUserText(text);
-    void this.session.sendUserText(augmented);
+
+    // Build the user turn: text-only when there are no images, or
+    // a multi-modal content-block array when images are attached.
+    // Image blocks come first so Claude sees the visual context
+    // before the question (matches Anthropic's recommended ordering
+    // in the Vision guide).
+    if (this.pickedImages.length === 0) {
+      const augmented = await this.augmentUserText(text);
+      void this.session.sendUserText(augmented);
+    } else {
+      const blocks: ContentBlock[] = [];
+      for (const att of this.pickedImages) {
+        blocks.push(toImageContentBlock(att));
+      }
+      const augmented = await this.augmentUserText(text);
+      if (augmented) blocks.push({ type: 'text', text: augmented });
+      this.pickedImages = [];
+      this.renderChip();
+      void this.session.sendUserMessage(blocks);
+    }
+  }
+
+  /**
+   * Catch image clipboard data on the input element. Convert to
+   * base64 attachments + render chips; the actual image content
+   * blocks are built in send() on submit.
+   */
+  private async handleImagePaste(e: ClipboardEvent): Promise<void> {
+    const next = await attachmentsFromClipboard(e);
+    if (next.length === 0) return;
+    this.pickedImages.push(...next);
+    this.renderChip();
   }
 
   /**
@@ -531,6 +577,27 @@ export class ScribianView extends ItemView {
       setIcon(dismiss, 'x');
       dismiss.addEventListener('click', () => {
         this.pickedFiles = this.pickedFiles.filter((x) => x !== f);
+        this.renderChip();
+      });
+    }
+
+    for (const img of this.pickedImages) {
+      const chip = this.chipEl.createDiv({
+        cls: 'scribian-chip scribian-chip-image',
+      });
+      const icon = chip.createSpan({ cls: 'scribian-chip-icon' });
+      setIcon(icon, 'image');
+      chip.createSpan({
+        cls: 'scribian-chip-label',
+        text: `${img.label} · ${humanByteCount(img.byteLength)}`,
+      });
+      const dismiss = chip.createEl('button', {
+        cls: 'clickable-icon scribian-chip-dismiss',
+        attr: { 'aria-label': 'Remove image' },
+      });
+      setIcon(dismiss, 'x');
+      dismiss.addEventListener('click', () => {
+        this.pickedImages = this.pickedImages.filter((x) => x.id !== img.id);
         this.renderChip();
       });
     }
@@ -1004,6 +1071,27 @@ export class ScribianView extends ItemView {
       const t = parent.createDiv({ cls: 'scribian-thinking' });
       t.createSpan({ cls: 'scribian-thinking-icon', text: '💭' });
       t.createSpan({ text: (b.thinking as string) ?? '' });
+      return;
+    }
+
+    if (type === 'image') {
+      // Phase 7: inline render of a user-attached image. We only
+      // build these from clipboard paste today (base64 source), so
+      // render directly from the data URL. URL-source images are
+      // also valid per the Anthropic + OpenRouter shape but we
+      // don't produce them yet; safe-fail when we encounter one.
+      const source = b.source as Record<string, unknown> | undefined;
+      if (!source) return;
+      const figure = parent.createDiv({ cls: 'scribian-image' });
+      const img = figure.createEl('img', { cls: 'scribian-image-thumb' });
+      if (source.type === 'base64') {
+        const media = String(source.media_type ?? 'image/png');
+        const data = String(source.data ?? '');
+        img.src = `data:${media};base64,${data}`;
+      } else if (source.type === 'url') {
+        img.src = String((source as { url?: unknown }).url ?? '');
+      }
+      img.alt = 'attached image';
       return;
     }
 

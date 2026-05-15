@@ -591,3 +591,23 @@
 .scribian-model-hidden {
   display: none;
 }
+
+/* ── Phase 7: image attachments ──────────────────────────────────── */
+.scribian-chip-image .scribian-chip-icon {
+  margin-right: 0.35rem;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.8;
+}
+
+.scribian-image {
+  margin: 0.5rem 0;
+}
+
+.scribian-image-thumb {
+  max-width: 320px;
+  max-height: 280px;
+  border-radius: 6px;
+  border: 1px solid var(--background-modifier-border);
+  display: block;
+}

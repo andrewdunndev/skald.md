@@ -114,6 +114,17 @@ export function renderConversationMarkdown(
             const arr = Array.isArray(b.content) ? b.content : [];
             lines.push(`> 🌐 web search returned ${arr.length} results`);
             lines.push('');
+          } else if (t === 'image') {
+            // Phase 7: don't dump base64 image payloads into the
+            // conversation file. Record a placeholder so the saved
+            // turn remains readable; the in-memory ChatSession still
+            // holds the full block for any continuation Claude sends.
+            const source = b.source as Record<string, unknown> | undefined;
+            const mt = source && typeof source.media_type === 'string'
+              ? source.media_type
+              : 'image';
+            lines.push(`> 🖼 _attached ${mt} (omitted from saved record)_`);
+            lines.push('');
           }
         }
       }

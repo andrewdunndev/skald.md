@@ -57,11 +57,22 @@ export class ChatSession {
   ) {}
 
   async sendUserText(text: string): Promise<void> {
+    return this.sendUserMessage(text);
+  }
+
+  /**
+   * Generalized user-turn entry point. Accepts a plain string
+   * (legacy) or an array of content blocks (for multi-modal turns
+   * with image / document attachments). The two shapes share the
+   * dispatch path — content blocks just flow through the
+   * Anthropic-canonical message shape unchanged.
+   */
+  async sendUserMessage(content: string | ContentBlock[]): Promise<void> {
     if (this.inFlight) {
       this.handlers.onError('A response is already in flight.');
       return;
     }
-    this.messages.push({ role: 'user', content: text });
+    this.messages.push({ role: 'user', content });
     this.handlers.onUpdate();
     await this.dispatch();
   }
