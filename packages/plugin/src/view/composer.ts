@@ -27,6 +27,7 @@ export class Composer {
   private readonly sendBtn: HTMLButtonElement;
   private readonly stopBtn: HTMLButtonElement;
   private readonly chipEl: HTMLDivElement;
+  private readonly fileInput: HTMLInputElement;
   private readonly notePicker: NotePicker;
   private pickedFiles: TFile[] = [];
   private pickedImages: ImageAttachment[] = [];
@@ -59,7 +60,7 @@ export class Composer {
     });
     setIcon(cameraBtn, 'camera');
     setTooltip(cameraBtn, 'Attach image (photo / file)');
-    const fileInput = buttonRow.createEl('input', {
+    this.fileInput = buttonRow.createEl('input', {
       cls: 'scribian-file-input',
       attr: {
         type: 'file',
@@ -68,12 +69,12 @@ export class Composer {
         capture: 'environment',
       },
     });
-    fileInput.style.display = 'none';
-    cameraBtn.addEventListener('click', () => fileInput.click());
-    fileInput.addEventListener('change', () => {
-      if (fileInput.files) void this.handleImageFiles(fileInput.files);
+    this.fileInput.style.display = 'none';
+    cameraBtn.addEventListener('click', () => this.fileInput.click());
+    this.fileInput.addEventListener('change', () => {
+      if (this.fileInput.files) void this.handleImageFiles(this.fileInput.files);
       // Reset so picking the same file twice fires the change event.
-      fileInput.value = '';
+      this.fileInput.value = '';
     });
 
     this.sendBtn = buttonRow.createEl('button', {
@@ -195,6 +196,17 @@ export class Composer {
     // Trigger input event so the @-picker (and any future input
     // listeners) recompute for the new text.
     this.inputEl.dispatchEvent(new Event('input'));
+  }
+
+  /**
+   * Programmatically open the image picker. On iOS with
+   * `capture="environment"` set, this jumps straight to the camera;
+   * desktop browsers fall back to the file dialog. Used by the
+   * empty-state "Identify + file" chip so one tap goes from intent
+   * to "image staged + prompt prefilled."
+   */
+  pickImage(): void {
+    this.fileInput.click();
   }
 
   /**

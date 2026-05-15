@@ -7,13 +7,20 @@ export interface StarterChip {
   label: string;
   /** Full prompt text that lands in the input on tap. */
   prompt: string;
+  /** When true, the host should also open the image picker after
+   * filling the prompt — turning the chip into a one-tap "open
+   * camera with prompt staged" action. Used by the default
+   * "Identify + file" chip; configurable via Starters.md with the
+   * `+image` suffix on the label half (see parseStartersNote). */
+  attachImage?: boolean;
 }
 
 export interface EmptyStateHooks {
   /** Called when the user taps a starter chip. The host fills the
    * composer with the chip's prompt — the user reviews + sends in
-   * the normal flow. */
-  onChipPick: (prompt: string) => void;
+   * the normal flow. The full chip is passed so the host can react
+   * to flags like attachImage. */
+  onChipPick: (chip: StarterChip) => void;
 }
 
 /**
@@ -32,7 +39,8 @@ export const DEFAULT_STARTER_CHIPS: StarterChip[] = [
     icon: 'camera',
     label: 'Identify + file',
     prompt:
-      "I'm going to attach an image. Identify what's in it, then find the most relevant note in my vault and propose an append (use find_related first if you're not sure which note fits). If no good fit exists, propose a new note.",
+      "Identify what's in this image, then find the most relevant note in my vault and propose an append (use find_related first if you're not sure which note fits). If no good fit exists, propose a new note.",
+    attachImage: true,
   },
   {
     icon: 'pencil-line',
@@ -85,15 +93,26 @@ export function parseStartersNote(body: string): StarterChip[] {
     // such separator as the label/prompt boundary).
     const sep = item.search(/\s+(?:—|--|-)\s+/);
     if (sep < 0) continue;
-    const labelHalf = item.slice(0, sep).trim();
+    let labelHalf = item.slice(0, sep).trim();
     const promptHalf = item.slice(sep).replace(/^\s+(?:—|--|-)\s+/, '').trim();
     if (!promptHalf) continue;
+    // Optional [image] flag — when present in the label half, the
+    // host opens the image picker after filling the prompt (one-tap
+    // "camera + prompt staged" action).
+    let attachImage = false;
+    const imageFlag = labelHalf.match(/\s*\[image\]\s*$/i);
+    if (imageFlag) {
+      attachImage = true;
+      labelHalf = labelHalf.slice(0, imageFlag.index).trim();
+    }
     // Optional :icon-name: prefix on the label half.
     const iconMatch = labelHalf.match(/^:([a-z0-9-]+):\s*(.*)$/i);
     const icon = iconMatch ? iconMatch[1] : null;
     const label = (iconMatch ? iconMatch[2] : labelHalf).trim();
     if (!label) continue;
-    out.push({ icon, label, prompt: promptHalf });
+    const chip: StarterChip = { icon, label, prompt: promptHalf };
+    if (attachImage) chip.attachImage = true;
+    out.push(chip);
   }
   return out;
 }
@@ -184,7 +203,7 @@ export function renderEmptyState(
 export function renderChipsInto(
   chipRow: HTMLElement,
   chips: StarterChip[],
-  onChipPick: (prompt: string) => void,
+  onChipPick: (chip: StarterChip) => void,
 ): void {
   chipRow.empty();
   for (const chip of chips) {
@@ -197,6 +216,6 @@ export function renderChipsInto(
       setIcon(ic, chip.icon);
     }
     btn.createSpan({ cls: 'scribian-empty-chip-label', text: chip.label });
-    btn.addEventListener('click', () => onChipPick(chip.prompt));
+    btn.addEventListener('click', () => onChipPick(chip));
   }
 }

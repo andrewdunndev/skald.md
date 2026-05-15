@@ -100,4 +100,39 @@ describe('parseStartersNote', () => {
     const out = parseStartersNote('- :brain: — Just the icon, no label.');
     expect(out).toEqual([]);
   });
+
+  it('parses the [image] flag and sets attachImage true', () => {
+    const out = parseStartersNote(
+      '- :camera: Identify + file [image] — Identify this image.',
+    );
+    expect(out).toEqual([
+      {
+        icon: 'camera',
+        label: 'Identify + file',
+        prompt: 'Identify this image.',
+        attachImage: true,
+      },
+    ]);
+  });
+
+  it('parses [image] case-insensitively', () => {
+    const out = parseStartersNote(
+      '- Take a photo [IMAGE] — Photo prompt.',
+    );
+    expect(out[0].attachImage).toBe(true);
+    expect(out[0].label).toBe('Take a photo');
+  });
+
+  it('does NOT set attachImage on chips without the flag', () => {
+    const out = parseStartersNote('- :brain: Remember — Add to memory.');
+    expect(out[0].attachImage).toBeUndefined();
+  });
+
+  it('does not match [image] inside the prompt half', () => {
+    const out = parseStartersNote(
+      '- Search — Find notes about [image] processing.',
+    );
+    expect(out[0].attachImage).toBeUndefined();
+    expect(out[0].prompt).toContain('[image]');
+  });
 });

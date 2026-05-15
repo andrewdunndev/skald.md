@@ -40,8 +40,9 @@ export interface MessageListContext {
   savedNotesFolder: string;
   /** Called when the user taps a starter chip in the empty state.
    * The host fills the composer with the chip's prompt — the user
-   * reviews + sends in the normal flow. */
-  onStarterPick: (prompt: string) => void;
+   * reviews + sends in the normal flow. The full chip is passed
+   * so the host can react to flags like attachImage. */
+  onStarterPick: (chip: StarterChip) => void;
   /** Optional async loader for the empty-state starter chips. Called
    * each time the empty state is rendered (open + new chat), so
    * edits to a vault-side Starters.md show up on the next clean
@@ -72,7 +73,7 @@ export class MessageList {
   private renderEmptyState(): void {
     this.emptyStateEl?.remove();
     this.emptyStateEl = renderEmptyState(this.messagesEl, {
-      onChipPick: (prompt) => this.ctx.onStarterPick(prompt),
+      onChipPick: (chip) => this.ctx.onStarterPick(chip),
     });
     // Async refresh of starter chips from the vault — replaces the
     // default set the renderEmptyState call mounted synchronously.
@@ -86,8 +87,8 @@ export class MessageList {
           '.scribian-empty-chips',
         ) as HTMLDivElement | null;
         if (!chipRow) return;
-        renderChipsInto(chipRow, chips, (prompt) =>
-          this.ctx.onStarterPick(prompt),
+        renderChipsInto(chipRow, chips, (chip) =>
+          this.ctx.onStarterPick(chip),
         );
       });
     }

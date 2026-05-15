@@ -92,7 +92,11 @@ export class ScribianView extends ItemView {
       onApprove: (id) => this.resolveApprovalUi(id, true),
       onReject: (id) => this.resolveApprovalUi(id, false),
       savedNotesFolder: this.plugin.settings.savedNotesFolder,
-      onStarterPick: (prompt) => this.composer?.fillText(prompt),
+      onStarterPick: (chip) => {
+        if (!this.composer) return;
+        this.composer.fillText(chip.prompt);
+        if (chip.attachImage) this.composer.pickImage();
+      },
       loadStarterChips: () =>
         loadStarterChips(this.app, this.plugin.settings.startersPath),
     });
