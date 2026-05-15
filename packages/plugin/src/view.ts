@@ -16,6 +16,7 @@ import { MessageList } from './view/message-list';
 import { maybeRenderSetupBanner } from './view/setup-banner';
 import { toImageContentBlock } from './image-attach';
 import { saveConversation } from './conversation-store';
+import { estimateTurnCost, formatTurnStatus } from './pricing';
 import type { ContentBlock } from '@scribian/protocol';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
@@ -272,13 +273,15 @@ export class ScribianView extends ItemView {
     provider?: 'anthropic' | 'openrouter',
   ): void {
     this.composer.setBusy(false);
-    const cache = usage.cache_read_input_tokens
-      ? ` (cache hit ${usage.cache_read_input_tokens})`
-      : '';
-    const stop = stopReason !== 'end_turn' ? ` · ${stopReason}` : '';
-    const via = provider === 'openrouter' ? ' · openrouter' : '';
+    const total = this.session?.getTotalUsage() ?? usage;
     this.setStatus(
-      `Connected · last turn${via}: ${usage.input_tokens} in / ${usage.output_tokens} out${cache}${stop}`,
+      formatTurnStatus({
+        usage,
+        total,
+        model: this.modelSelect.value,
+        provider,
+        stopReason,
+      }),
       'connected',
     );
     // Force a final render to lock the finalized message rendering.
@@ -292,6 +295,8 @@ export class ScribianView extends ItemView {
     if (!this.session) return;
     const folder = this.plugin.settings.chatsFolder.trim();
     if (!folder) return;
+    const totalUsage = this.session.getTotalUsage();
+    const costUSD = estimateTurnCost(totalUsage, this.modelSelect.value);
     await saveConversation(
       this.app,
       folder,
@@ -300,6 +305,8 @@ export class ScribianView extends ItemView {
         model: this.modelSelect.value,
         created: this.session.conversationCreated,
         updated: new Date().toISOString(),
+        usage: totalUsage,
+        costUSD,
       },
       this.session.getMessages(),
     );

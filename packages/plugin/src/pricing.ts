@@ -1,0 +1,152 @@
+/**
+ * Per-model pricing for cost estimation. Surfaced in:
+ *   - the chat status row (running per-conversation total)
+ *   - saved conversation markdown frontmatter (estimated_cost_usd)
+ *
+ * Rates are $/million tokens. Update when Anthropic / OpenRouter
+ * publish new pricing — this is a knowingly-stale table, accuracy
+ * within $0.01 isn't the goal; surfacing the order of magnitude
+ * on a premium-token mobile budget is.
+ *
+ * Pricing source (Anthropic, accurate as of 2026-05):
+ *   - claude-opus-4-7: $15 / $75 input/output, no documented cache yet
+ *   - claude-sonnet-4-6: $3 / $15, cache_read $0.30, cache_write $3.75
+ *   - claude-haiku-4-5: $1 / $5, cache_read $0.10, cache_write $1.25
+ *
+ * OpenRouter rates vary per model; surfaced via their pricing API
+ * but kept as a rough Sonnet baseline here for non-Anthropic routes
+ * (cost surface is "indicative" — the actual bill comes from your
+ * OpenRouter dashboard).
+ */
+
+import type { Usage } from '@scribian/protocol';
+
+export interface ModelPricing {
+  /** Input tokens, $/M */
+  input: number;
+  /** Output tokens, $/M */
+  output: number;
+  /** Cache-hit reads, $/M (lower than input). Defaults to input
+   * rate if absent. */
+  cacheRead?: number;
+  /** Cache writes / creation, $/M (slightly higher than input).
+   * Defaults to input rate if absent. */
+  cacheWrite?: number;
+}
+
+/** Pricing table keyed by canonical model id (Anthropic names) and
+ * by an OpenRouter-style namespaced fallback. */
+export const MODEL_PRICING: Record<string, ModelPricing> = {
+  'claude-opus-4-7': { input: 15, output: 75 },
+  'claude-sonnet-4-6': {
+    input: 3,
+    output: 15,
+    cacheRead: 0.3,
+    cacheWrite: 3.75,
+  },
+  'claude-haiku-4-5': {
+    input: 1,
+    output: 5,
+    cacheRead: 0.1,
+    cacheWrite: 1.25,
+  },
+};
+
+/**
+ * Estimate the USD cost of a single chat turn. Returns 0 for
+ * unknown models — accuracy isn't the contract, surfacing-when-we-
+ * can is. Cache tokens are billed at the discounted rates when
+ * present in the usage payload.
+ */
+export function estimateTurnCost(usage: Usage, model: string): number {
+  const price = lookupPricing(model);
+  if (!price) return 0;
+
+  const inputTokens = usage.input_tokens ?? 0;
+  const outputTokens = usage.output_tokens ?? 0;
+  const cacheRead = usage.cache_read_input_tokens ?? 0;
+  const cacheWrite = usage.cache_creation_input_tokens ?? 0;
+
+  const inputRate = price.input;
+  const outputRate = price.output;
+  const cacheReadRate = price.cacheRead ?? price.input;
+  const cacheWriteRate = price.cacheWrite ?? price.input;
+
+  // input_tokens from the API counts uncached input tokens —
+  // cache_read + cache_create are billed separately at their own
+  // rates. Sum the three lines for the input side.
+  return (
+    (inputTokens * inputRate +
+      outputTokens * outputRate +
+      cacheRead * cacheReadRate +
+      cacheWrite * cacheWriteRate) /
+    1_000_000
+  );
+}
+
+/**
+ * Look up a model's pricing. Strips OpenRouter's namespacing
+ * (`anthropic/claude-sonnet-4-6` → `claude-sonnet-4-6`) so a turn
+ * routed through OpenRouter to a known Anthropic model still
+ * surfaces a useful estimate.
+ */
+function lookupPricing(model: string): ModelPricing | null {
+  if (MODEL_PRICING[model]) return MODEL_PRICING[model];
+  // Strip leading namespace (anthropic/, openai/, meta-llama/, etc).
+  const idx = model.indexOf('/');
+  if (idx >= 0) {
+    const stripped = model.slice(idx + 1);
+    if (MODEL_PRICING[stripped]) return MODEL_PRICING[stripped];
+  }
+  return null;
+}
+
+/** Format a USD cost for display. Below $0.01 shows three decimal
+ * places (sub-cent precision matters on mobile-burst flows). */
+export function formatCostUSD(cost: number): string {
+  if (cost <= 0) return '$0';
+  if (cost < 0.01) return `$${cost.toFixed(4)}`;
+  if (cost < 1) return `$${cost.toFixed(3)}`;
+  return `$${cost.toFixed(2)}`;
+}
+
+/** Aggregate usage across multiple turns. Adds undefined cache fields
+ * to zero so the result is a fully-populated Usage object. */
+export function sumUsage(a: Usage, b: Usage): Usage {
+  return {
+    input_tokens: (a.input_tokens ?? 0) + (b.input_tokens ?? 0),
+    output_tokens: (a.output_tokens ?? 0) + (b.output_tokens ?? 0),
+    cache_read_input_tokens:
+      (a.cache_read_input_tokens ?? 0) + (b.cache_read_input_tokens ?? 0),
+    cache_creation_input_tokens:
+      (a.cache_creation_input_tokens ?? 0) +
+      (b.cache_creation_input_tokens ?? 0),
+  };
+}
+
+/**
+ * Compose the chat status row text for a finished turn. Folds the
+ * cache hit + cost + stop-reason annotations into one line. Pure
+ * so it's covered by unit tests without view-layer plumbing.
+ */
+export function formatTurnStatus(input: {
+  usage: Usage;
+  total: Usage;
+  model: string;
+  provider?: string;
+  stopReason: string;
+}): string {
+  const cache = input.usage.cache_read_input_tokens
+    ? ` (cache hit ${input.usage.cache_read_input_tokens})`
+    : '';
+  const stop =
+    input.stopReason !== 'end_turn' ? ` · ${input.stopReason}` : '';
+  const via = input.provider === 'openrouter' ? ' · openrouter' : '';
+  const turnCost = estimateTurnCost(input.usage, input.model);
+  const totalCost = estimateTurnCost(input.total, input.model);
+  const costPart =
+    turnCost > 0
+      ? ` · ${formatCostUSD(turnCost)} (total ${formatCostUSD(totalCost)})`
+      : '';
+  return `Connected · last turn${via}: ${input.usage.input_tokens ?? 0} in / ${input.usage.output_tokens ?? 0} out${cache}${costPart}${stop}`;
+}

@@ -1,11 +1,18 @@
 import { App, normalizePath, TFile } from 'obsidian';
-import type { Message } from '@scribian/protocol';
+import type { Message, Usage } from '@scribian/protocol';
 
 export interface ConversationMeta {
   id: string;
   model: string;
   created: string; // ISO 8601
   updated: string; // ISO 8601
+  /** Cumulative usage across every finalized turn in the
+   * conversation. Optional — omitted from frontmatter when absent
+   * (e.g. for legacy saves). */
+  usage?: Usage;
+  /** Estimated USD cost based on per-model pricing. Surfaced as
+   * `estimated_cost_usd` in the saved frontmatter. */
+  costUSD?: number;
 }
 
 /**
@@ -62,6 +69,25 @@ export function renderConversationMarkdown(
   lines.push(`scribian-model: ${meta.model}`);
   lines.push(`created: ${meta.created}`);
   lines.push(`updated: ${meta.updated}`);
+  if (meta.usage) {
+    lines.push(`input_tokens: ${meta.usage.input_tokens ?? 0}`);
+    lines.push(`output_tokens: ${meta.usage.output_tokens ?? 0}`);
+    if (meta.usage.cache_read_input_tokens) {
+      lines.push(
+        `cache_read_input_tokens: ${meta.usage.cache_read_input_tokens}`,
+      );
+    }
+    if (meta.usage.cache_creation_input_tokens) {
+      lines.push(
+        `cache_creation_input_tokens: ${meta.usage.cache_creation_input_tokens}`,
+      );
+    }
+  }
+  if (typeof meta.costUSD === 'number' && meta.costUSD > 0) {
+    // Six decimals: sub-cent precision matters on mobile-burst
+    // flows where one chat may be a few thousandths of a dollar.
+    lines.push(`estimated_cost_usd: ${meta.costUSD.toFixed(6)}`);
+  }
   lines.push('---');
   lines.push('');
 

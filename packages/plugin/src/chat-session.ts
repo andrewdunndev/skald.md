@@ -7,6 +7,7 @@ import type {
   ToolDefinition,
   Usage,
 } from '@scribian/protocol';
+import { sumUsage } from './pricing';
 import { Transport } from './transport';
 
 export interface InFlight {
@@ -43,6 +44,7 @@ export interface ProviderConfig {
 export class ChatSession {
   private readonly messages: Message[] = [];
   private inFlight: InFlight | null = null;
+  private totalUsage: Usage = { input_tokens: 0, output_tokens: 0 };
   conversationId: string = crypto.randomUUID();
   conversationCreated: string = new Date().toISOString();
 
@@ -106,9 +108,16 @@ export class ChatSession {
     return this.inFlight;
   }
 
+  /** Cumulative usage across every finalized turn in this
+   * conversation. Reset when reset() is called (new chat). */
+  getTotalUsage(): Usage {
+    return this.totalUsage;
+  }
+
   reset(): void {
     this.messages.length = 0;
     this.inFlight = null;
+    this.totalUsage = { input_tokens: 0, output_tokens: 0 };
     this.conversationId = crypto.randomUUID();
     this.conversationCreated = new Date().toISOString();
     this.handlers.onUpdate();
@@ -208,10 +217,15 @@ export class ChatSession {
     this.handlers.onUpdate();
 
     if (stopReason === 'tool_use') {
+      // Mid-turn tool dispatch: accumulate this leg's usage now;
+      // the continuation's onDone won't fire until tools resolve +
+      // the model responds again.
+      this.totalUsage = sumUsage(this.totalUsage, finalUsage);
       await this.executeToolsAndContinue(blocks);
       return;
     }
 
+    this.totalUsage = sumUsage(this.totalUsage, finalUsage);
     this.handlers.onDone(stopReason, finalUsage, provider);
     this.handlers.onUpdate();
   }
