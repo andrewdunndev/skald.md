@@ -5,6 +5,7 @@ import { Logger } from './logger';
 import { reindexVault } from './memory-client';
 import { emptyManifest, type IndexManifest } from './index-manifest';
 import { ConversationSearchModal } from './conversation-search';
+import { CaptureService } from './capture';
 import {
   loadSlashCommands,
   renderCommand,
@@ -14,15 +15,35 @@ import {
 export default class ScribianPlugin extends Plugin {
   settings: ScribianSettings = DEFAULT_SETTINGS;
   logger!: Logger;
+  private captureService!: CaptureService;
 
   override async onload() {
     await this.loadSettings();
     this.logger = new Logger(this.app, () => this.settings.logsFolder);
     this.logger.info('scribian loaded');
 
+    this.captureService = new CaptureService(this.app, () => ({
+      workerUrl: this.settings.workerUrl,
+      workerToken: this.settings.workerToken,
+      captureFolder: this.settings.capturesFolder,
+      promptPath: this.settings.capturePromptPath,
+    }));
+
     this.registerView(VIEW_TYPE_SCRIBIAN, (leaf) => new ScribianView(leaf, this));
 
     this.addRibbonIcon('message-square', 'Open Scribian', () => this.activateView());
+
+    // Phase 8: iOS share-sheet capture via Apple Shortcuts. Each
+    // discrete sub-action is its own handler — implicit allowlist
+    // through the set of names registered here. No "catch-all"
+    // handler that dispatches on action params, so a malformed /
+    // attacker-crafted URI like obsidian://scribian/delete just
+    // 404s instead of reaching a handler that has to decide what
+    // to do with it.
+    this.registerObsidianProtocolHandler('scribian-capture', (data) => {
+      this.logger.info(`protocol: scribian-capture kind=${data.kind ?? 'text'}`);
+      void this.captureService.handleProtocol(data);
+    });
 
     this.addCommand({
       id: 'scribian-open',

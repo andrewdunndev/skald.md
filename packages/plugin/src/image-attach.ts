@@ -78,12 +78,38 @@ export async function attachmentsFromClipboard(
 ): Promise<ImageAttachment[]> {
   const items = e.clipboardData?.items;
   if (!items) return [];
-  const out: ImageAttachment[] = [];
+  const blobs: Blob[] = [];
   for (let i = 0; i < items.length; i++) {
     const item = items[i];
     if (!SUPPORTED_MEDIA_TYPES.has(item.type)) continue;
     const blob = item.getAsFile();
-    if (!blob || blob.size > MAX_IMAGE_BYTES) continue;
+    if (blob) blobs.push(blob);
+  }
+  return blobsToAttachments(blobs);
+}
+
+/**
+ * Convert a FileList (from `<input type="file">`) into
+ * ImageAttachment[]. Used by the iOS camera + photos picker on
+ * mobile and by drag-drop on desktop. Anything that isn't a
+ * supported image MIME type is silently dropped.
+ */
+export async function attachmentsFromFiles(
+  files: FileList | File[],
+): Promise<ImageAttachment[]> {
+  const blobs: Blob[] = [];
+  // FileList isn't iterable on all runtimes; index manually.
+  for (let i = 0; i < files.length; i++) {
+    const f = files[i];
+    if (SUPPORTED_MEDIA_TYPES.has(f.type)) blobs.push(f);
+  }
+  return blobsToAttachments(blobs);
+}
+
+async function blobsToAttachments(blobs: Blob[]): Promise<ImageAttachment[]> {
+  const out: ImageAttachment[] = [];
+  for (const blob of blobs) {
+    if (blob.size > MAX_IMAGE_BYTES) continue;
     try {
       out.push(await blobToAttachment(blob));
     } catch {

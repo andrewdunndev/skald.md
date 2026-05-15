@@ -53,6 +53,16 @@ export interface ScribianSettings {
    *   chat input when picked from the modal.
    */
   commandsFolder: string;
+  /**
+   * Phase 8: iOS share-sheet capture.
+   * capturesFolder: where captured notes land. Default Scribian/Captures.
+   * capturePromptPath: optional vault-relative path to a custom
+   *   prompt-template note. Empty → use the kind-default prompt
+   *   baked into the capture module (url/text/image/pdf each get a
+   *   tailored default).
+   */
+  capturesFolder: string;
+  capturePromptPath: string;
 }
 
 export const MODELS = [
@@ -78,6 +88,8 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   personasFolder: 'Scribian/Personas',
   activePersona: '',
   commandsFolder: 'Scribian/Commands',
+  capturesFolder: 'Scribian/Captures',
+  capturePromptPath: '',
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -357,6 +369,30 @@ export class ScribianSettingTab extends PluginSettingTab {
       'Scribian/Commands',
       'commandsFolder',
     );
+
+    // ── iOS share-sheet capture ─────────────────────────────────
+    new Setting(containerEl).setName('Share-sheet capture').setHeading();
+
+    this.addFolderSetting(
+      'Captures folder',
+      "Where captured notes from the iOS share-sheet land. Created on first capture if it doesn't exist. Default: Scribian/Captures",
+      'Scribian/Captures',
+      'capturesFolder',
+    );
+
+    new Setting(containerEl)
+      .setName('Custom capture prompt')
+      .setDesc(
+        'Vault-relative path of a markdown note whose body overrides the default capture prompt. Empty uses kind-specific defaults baked into the plugin (separate prompts for url/text/image/pdf).',
+      )
+      .addText((t) => {
+        t.setPlaceholder('Scribian/Prompts/capture.md')
+          .setValue(this.plugin.settings.capturePromptPath)
+          .onChange(async (v) => {
+            this.plugin.settings.capturePromptPath = v.trim();
+            await this.plugin.saveSettings();
+          });
+      });
   }
 
   /**
@@ -373,7 +409,8 @@ export class ScribianSettingTab extends PluginSettingTab {
       | 'savedNotesFolder'
       | 'logsFolder'
       | 'personasFolder'
-      | 'commandsFolder',
+      | 'commandsFolder'
+      | 'capturesFolder',
   ): void {
     new Setting(this.containerEl)
       .setName(name)

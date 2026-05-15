@@ -5,12 +5,19 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![status](https://img.shields.io/badge/status-pre--alpha-orange)]()
 
-Vault-native Claude client for [Obsidian](https://obsidian.md/).
-Mobile-first (iPhone, iPad, desktop). Streams via WebSocket through
-a Cloudflare Worker you deploy to your own CF account with your own
-Anthropic API key. Read and write your vault under user approval;
-search the web inline; conversations save back into your vault as
-markdown.
+**Vault-native Claude in Obsidian, mobile first. Your Cloudflare
+Worker, your Anthropic key, your vault.**
+
+scribian is a Claude client that lives where you write. Streams via
+WebSocket through a Cloudflare Worker you deploy to your own CF
+account with your own API key — no scribian-side backend, no shared
+service. Reads + writes your vault under explicit user approval.
+Searches the web inline. Conversations save back into your vault as
+markdown. iOS share-sheet capture turns anything you share from
+another app into a Claude-processed vault note. Long-term memory
+note + semantic search over your vault keep Claude grounded across
+sessions, without any vault content persisting outside the vault
+(only embedding vectors do — one-way derivative data).
 
 > **Status:** pre-alpha. Phases 0–6 shipped. Multi-provider
 > (Anthropic + OpenRouter) and vault-as-memory (Cloudflare Vectorize

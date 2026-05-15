@@ -22,6 +22,7 @@ import { buildMemorySection } from './memory-prompt';
 import { buildPersonaSection } from './persona-prompt';
 import {
   attachmentsFromClipboard,
+  attachmentsFromFiles,
   clipboardHasImage,
   humanByteCount,
   toImageContentBlock,
@@ -281,6 +282,34 @@ export class ScribianView extends ItemView {
       attr: { placeholder: 'Ask Claude…', rows: '2' },
     });
     const buttonRow = inputWrap.createDiv({ cls: 'scribian-button-row' });
+
+    // Phase 7 (vision): file/camera picker. Available on every
+    // platform; on iOS the `capture="environment"` attribute opens
+    // the camera UI directly. On desktop the user gets the standard
+    // file picker (image-only filter).
+    const cameraBtn = buttonRow.createEl('button', {
+      cls: 'clickable-icon scribian-icon-btn scribian-camera',
+      attr: { 'aria-label': 'Attach image' },
+    });
+    setIcon(cameraBtn, 'camera');
+    setTooltip(cameraBtn, 'Attach image (photo / file)');
+    const fileInput = buttonRow.createEl('input', {
+      cls: 'scribian-file-input',
+      attr: {
+        type: 'file',
+        accept: 'image/jpeg,image/png,image/gif,image/webp',
+        multiple: 'true',
+        capture: 'environment',
+      },
+    });
+    fileInput.style.display = 'none';
+    cameraBtn.addEventListener('click', () => fileInput.click());
+    fileInput.addEventListener('change', () => {
+      if (fileInput.files) void this.handleImageFiles(fileInput.files);
+      // Reset so picking the same file twice fires the change event.
+      fileInput.value = '';
+    });
+
     this.sendBtn = buttonRow.createEl('button', {
       cls: 'clickable-icon scribian-icon-btn scribian-send',
       attr: { 'aria-label': 'Send' },
@@ -551,6 +580,18 @@ export class ScribianView extends ItemView {
    */
   private async handleImagePaste(e: ClipboardEvent): Promise<void> {
     const next = await attachmentsFromClipboard(e);
+    if (next.length === 0) return;
+    this.pickedImages.push(...next);
+    this.renderChip();
+  }
+
+  /**
+   * Catch images from the camera / file picker (phase 7). The
+   * `<input type=file capture=environment>` triggers the iOS camera
+   * directly; desktop browsers fall back to the file dialog.
+   */
+  private async handleImageFiles(files: FileList): Promise<void> {
+    const next = await attachmentsFromFiles(files);
     if (next.length === 0) return;
     this.pickedImages.push(...next);
     this.renderChip();
