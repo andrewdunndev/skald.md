@@ -14,6 +14,12 @@ export interface WriteProposal {
   path: string;
   before: string | null;
   after: string;
+  /** Vault paths (and search queries) the assistant consulted on
+   * this turn before proposing the write. Surfaced in the diff card
+   * so the user can audit where the proposal's reasoning came from
+   * — and reject confidently when it pulled from somewhere they
+   * didn't expect. */
+  informedBy?: string[];
 }
 
 export type ApproveFn = (proposal: WriteProposal) => Promise<boolean>;

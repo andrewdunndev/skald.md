@@ -10,6 +10,7 @@ import { ActiveNoteIndicator } from './view/active-note';
 import { Composer } from './view/composer';
 import { loadStarterChips } from './view/empty-state';
 import { renderHeader } from './view/header';
+import { readsBeforeToolUse } from './view/inflight-reads';
 import { handleMcpCall } from './view/mcp-bridge';
 import { MessageList } from './view/message-list';
 import { maybeRenderSetupBanner } from './view/setup-banner';
@@ -175,7 +176,11 @@ export class ScribianView extends ItemView {
       (name, input, toolUseId) =>
         executeTool(name, input, toolUseId, {
           app: this.app,
-          approve: (proposal) => this.requestApproval(proposal),
+          approve: (proposal) =>
+            this.requestApproval({
+              ...proposal,
+              informedBy: this.currentTurnReads(proposal.toolUseId),
+            }),
           memoryClient: {
             workerUrl: this.plugin.settings.workerUrl,
             workerToken: this.plugin.settings.workerToken,
@@ -356,6 +361,12 @@ export class ScribianView extends ItemView {
 
   private requestApproval(proposal: WriteProposal): Promise<boolean> {
     return this.approvals.request(proposal);
+  }
+
+  private currentTurnReads(currentToolUseId: string): string[] {
+    const inFlight = this.session?.getInFlight();
+    if (!inFlight) return [];
+    return readsBeforeToolUse(inFlight.blocks, currentToolUseId);
   }
 
   /**

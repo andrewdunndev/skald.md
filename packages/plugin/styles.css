@@ -186,6 +186,24 @@
   font-family: var(--font-monospace);
 }
 
+.scribian-diff-trace {
+  padding: var(--size-2-1) var(--size-4-2);
+  background: var(--background-secondary);
+  border-bottom: 1px solid var(--background-modifier-border);
+  font-size: var(--font-ui-smaller);
+  color: var(--text-muted);
+  word-break: break-word;
+}
+
+.scribian-diff-trace-label {
+  font-weight: var(--font-semibold);
+}
+
+.scribian-diff-trace-source {
+  font-family: var(--font-monospace);
+  color: var(--text-normal);
+}
+
 .scribian-diff-body {
   display: flex;
   flex-direction: column;

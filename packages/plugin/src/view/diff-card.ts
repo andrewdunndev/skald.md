@@ -45,6 +45,21 @@ export function renderDiffCard(
     text: proposal.path,
   });
 
+  if (proposal.informedBy && proposal.informedBy.length > 0) {
+    const trace = card.createDiv({ cls: 'scribian-diff-trace' });
+    trace.createSpan({
+      cls: 'scribian-diff-trace-label',
+      text: 'Informed by: ',
+    });
+    for (let i = 0; i < proposal.informedBy.length; i++) {
+      if (i > 0) trace.createSpan({ text: ', ' });
+      trace.createSpan({
+        cls: 'scribian-diff-trace-source',
+        text: proposal.informedBy[i],
+      });
+    }
+  }
+
   const body = card.createDiv({ cls: 'scribian-diff-body' });
   const diff = lineDiff(proposal.before ?? '', proposal.after);
   for (const line of diff) {
