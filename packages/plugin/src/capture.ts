@@ -38,8 +38,29 @@ import {
   type ObsidianProtocolData,
   type RequestUrlParam,
 } from 'obsidian';
+import { searchVault, type MemoryClientConfig, type SearchHit } from './memory-client';
 
 export type CaptureKind = 'url' | 'text' | 'image' | 'pdf';
+
+export type CaptureMode = 'auto-route' | 'inbox';
+
+/** Min similarity score for routing a capture to an existing note.
+ *  Below this, the capture falls back to creating in captureFolder.
+ *  Tuned empirically — 0.7 is the threshold below which the top hit
+ *  is plausibly unrelated even if the embedding space puts it near. */
+export const CAPTURE_ROUTE_THRESHOLD = 0.7;
+
+export interface CaptureRoute {
+  kind: 'create' | 'append';
+  path: string;
+  /** Score of the matched note when kind='append'; absent when
+   *  kind='create'. */
+  matchScore?: number;
+  /** Top candidates considered, for telemetry / a future "change
+   *  destination" picker. Empty when search wasn't run (inbox mode
+   *  or search unavailable). */
+  candidates: Array<{ path: string; score: number }>;
+}
 
 export interface CaptureParams {
   kind: CaptureKind;
@@ -178,6 +199,67 @@ export interface CaptureServiceConfig {
   /** Vault-relative path of a prompt-template note. Empty → use
    * the kind-default prompt baked into this module. */
   promptPath: string;
+  /** 'auto-route' runs find_related on the generated note + appends
+   * to the top match when score >= CAPTURE_ROUTE_THRESHOLD. 'inbox'
+   * always creates in captureFolder. Default is 'auto-route' —
+   * intelligent triage is scribian's value-add over Obsidian's
+   * native share-sheet handler. */
+  mode: CaptureMode;
+}
+
+/**
+ * Decide where a captured note should land. Pure routing logic over
+ * a searcher callback so the caller can inject either the real
+ * /search HTTP path or a stub. Score threshold is the safety knob —
+ * below the threshold the capture goes to inbox regardless of mode.
+ *
+ * Search failures are treated as "no match found" (falls back to
+ * create-in-inbox); the caller decides whether to surface the
+ * failure to the user via a Notice.
+ */
+export async function routeCapture(
+  searcher: (query: string, topK: number) => Promise<SearchHit[]>,
+  options: {
+    mode: CaptureMode;
+    title: string;
+    body: string;
+    captureFolder: string;
+    threshold?: number;
+  },
+): Promise<CaptureRoute> {
+  const threshold = options.threshold ?? CAPTURE_ROUTE_THRESHOLD;
+  if (options.mode !== 'auto-route') {
+    return {
+      kind: 'create',
+      path: captureFilename(options.captureFolder, options.title),
+      candidates: [],
+    };
+  }
+  // Title carries the topical handle; body excerpt grounds it. Cap
+  // body at 500 chars so the embedding model has signal without
+  // ballooning the query.
+  const query = `${options.title}\n\n${options.body.slice(0, 500)}`;
+  let hits: SearchHit[] = [];
+  try {
+    hits = await searcher(query, 3);
+  } catch {
+    hits = [];
+  }
+  const candidates = hits.map((h) => ({ path: h.path, score: h.score }));
+  const top = hits[0];
+  if (top && top.score >= threshold) {
+    return {
+      kind: 'append',
+      path: top.path,
+      matchScore: top.score,
+      candidates,
+    };
+  }
+  return {
+    kind: 'create',
+    path: captureFilename(options.captureFolder, options.title),
+    candidates,
+  };
 }
 
 export class CaptureService {
@@ -196,7 +278,8 @@ export class CaptureService {
     try {
       const note = await this.run(params);
       progress.hide();
-      new Notice(`scribian: captured → ${note.path}`, 5000);
+      const verb = note.routedTo === 'append' ? 'routed to' : 'captured';
+      new Notice(`scribian: ${verb} → ${note.path}`, 5000);
       if (!params.silent) {
         await this.app.workspace.openLinkText(note.path, '', false);
       }
@@ -207,10 +290,13 @@ export class CaptureService {
     }
   }
 
-  /** Run a capture end-to-end: prompt → /capture → vault write.
-   * Returns the path that was written. Exposed for testing /
-   * future programmatic capture sources (browser extension). */
-  async run(params: CaptureParams): Promise<{ path: string }> {
+  /** Run a capture end-to-end: prompt → /capture → routing → vault
+   * write. Returns the resolved path + whether it created or appended.
+   * Exposed for testing / future programmatic capture sources
+   * (browser extension). */
+  async run(
+    params: CaptureParams,
+  ): Promise<{ path: string; routedTo: 'create' | 'append' }> {
     const cfg = this.cfg();
     if (!cfg.workerUrl || !cfg.workerToken) {
       throw new Error('Worker URL + token must be configured first.');
@@ -239,6 +325,34 @@ export class CaptureService {
       throw new Error('/capture response missing body');
     }
 
+    const memoryClient: MemoryClientConfig = {
+      workerUrl: cfg.workerUrl,
+      workerToken: cfg.workerToken,
+    };
+    const route = await routeCapture(
+      (q, k) => searchVault(memoryClient, q, k),
+      {
+        mode: cfg.mode,
+        title: body.title ?? params.title ?? '',
+        body: body.body,
+        captureFolder: cfg.captureFolder,
+      },
+    );
+
+    if (route.kind === 'append') {
+      const path = normalizePath(route.path);
+      const existing = this.app.vault.getAbstractFileByPath(path);
+      if (existing instanceof TFile) {
+        const current = await this.app.vault.read(existing);
+        const sep = current.endsWith('\n') ? '\n' : '\n\n';
+        const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
+        const appended = `${current}${sep}---\n\nCaptured ${stamp}\n\n${body.body}`;
+        await this.app.vault.modify(existing, appended);
+        return { path, routedTo: 'append' };
+      }
+      // Target vanished between search and write — fall back to create.
+    }
+
     await this.ensureFolder(cfg.captureFolder);
     const filename = captureFilename(
       cfg.captureFolder,
@@ -246,7 +360,7 @@ export class CaptureService {
     );
     const path = normalizePath(filename);
     await this.app.vault.create(path, body.body);
-    return { path };
+    return { path, routedTo: 'create' };
   }
 
   private async readPromptTemplate(promptPath: string): Promise<string | null> {

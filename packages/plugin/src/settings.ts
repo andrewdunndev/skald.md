@@ -78,6 +78,13 @@ export interface ScribianSettings {
   capturesFolder: string;
   capturePromptPath: string;
   /**
+   * Capture routing.
+   * 'auto-route' runs find_related on the generated capture note and
+   * appends to a matching vault note when similarity is high.
+   * 'inbox' always creates in capturesFolder (legacy behavior).
+   */
+  captureMode: 'auto-route' | 'inbox';
+  /**
    * Polish sweep: configurable empty-state starter chips.
    * startersPath: vault note holding the list of starter chips.
    *   Empty → use the baked-in DEFAULT_STARTER_CHIPS. Format is a
@@ -108,6 +115,7 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   commandsFolder: 'Scribian/Commands',
   capturesFolder: 'Scribian/Captures',
   capturePromptPath: '',
+  captureMode: 'auto-route',
   startersPath: 'Scribian/Starters.md',
 };
 

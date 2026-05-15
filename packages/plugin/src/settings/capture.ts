@@ -13,10 +13,25 @@ export function renderCaptureSection(
 ): void {
   new Setting(containerEl).setName('Share-sheet capture').setHeading();
 
+  new Setting(containerEl)
+    .setName('Capture routing')
+    .setDesc(
+      "Auto-route runs find_related on the generated capture note and appends to a matching vault note when similarity is high (score ≥ 0.7). Falls back to creating in the captures folder when no good match exists. Inbox always creates in the folder regardless. Auto-route is scribian's intelligent-triage value-add over Obsidian's native share-sheet handler.",
+    )
+    .addDropdown((d) => {
+      d.addOption('auto-route', 'Auto-route to best matching note')
+        .addOption('inbox', 'Always create in captures folder (legacy)')
+        .setValue(plugin.settings.captureMode)
+        .onChange(async (v) => {
+          plugin.settings.captureMode = v === 'inbox' ? 'inbox' : 'auto-route';
+          await plugin.saveSettings();
+        });
+    });
+
   addFolderSetting(containerEl, plugin, {
     name: 'Captures folder',
     desc:
-      "Where captured notes from the iOS share-sheet land. Created on first capture if it doesn't exist. Default: Scribian/Captures",
+      "Where captured notes land (always for inbox mode; as fallback for auto-route when no good match exists). Created on first capture if it doesn't exist. Default: Scribian/Captures",
     placeholder: 'Scribian/Captures',
     key: 'capturesFolder',
   });

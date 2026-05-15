@@ -3,8 +3,10 @@ import {
   buildCapturePrompt,
   captureFilename,
   parseCaptureParams,
+  routeCapture,
   type CaptureParams,
 } from './capture';
+import type { SearchHit } from './memory-client';
 
 describe('parseCaptureParams', () => {
   it('returns null when payload is missing', () => {
@@ -164,5 +166,123 @@ describe('captureFilename', () => {
     const f = captureFilename('Captures', title, fixedDate);
     const slug = f.replace('Captures/2026-05-14-', '').replace('.md', '');
     expect(slug.length).toBeLessThanOrEqual(40);
+  });
+});
+
+describe('routeCapture', () => {
+  const hit = (path: string, score: number): SearchHit => ({
+    path,
+    title: path.replace(/\.md$/, ''),
+    score,
+    kind: 'note-summary',
+  });
+
+  it('returns inbox-create when mode is inbox', async () => {
+    const route = await routeCapture(
+      async () => [hit('Projects/Flowers.md', 0.95)],
+      {
+        mode: 'inbox',
+        title: 'A tulip',
+        body: 'red petals, six chambers',
+        captureFolder: 'Scribian/Captures',
+      },
+    );
+    expect(route.kind).toBe('create');
+    expect(route.path).toMatch(/^Scribian\/Captures\//);
+    expect(route.candidates).toEqual([]);
+  });
+
+  it('routes to the top hit when auto-route + score above threshold', async () => {
+    const route = await routeCapture(
+      async () => [hit('Projects/Flowers.md', 0.84)],
+      {
+        mode: 'auto-route',
+        title: 'A tulip',
+        body: 'red petals',
+        captureFolder: 'Scribian/Captures',
+      },
+    );
+    expect(route.kind).toBe('append');
+    expect(route.path).toBe('Projects/Flowers.md');
+    expect(route.matchScore).toBe(0.84);
+    expect(route.candidates).toHaveLength(1);
+  });
+
+  it('falls back to inbox-create when top score below threshold', async () => {
+    const route = await routeCapture(
+      async () => [hit('Random/Note.md', 0.5)],
+      {
+        mode: 'auto-route',
+        title: 'A tulip',
+        body: 'red petals',
+        captureFolder: 'Scribian/Captures',
+      },
+    );
+    expect(route.kind).toBe('create');
+    expect(route.path).toMatch(/^Scribian\/Captures\//);
+    expect(route.candidates).toHaveLength(1);
+    expect(route.candidates[0].score).toBe(0.5);
+  });
+
+  it('falls back to inbox-create when search yields no hits', async () => {
+    const route = await routeCapture(async () => [], {
+      mode: 'auto-route',
+      title: 'A tulip',
+      body: 'red petals',
+      captureFolder: 'Scribian/Captures',
+    });
+    expect(route.kind).toBe('create');
+    expect(route.candidates).toEqual([]);
+  });
+
+  it('falls back to inbox-create when search throws', async () => {
+    const route = await routeCapture(
+      async () => {
+        throw new Error('network down');
+      },
+      {
+        mode: 'auto-route',
+        title: 'A tulip',
+        body: 'red petals',
+        captureFolder: 'Scribian/Captures',
+      },
+    );
+    expect(route.kind).toBe('create');
+    expect(route.candidates).toEqual([]);
+  });
+
+  it('respects custom threshold override', async () => {
+    // Top hit 0.6 — above the 0.5 override but below default 0.7.
+    const route = await routeCapture(
+      async () => [hit('Match.md', 0.6)],
+      {
+        mode: 'auto-route',
+        title: 'X',
+        body: 'Y',
+        captureFolder: 'Scribian/Captures',
+        threshold: 0.5,
+      },
+    );
+    expect(route.kind).toBe('append');
+    expect(route.matchScore).toBe(0.6);
+  });
+
+  it('caps body in query to 500 chars', async () => {
+    const longBody = 'x'.repeat(5000);
+    let received = '';
+    await routeCapture(
+      async (q) => {
+        received = q;
+        return [];
+      },
+      {
+        mode: 'auto-route',
+        title: 'long capture',
+        body: longBody,
+        captureFolder: 'Scribian/Captures',
+      },
+    );
+    // Title + 2 newlines + ≤ 500 body chars
+    expect(received.length).toBeLessThanOrEqual('long capture'.length + 2 + 500);
   });
 });

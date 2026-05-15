@@ -29,6 +29,7 @@ export default class ScribianPlugin extends Plugin {
       workerToken: this.settings.workerToken,
       captureFolder: this.settings.capturesFolder,
       promptPath: this.settings.capturePromptPath,
+      mode: this.settings.captureMode,
     }));
 
     this.registerView(VIEW_TYPE_SCRIBIAN, (leaf) => new ScribianView(leaf, this));
