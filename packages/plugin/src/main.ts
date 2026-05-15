@@ -3,6 +3,7 @@ import { ScribianView, VIEW_TYPE_SCRIBIAN } from './view';
 import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './settings';
 import { Logger } from './logger';
 import { reindexVault } from './memory-client';
+import { ConversationSearchModal } from './conversation-search';
 
 export default class ScribianPlugin extends Plugin {
   settings: ScribianSettings = DEFAULT_SETTINGS;
@@ -32,6 +33,17 @@ export default class ScribianPlugin extends Plugin {
       name: 'Reindex vault (for semantic search)',
       callback: () => {
         void this.reindexVault();
+      },
+    });
+
+    // Phase 10b: fuzzy-search across saved conversations with
+    // recency-weighted ranking. Opens the matched file directly;
+    // resume-into-pane is a follow-up.
+    this.addCommand({
+      id: 'scribian-search-conversations',
+      name: 'Search conversations',
+      callback: () => {
+        new ConversationSearchModal(this.app, this.settings.chatsFolder).open();
       },
     });
 

@@ -611,3 +611,29 @@
   border: 1px solid var(--background-modifier-border);
   display: block;
 }
+
+/* ── Phase 10b: conversation search modal ────────────────────────── */
+.scribian-conv-suggest {
+  padding: 0.5rem 0.75rem;
+}
+.scribian-conv-suggest-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  align-items: baseline;
+}
+.scribian-conv-suggest-title {
+  font-weight: 600;
+}
+.scribian-conv-suggest-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  font-family: var(--font-monospace);
+  flex-shrink: 0;
+}
+.scribian-conv-suggest-excerpt {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-top: 0.25rem;
+  line-height: 1.35;
+}
