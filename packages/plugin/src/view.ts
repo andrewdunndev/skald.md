@@ -17,6 +17,7 @@ import { ChatSession } from './chat-session';
 import { MODELS } from './settings';
 import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
+import { ApprovalManager } from './approval-manager';
 import { buildMemorySection } from './memory-prompt';
 import { buildPersonaSection } from './persona-prompt';
 import {
@@ -173,10 +174,17 @@ export class ScribianView extends ItemView {
   private pickerAnchor: number = -1;
   private pickerSelectedIdx: number = 0;
   private pickerResults: TFile[] = [];
-  private pendingApprovals: Map<
-    string,
-    { proposal: WriteProposal; resolve: (approved: boolean) => void }
-  > = new Map();
+  private readonly approvals = new ApprovalManager({
+    onPendingChange: () => this.flushRender(),
+    onResolve: (proposal, approved) => {
+      // Audit: every approval decision is logged so users can review
+      // who approved which write at what time. Stays vault-local; never
+      // leaves the device.
+      this.plugin.logger.info(
+        `approval ${approved ? 'approved' : 'rejected'}: ${proposal.kind} ${proposal.path}`,
+      );
+    },
+  });
 
   constructor(leaf: WorkspaceLeaf, plugin: ScribianPlugin) {
     super(leaf);
@@ -1122,9 +1130,9 @@ export class ScribianView extends ItemView {
         cls: 'scribian-tool-name',
         text: describeToolUse(name, input),
       });
-      if (id && this.pendingApprovals.has(id)) {
-        const pending = this.pendingApprovals.get(id)!;
-        this.renderDiffCard(parent, pending.proposal, pending.resolve);
+      const pending = id ? this.approvals.get(id) : undefined;
+      if (pending) {
+        this.renderDiffCard(parent, pending.proposal);
       }
       return;
     }
@@ -1256,38 +1264,29 @@ export class ScribianView extends ItemView {
   // ─── Approval (write tools) ──────────────────────────────────────
 
   private requestApproval(proposal: WriteProposal): Promise<boolean> {
-    return new Promise<boolean>((resolve) => {
-      this.pendingApprovals.set(proposal.toolUseId, { proposal, resolve });
-      this.flushRender();
-    });
+    return this.approvals.request(proposal);
   }
 
-  private resolveApproval(toolUseId: string, approved: boolean): void {
-    const entry = this.pendingApprovals.get(toolUseId);
-    if (!entry) return;
-    this.pendingApprovals.delete(toolUseId);
-    // Audit: every approval decision is logged so users can review who
-    // approved which write at what time. Stays vault-local; never
-    // leaves the device.
-    this.plugin.logger.info(
-      `approval ${approved ? 'approved' : 'rejected'}: ${entry.proposal.kind} ${entry.proposal.path}`,
-    );
-    // Remove the diff card from the DOM directly. The row that owns the
-    // tool_use is finalized so flushRender won't re-walk it; we patch the
-    // DOM in place instead.
+  /**
+   * User clicked approve/reject on a diff card. Resolves the
+   * underlying approval Promise (and triggers the onResolve hook
+   * for audit-logging) before clipping the diff card from the DOM.
+   * The DOM removal happens here rather than via re-render because
+   * the row owning the tool_use is finalized — flushRender won't
+   * re-walk it, so we patch the DOM in place.
+   */
+  private resolveApprovalUi(toolUseId: string, approved: boolean): void {
+    if (!this.approvals.resolve(toolUseId, approved)) return;
     const card = this.messagesEl.querySelector(
       `.scribian-diff[data-tool-use-id="${cssEscape(toolUseId)}"]`,
     );
     card?.remove();
-    entry.resolve(approved);
   }
 
   private renderDiffCard(
     parent: HTMLElement,
     proposal: WriteProposal,
-    resolve: (approved: boolean) => void,
   ): void {
-    void resolve;
     const card = parent.createDiv({ cls: 'scribian-diff' });
     card.setAttr('data-tool-use-id', proposal.toolUseId);
 
@@ -1334,10 +1333,10 @@ export class ScribianView extends ItemView {
     setIcon(reject, 'x');
     setTooltip(reject, 'Reject');
     approve.addEventListener('click', () =>
-      this.resolveApproval(proposal.toolUseId, true),
+      this.resolveApprovalUi(proposal.toolUseId, true),
     );
     reject.addEventListener('click', () =>
-      this.resolveApproval(proposal.toolUseId, false),
+      this.resolveApprovalUi(proposal.toolUseId, false),
     );
   }
 

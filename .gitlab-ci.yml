@@ -31,6 +31,11 @@ typecheck:
   script:
     - pnpm typecheck
 
+unit-tests:
+  stage: test
+  script:
+    - pnpm test
+
 build-plugin:
   stage: build
   needs: ['typecheck']
