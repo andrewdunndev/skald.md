@@ -18,6 +18,11 @@ import {
   type App,
 } from 'obsidian';
 import type { Message } from '@scribian/protocol';
+import {
+  formatSummary,
+  hasAnyAction,
+  summarizeVaultActions,
+} from './vault-action-summary';
 
 export interface MessageActionsConfig {
   app: App;
@@ -29,6 +34,7 @@ export function renderMessageActions(
   msg: Message,
   cfg: MessageActionsConfig,
 ): void {
+  renderVaultActionBadge(row, msg);
   const actions = row.createDiv({ cls: 'scribian-msg-actions' });
   const text = messageText(msg);
 
@@ -106,6 +112,29 @@ async function saveAsNote(
   } catch (err) {
     new Notice(
       `Save failed: ${err instanceof Error ? err.message : 'unknown'}`,
+    );
+  }
+}
+
+/**
+ * Vault-action badge — a thin line above the action row summarizing
+ * what tools the assistant turn touched. Visible signal of the
+ * "default to vault action" prompt working. When nothing fired, an
+ * italic "no vault action" reminds the user to ask "where would
+ * this land?"
+ */
+function renderVaultActionBadge(row: HTMLElement, msg: Message): void {
+  const summary = summarizeVaultActions(msg);
+  const badge = row.createDiv({ cls: 'scribian-vault-badge' });
+  if (hasAnyAction(summary)) {
+    badge.setText(formatSummary(summary));
+    badge.addClass('scribian-vault-badge-active');
+  } else {
+    badge.setText('💭 no vault action');
+    badge.addClass('scribian-vault-badge-idle');
+    setTooltip(
+      badge,
+      "Claude answered without reading or writing to your vault. If you want this in a note, ask: 'where should this land?'",
     );
   }
 }

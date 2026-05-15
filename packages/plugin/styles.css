@@ -777,6 +777,27 @@
   /* Inherits the .scribian-msg-who size + weight set above */
 }
 
+/* ── Vault-action badge (per assistant turn) ─────────────────────── */
+.scribian-vault-badge {
+  font-size: var(--font-ui-smaller);
+  margin-top: var(--size-2-2);
+  padding: var(--size-2-1) var(--size-4-2);
+  border-radius: var(--radius-s);
+  background: var(--background-secondary);
+  word-break: break-word;
+}
+
+.scribian-vault-badge-active {
+  color: var(--text-success);
+  border-left: 2px solid var(--text-success);
+}
+
+.scribian-vault-badge-idle {
+  color: var(--text-muted);
+  font-style: italic;
+  border-left: 2px solid var(--background-modifier-border);
+}
+
 /* ── Active-note indicator ───────────────────────────────────────── */
 .scribian-active-note {
   display: flex;
