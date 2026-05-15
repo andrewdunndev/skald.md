@@ -9,10 +9,12 @@
  * form is deprecated per https://openrouter.ai/docs/guides/features/plugins.
  *
  * The plugin sends scribian's canonical Anthropic-shaped server tool
- * declarations (web_search_20250305 + web_fetch_20250910). This module
+ * declarations (web_search_20260209 + web_fetch_20260209). This module
  * rewrites them to OpenRouter's shape on outbound and rewrites the
  * response content blocks back to Anthropic-canonical names on
- * inbound, so the plugin renderer never branches on provider.
+ * inbound, so the plugin renderer never branches on provider. The
+ * translator accepts both the current pins and the older 20250305 /
+ * 20250910 pins so it doesn't regress if an older client connects.
  *
  * Note: the exact response shape for OpenRouter's server-tool form
  * (tool_use + tool_result blocks vs annotations on the assistant
@@ -29,9 +31,18 @@ export const OPENROUTER_MESSAGES_PATH = '/v1/messages';
 const SCRIBIAN_REFERER = 'https://github.com/scribian/scribian';
 const SCRIBIAN_TITLE = 'scribian';
 
-// Anthropic native server tool types (the strings the plugin emits)
-const ANTHROPIC_WEB_SEARCH_TYPES = ['web_search_20250305'];
-const ANTHROPIC_WEB_FETCH_TYPES = ['web_fetch_20250910'];
+// Anthropic native server tool types (the strings the plugin emits).
+// Both the current 2026-02-09 pins and the older 2025-03/2025-09 pins
+// are accepted on the translator's input side so we don't regress if
+// an older plugin build connects.
+const ANTHROPIC_WEB_SEARCH_TYPES = [
+  'web_search_20260209',
+  'web_search_20250305',
+];
+const ANTHROPIC_WEB_FETCH_TYPES = [
+  'web_fetch_20260209',
+  'web_fetch_20250910',
+];
 
 // OpenRouter server tool types (what we send + receive on the wire)
 const OR_WEB_SEARCH = 'openrouter:web_search';

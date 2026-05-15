@@ -20,6 +20,16 @@ describe('transformOpenRouterRequest', () => {
     const out = transformOpenRouterRequest({
       ...baseRequest,
       tools: [
+        { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
+      ],
+    });
+    expect(out.tools).toEqual([{ type: 'openrouter:web_search' }]);
+  });
+
+  it('still accepts the older web_search_20250305 pin (back-compat)', () => {
+    const out = transformOpenRouterRequest({
+      ...baseRequest,
+      tools: [
         { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
       ],
     });
@@ -27,6 +37,16 @@ describe('transformOpenRouterRequest', () => {
   });
 
   it('rewrites the Anthropic web_fetch server tool to the OpenRouter form', () => {
+    const out = transformOpenRouterRequest({
+      ...baseRequest,
+      tools: [
+        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 },
+      ],
+    });
+    expect(out.tools).toEqual([{ type: 'openrouter:web_fetch' }]);
+  });
+
+  it('still accepts the older web_fetch_20250910 pin (back-compat)', () => {
     const out = transformOpenRouterRequest({
       ...baseRequest,
       tools: [
@@ -54,7 +74,7 @@ describe('transformOpenRouterRequest', () => {
       ...baseRequest,
       tools: [
         { name: 'read_note', input_schema: {} },
-        { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
+        { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
         { name: 'list_notes', input_schema: {} },
       ],
     });

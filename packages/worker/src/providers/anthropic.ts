@@ -1,7 +1,7 @@
 /**
  * Anthropic-direct provider. The original scribian transport — direct
  * to api.anthropic.com (or AI Gateway when AI_GATEWAY_URL is set).
- * Native server tools (web_search_20250305 + web_fetch_20250910) work
+ * Native server tools (web_search_20260209 + web_fetch_20260209) work
  * unchanged; nothing to translate on outbound or inbound.
  */
 import type { ChatRequest } from '@scribian/protocol';
