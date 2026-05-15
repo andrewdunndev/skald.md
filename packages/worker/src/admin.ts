@@ -231,7 +231,7 @@ pnpm exec wrangler secret put SCRIBIAN_TOKENS</code></pre>
         </tbody></table>`
     }
     <p class="muted" style="margin-top:1rem;">
-      Events ring-buffered in-memory on the Durable Object. Lost across hibernation cycles. For long-term audit, see <code>wrangler tail</code> or the plugin's logs folder.
+      Events ring-buffered (last ${vm.recentEvents.length === 0 ? 'none' : `${vm.recentEvents.length}`}) on the Durable Object and persisted to DO storage, so they survive hibernation. For real-time tail, see <code>wrangler tail</code> or the plugin's logs folder.
     </p>
   </div>
 
