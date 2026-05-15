@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { TFile } from 'obsidian';
+// Import TFile from the test-side mock module path. At runtime vitest
+// also aliases 'obsidian' → this same module, so `f instanceof TFile`
+// in the source-under-test refers to the same class as `new TFile()`
+// here. TypeScript's tsc sees the real obsidian.d.ts (no public ctor)
+// for source imports; this relative-path import keeps tests typed
+// against the mock's public ctor without disturbing source typing.
+import { TFile } from '../../../tests/obsidian-mock';
 import { buildMemorySection } from './memory-prompt';
 
 function mockApp(files: Record<string, string>) {

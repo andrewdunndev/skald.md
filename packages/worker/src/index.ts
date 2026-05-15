@@ -26,7 +26,8 @@ import {
   upsertChunks,
   vectorId,
 } from './memory';
-import type { ScribianVector } from './memory/types';
+import { chunkBySection } from './memory/chunk';
+import type { ChunkKind, ScribianVector } from './memory/types';
 
 const MAX_RECENT_EVENTS = 50;
 
@@ -726,17 +727,34 @@ function isWriteToolName(name: string): boolean {
 
 interface IndexRequestBody {
   notes?: Array<{ path?: string; title?: string; content?: string }>;
+  /** Vault-relative paths whose vectors should be removed. The
+   * Worker computes the note-summary ID for each (a known shape:
+   * `note-summary:${path}:0`) and calls deleteByIds. Section
+   * vectors for the same path orphan in this v1; next full reindex
+   * with manifest rebuild will cull them. */
+  deletes?: string[];
 }
 
 interface SearchRequestBody {
   query?: string;
   top_k?: number;
+  /** Which Vectorize namespace to query. Defaults to 'note-summary'
+   * for the broad topical match. 'section' for deep passage search;
+   * 'both' returns mixed results (note-summary preferred on ties). */
+  kind?: 'note-summary' | 'section' | 'both';
 }
 
 /**
- * POST /index — embed + upsert a batch of notes. Each note becomes
- * one 'note-summary' vector: title + first ~1500 chars of body.
- * Returns the count indexed for the plugin's progress UI.
+ * POST /index — embed + upsert a batch of notes. Each note produces:
+ *   - one 'note-summary' vector (title + first ~1500 chars) for the
+ *     broad topical match,
+ *   - optionally per-H1/H2 'section' vectors when the note has
+ *     explicit heading structure AND is long enough to justify
+ *     splitting. Short headerless notes are covered by note-summary
+ *     alone, no duplication.
+ *
+ * Returns { indexed_summaries, indexed_sections } so the plugin's
+ * progress UI can show what landed.
  */
 async function handleIndex(
   req: Request,
@@ -747,47 +765,82 @@ async function handleIndex(
     return new Response('expected { notes: [...] }', { status: 400 });
   }
   const vectors: ScribianVector[] = [];
+  let indexedSummaries = 0;
+  let indexedSections = 0;
   for (const n of body.notes) {
     const path = typeof n.path === 'string' ? n.path : '';
     const title = typeof n.title === 'string' ? n.title : path;
     const content = typeof n.content === 'string' ? n.content : '';
     if (!path || !content.trim()) continue;
-    // The embedding source: title + a head excerpt of the body.
-    // bge-base caps at 512 input tokens (~2KB); aim well under.
+
+    // 1. note-summary vector: always emitted. Title + head excerpt.
     const headExcerpt = content.slice(0, 1500);
-    const source = `${title}\n\n${headExcerpt}`;
-    const vec = await embedDocument(env, { text: source });
+    const sha = await sha256Hex(content);
+    const summaryVec = await embedDocument(env, {
+      text: `${title}\n\n${headExcerpt}`,
+    });
     vectors.push({
       id: vectorId(path, 'note-summary', 0),
       kind: 'note-summary',
-      vector: vec,
+      vector: summaryVec,
       metadata: {
         path,
         title,
-        excerpt: buildExcerpt(content),
-        sha256: await sha256Hex(content),
+        sha256: sha,
         mtime: Date.now(),
       },
     });
+    indexedSummaries++;
+
+    // 2. section vectors: only when the note has H1/H2 structure
+    //    AND is long enough that note-summary doesn't already cover
+    //    it. Short headerless notes get note-summary alone.
+    if (content.length < 1000) continue;
+    const sections = chunkBySection(content);
+    const hasRealHeadings = sections.some((s) => s.headingPath.length > 0);
+    if (!hasRealHeadings) continue;
+    for (const sec of sections) {
+      if (sec.headingPath.length === 0) continue; // skip the
+      // before-first-heading preamble; it's already in note-summary.
+      const vec = await embedDocument(env, { text: sec.content });
+      vectors.push({
+        id: vectorId(path, 'section', sec.chunkIndex),
+        kind: 'section',
+        vector: vec,
+        metadata: {
+          path,
+          title,
+          headingPath: sec.headingPath.join(' / '),
+          sha256: sha,
+          mtime: Date.now(),
+        },
+      });
+      indexedSections++;
+    }
   }
   await upsertChunks(env, vectors);
-  return Response.json({ indexed: vectors.length });
-}
 
-/**
- * Strip frontmatter + collapse whitespace + take the first ~200
- * chars. The excerpt is shown in find_related results so the
- * caller / model sees why a match was returned. Short on purpose —
- * Vectorize caps metadata at 10KiB per vector and we'd rather
- * pack more vectors than verbose previews.
- */
-function buildExcerpt(content: string): string {
-  // Strip a leading YAML frontmatter block if present.
-  const stripped = content.startsWith('---\n')
-    ? content.replace(/^---\n[\s\S]*?\n---\n?/, '')
-    : content;
-  const flat = stripped.replace(/\s+/g, ' ').trim();
-  return flat.length > 200 ? flat.slice(0, 197) + '…' : flat;
+  // Process deletes: remove the note-summary vector for each path
+  // the plugin reported as removed-since-last-index. Section
+  // vectors orphan; they'll be culled when the user runs a full
+  // reindex (a future enhancement: track per-path section counts
+  // in the manifest so deletes can be exact).
+  let deleted = 0;
+  const deletes = Array.isArray(body.deletes) ? body.deletes : [];
+  if (deletes.length > 0) {
+    const ids = deletes
+      .filter((p): p is string => typeof p === 'string' && !!p)
+      .map((p) => vectorId(p, 'note-summary', 0));
+    await env.VECTORIZE.deleteByIds(ids);
+    deleted = ids.length;
+  }
+
+  return Response.json({
+    indexed: indexedSummaries, // back-compat for plugin's existing parse
+    indexed_summaries: indexedSummaries,
+    indexed_sections: indexedSections,
+    deleted,
+  });
 }
 
 /**
@@ -804,13 +857,28 @@ async function handleSearch(
     return new Response('expected { query: "..." }', { status: 400 });
   }
   const topK = Math.min(Math.max(Number(body.top_k ?? 8), 1), 20);
-  const hits = await querySimilar(env, {
-    query,
-    kind: 'note-summary',
-    topK,
+  const kind = body.kind ?? 'note-summary';
+  const kinds: ChunkKind[] =
+    kind === 'both' ? ['note-summary', 'section'] : [kind];
+
+  const allHits: Array<
+    Awaited<ReturnType<typeof querySimilar>>[number] & { kind: ChunkKind }
+  > = [];
+  for (const k of kinds) {
+    const hits = await querySimilar(env, { query, kind: k, topK });
+    for (const h of hits) allHits.push({ ...h, kind: k });
+  }
+  // Merge: prefer higher scores; on near-ties, note-summary wins
+  // because the broad match is usually what the user wants.
+  allHits.sort((a, b) => {
+    if (b.score !== a.score) return b.score - a.score;
+    if (a.kind === b.kind) return 0;
+    return a.kind === 'note-summary' ? -1 : 1;
   });
+  const trimmed = allHits.slice(0, topK);
+
   return Response.json({
-    hits: hits.map((h) => {
+    hits: trimmed.map((h) => {
       const meta = h.metadata as Record<string, unknown>;
       return {
         path: typeof meta.path === 'string' ? meta.path : h.id,
@@ -820,8 +888,13 @@ async function handleSearch(
             : typeof meta.path === 'string'
               ? meta.path
               : h.id,
-        excerpt:
-          typeof meta.excerpt === 'string' ? meta.excerpt : undefined,
+        // No excerpt here by design — the Worker doesn't persist
+        // plaintext vault content (phase 6 security review). The
+        // plugin reads excerpts from the live vault when rendering
+        // find_related results.
+        heading_path:
+          typeof meta.headingPath === 'string' ? meta.headingPath : undefined,
+        kind: h.kind,
         score: h.score,
       };
     }),

@@ -64,16 +64,23 @@ links]]` so you can tap directly to open them.
 
 ## When to reindex
 
-The current MVP is full-reindex on demand — no manifest-diff
-incremental sync (yet). Re-run the Reindex command after:
+The plugin tracks a per-file `{mtime, size}` manifest in plugin
+storage. On reindex, it diffs the current vault state against the
+manifest and ships **only the delta** to the Worker:
 
-- A major batch of note edits / additions
-- Bulk imports (Daily Notes plugin output, etc.)
-- Renaming or deleting many notes
+- **Added** files get fresh embeddings.
+- **Modified** files (mtime or size changed) get re-embedded.
+- **Deleted** files have their vectors removed from the index.
+- **Unchanged** files are skipped — no Worker call.
 
-A future phase 6 sub-feature will track a checksum manifest in the
-plugin and ship deltas to the Worker on save events, so this becomes
-automatic.
+For a steady-state 1000-note vault with ~10% monthly churn, a
+reindex moves ~3-4 changed notes plus 0-1 deletes through the
+Worker. The first-time reindex is full; everything after is
+incremental.
+
+Manual reindex via the **Scribian: Reindex vault** command or the
+Reindex button in settings. A future enhancement will trigger
+incremental sync on vault save events; today it's manual.
 
 ## Privacy posture
 
@@ -85,16 +92,28 @@ explicitly excludes Customer Content from training:
 > models made available on Workers AI or (2) improve any Cloudflare
 > or third-party services.
 
-The embedding vectors live in your Vectorize index; the source note
-content is not retained server-side beyond a short excerpt stored in
-each vector's metadata (≤200 chars, used so `find_related` results
-include a preview without re-reading the note).
+**The Worker does not persist plaintext vault content.** Vector
+metadata is deliberately content-free — only path, title,
+heading path (for sections), mtime, and SHA-256 are stored. Embedding
+vectors themselves are one-way: cosine similarity over them does
+not reconstruct the source text.
 
-When Claude actually responds to a question — that's a separate path
-(chat → Worker → Anthropic), and the memory note content + any
+This is a deliberate design decision (phase 6 security review,
+2026-05-14). An earlier prototype stored a 200-char excerpt in vector
+metadata to power preview rendering — that was scrapped because
+"a searchable mini-index of your vault content sitting on the Worker"
+is a different security posture than "vault stays on disk; the
+Worker holds derivative scoring data only." `find_related` results
+render excerpts by re-reading the live vault on the plugin side, so
+previews are always current AND no plaintext durably leaves the
+vault.
+
+When Claude actually responds to a question — that's a separate
+path (chat → Worker → Anthropic), and the memory note content + any
 context Claude pulls via `find_related` results does pass through
-your selected provider (Anthropic by default, OpenRouter if you've
-opted in). See `security-model.md` for the full trust diagram.
+your selected provider (Anthropic by default, OpenRouter if
+you've opted in). See `security-model.md` for the full trust
+diagram.
 
 ## Cost
 
@@ -106,16 +125,38 @@ pass per indexed note.
 A power-user vault of 10K notes still sits inside the Paid plan's
 included 10M-dimension allotment.
 
+## Section chunks
+
+Long notes (>1000 chars) with explicit H1/H2 heading structure get
+per-section vectors in addition to the `note-summary` vector. The
+note-summary captures the broad topical match; section vectors
+capture specific passages.
+
+Queries default to the `note-summary` namespace for broad matches.
+The Worker `/search` endpoint accepts a `kind: 'section' | 'both'`
+override for passage-level search (the `find_related` tool today
+uses `note-summary`; a future tool variant will expose passage
+mode).
+
+Section IDs follow `section:<path>:<chunkIndex>`; the chunker (in
+`worker/src/memory/chunk.ts`) splits at H1 + H2 boundaries and
+windows sections longer than ~1500 chars with a small overlap so
+concepts crossing the boundary stay embeddable.
+
 ## What's not implemented yet
 
-- **Section chunks** — long notes currently embed as a single
-  `note-summary` vector. Long-form passages don't get their own
-  vectors, so `find_related` returns the whole note's topical match
-  rather than the specific passage. Section chunking lands in a
-  later phase 6 sub-feature.
+- **Save-time incremental sync** — manifest diff runs on the
+  Reindex command today; a future enhancement triggers it
+  automatically on vault save events.
+- **Section-vector cleanup on delete** — deleting a note removes
+  its `note-summary` vector but section vectors orphan until the
+  next manual reindex with full state rebuild. Cheap follow-up:
+  track per-path section count in the manifest.
 - **Daily digest cron** — auto-summarization of recent vault
   activity. Designed; not yet shipped.
-- **Manifest-diff incremental sync** — full reindex only for now.
-- **Memory-note auto-summarization** — when memory grows too long
-  to inject economically. Claude can be asked to summarize manually
-  for now.
+- **Memory-note auto-summarization** — when the memory note grows
+  too long to inject economically. Claude can be asked to summarize
+  manually for now.
+- **Passage-mode find_related** — search the `section` namespace
+  for deep passage matches via a tool argument. Worker side is
+  done; plugin-side toggle pending.

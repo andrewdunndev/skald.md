@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TFile } from 'obsidian';
+// See memory-prompt.test.ts for the import-from-mock-path rationale.
+import { TFile } from '../../../tests/obsidian-mock';
 import {
   loadSlashCommands,
   renderCommand,
@@ -18,7 +19,8 @@ function mockApp(
       cachedRead: async (f: TFile) => bodyByPath.get(f.path) ?? '',
     },
     workspace: {
-      getActiveFile: () => (active ? new TFile(active.path) : null),
+      getActiveFile: () =>
+        active ? new TFile(active.path) : null,
     },
   } as unknown as import('obsidian').App;
 }

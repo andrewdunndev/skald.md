@@ -3,6 +3,7 @@ import { ScribianView, VIEW_TYPE_SCRIBIAN } from './view';
 import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './settings';
 import { Logger } from './logger';
 import { reindexVault } from './memory-client';
+import { emptyManifest, type IndexManifest } from './index-manifest';
 import { ConversationSearchModal } from './conversation-search';
 import {
   loadSlashCommands,
@@ -65,13 +66,15 @@ export default class ScribianPlugin extends Plugin {
   }
 
   /**
-   * Run a full reindex of the vault for semantic search. Surface
-   * progress as Notices. Excludes the conversation, logs, and
-   * saved-notes folders by default since they're scribian-generated
-   * artifacts the user doesn't want surfaced as "related notes."
+   * Run an incremental reindex of the vault for semantic search.
+   * The plugin maintains a {path → {mtime, size}} manifest in
+   * plugin data; only added/modified/deleted entries hit the
+   * Worker. Excludes the conversation, logs, and saved-notes
+   * folders since they're scribian-generated artifacts the user
+   * doesn't want surfaced as "related notes."
    *
-   * Public so the settings tab can invoke it directly without going
-   * through the command bus.
+   * Public so the settings tab can invoke it directly without
+   * going through the command bus.
    */
   async reindexVault(): Promise<void> {
     const cfg = {
@@ -94,16 +97,16 @@ export default class ScribianPlugin extends Plugin {
         cfg,
         excluded,
         (msg) => progressNotice.setMessage(`scribian: ${msg}`),
+        () => this.loadIndexManifest(),
+        (m) => this.saveIndexManifest(m),
       );
       progressNotice.hide();
       new Notice(
-        `scribian: reindexed ${result.indexed} note${
-          result.indexed === 1 ? '' : 's'
-        } (skipped ${result.skipped}).`,
-        6000,
+        `scribian: reindex complete — +${result.added} new, ~${result.modified} changed, −${result.deleted} removed (skipped ${result.skipped}).`,
+        7000,
       );
       this.logger.info(
-        `reindex complete: indexed=${result.indexed} skipped=${result.skipped}`,
+        `reindex complete: added=${result.added} modified=${result.modified} deleted=${result.deleted} unchanged=${result.skipped}`,
       );
     } catch (err) {
       progressNotice.hide();
@@ -111,6 +114,34 @@ export default class ScribianPlugin extends Plugin {
       new Notice(`scribian: reindex failed — ${msg}`, 8000);
       this.logger.error(`reindex failed: ${msg}`);
     }
+  }
+
+  /**
+   * The index manifest is stored next to `data.json` as
+   * `index-manifest.json` in the plugin's storage folder. Kept
+   * separate so it doesn't bloat `data.json` (which is read on
+   * every plugin load).
+   */
+  private manifestPath(): string {
+    return `${this.manifest.dir}/index-manifest.json`;
+  }
+
+  private async loadIndexManifest(): Promise<IndexManifest> {
+    try {
+      const raw = await this.app.vault.adapter.read(this.manifestPath());
+      const parsed = JSON.parse(raw) as IndexManifest;
+      if (parsed?.version === 1 && parsed.entries) return parsed;
+    } catch {
+      // missing or unreadable — start fresh
+    }
+    return emptyManifest();
+  }
+
+  private async saveIndexManifest(m: IndexManifest): Promise<void> {
+    await this.app.vault.adapter.write(
+      this.manifestPath(),
+      JSON.stringify(m, null, 2),
+    );
   }
 
   async loadSettings() {

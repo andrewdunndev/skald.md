@@ -25,15 +25,17 @@ export interface VectorMetadata {
   title?: string;
   /** Heading path for section chunks, e.g. "Intro / Goals". */
   headingPath?: string;
-  /** Short excerpt of the source content (≤200 chars) shown in
-   * find_related results so the user / Claude see why a note was
-   * matched without opening it. Bounded to keep us well inside
-   * Vectorize's 10KiB metadata-per-vector cap. */
-  excerpt?: string;
   /** SHA256 of the source content at index time — for staleness checks. */
   sha256?: string;
   /** mtime in ms — secondary staleness signal. */
   mtime?: number;
+  //
+  // No `excerpt` field by design (phase 6 security review,
+  // 2026-05-14): we deliberately don't persist any plaintext vault
+  // content in vector metadata. Embeddings themselves are one-way;
+  // the path + scoring metadata is the only thing durably stored
+  // on the Worker. find_related results render excerpts by
+  // re-reading the live vault on the plugin side.
 }
 
 export interface ScribianVector {

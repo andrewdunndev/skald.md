@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { TFile } from 'obsidian';
+// See memory-prompt.test.ts for the import-from-mock-path rationale.
+import { TFile } from '../../../tests/obsidian-mock';
 import { buildPersonaSection } from './persona-prompt';
 
 function mockApp(files: Record<string, string>) {

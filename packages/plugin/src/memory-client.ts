@@ -11,7 +11,19 @@
  * forwards `find_related` calls to searchVault().
  */
 
-import { TFile, requestUrl, type App, type RequestUrlParam } from 'obsidian';
+import {
+  normalizePath,
+  requestUrl,
+  TFile,
+  type App,
+  type RequestUrlParam,
+} from 'obsidian';
+import {
+  applyDiff,
+  diffAgainstManifest,
+  type FileInfo,
+  type IndexManifest,
+} from './index-manifest';
 import type { ToolExecutionResult } from './tools';
 
 export interface MemoryClientConfig {
@@ -23,7 +35,8 @@ export interface SearchHit {
   path: string;
   score: number;
   title?: string;
-  excerpt?: string;
+  heading_path?: string;
+  kind?: 'note-summary' | 'section';
 }
 
 /**
@@ -70,11 +83,18 @@ export async function searchVault(
 }
 
 /**
- * Execute a find_related tool call. Wraps searchVault and formats
- * the response as a tool_result content string. Renders as a small
- * markdown table the plugin's MarkdownRenderer picks up.
+ * Execute a find_related tool call. Wraps searchVault, then reads
+ * each matched note from the LIVE VAULT to render a short excerpt.
+ *
+ * Architectural note (phase 6 security review, 2026-05-14):
+ * the Worker deliberately does not persist plaintext vault content
+ * in vector metadata — embeddings are one-way, paths + scoring meta
+ * are the only durable storage. Excerpts come from re-reading the
+ * vault here so they're always current AND no plaintext lives on
+ * the Worker beyond the moment of embedding.
  */
 export async function executeFindRelated(
+  app: App,
   config: MemoryClientConfig,
   input: unknown,
 ): Promise<ToolExecutionResult> {
@@ -98,13 +118,18 @@ export async function executeFindRelated(
     const lines = [
       `Found ${hits.length} related note${hits.length === 1 ? '' : 's'} for query: ${query}`,
       '',
-      ...hits.map((h, i) => {
-        const title = h.title ?? h.path.replace(/\.md$/, '');
-        const score = h.score.toFixed(3);
-        const excerpt = h.excerpt ? ` — ${h.excerpt}` : '';
-        return `${i + 1}. [[${h.path}|${title}]] (score ${score})${excerpt}`;
-      }),
     ];
+    for (let i = 0; i < hits.length; i++) {
+      const h = hits[i];
+      const title = h.title ?? h.path.replace(/\.md$/, '');
+      const score = h.score.toFixed(3);
+      const heading = h.heading_path ? ` › ${h.heading_path}` : '';
+      const excerpt = await loadExcerptFromVault(app, h.path);
+      const excerptSuffix = excerpt ? ` — ${excerpt}` : '';
+      lines.push(
+        `${i + 1}. [[${h.path}|${title}]]${heading} (score ${score})${excerptSuffix}`,
+      );
+    }
     return { content: lines.join('\n') };
   } catch (err) {
     return {
@@ -115,20 +140,53 @@ export async function executeFindRelated(
 }
 
 /**
- * Walk markdown notes in the vault, batch them, and POST to /index
- * for embedding + upsert. Returns a summary string for the Notice
- * the user sees on the "Reindex vault" command.
+ * Read a note from the vault, strip frontmatter, return a short
+ * excerpt for inline rendering in find_related results. Returns the
+ * empty string if the note has been deleted since indexing (we
+ * surface the path anyway via the search hit; the missing excerpt
+ * tells the user the index is stale for that path).
+ */
+async function loadExcerptFromVault(app: App, path: string): Promise<string> {
+  const file = app.vault.getAbstractFileByPath(normalizePath(path));
+  if (!(file instanceof TFile)) return '';
+  try {
+    const body = await app.vault.cachedRead(file);
+    const stripped = body.startsWith('---\n')
+      ? body.replace(/^---\n[\s\S]*?\n---\n?/, '')
+      : body;
+    const flat = stripped.replace(/\s+/g, ' ').trim();
+    return flat.length > 200 ? flat.slice(0, 197) + '…' : flat;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Walk markdown notes in the vault, diff against the stored
+ * manifest, ship only the delta to /index. The manifest's mtime +
+ * size signal is the change detector; identical-since-last-time
+ * notes are skipped, deleted notes are removed from the index,
+ * and only added/modified content is re-embedded.
  *
- * MVP: full reindex every time. No diff / manifest yet — that lands
- * in a subsequent phase 6 sub-phase. For ~1000 notes this is ~1
- * minute of embedding time and a few cents.
+ * For a steady-state 1000-note vault with ~10% monthly edits, a
+ * reindex moves from "embed all 1000" to "embed ~3-4 changed +
+ * 0-1 deleted" on average — the difference is one Worker call vs.
+ * one Worker call per batch of 20 stale entries.
  */
 export async function reindexVault(
   app: App,
   config: MemoryClientConfig,
   excludedFolders: string[],
   onProgress: (msg: string) => void,
-): Promise<{ indexed: number; skipped: number }> {
+  loadManifest: () => Promise<IndexManifest>,
+  saveManifest: (m: IndexManifest) => Promise<void>,
+): Promise<{
+  indexed: number;
+  skipped: number;
+  added: number;
+  modified: number;
+  deleted: number;
+}> {
   if (!config.workerUrl || !config.workerToken) {
     throw new Error('Worker URL + token must be configured in settings.');
   }
@@ -138,13 +196,51 @@ export async function reindexVault(
     .filter(Boolean)
     .map((f) => f.replace(/\/+$/, '') + '/');
 
+  // Build current vault snapshot for the diff. Excluded folders
+  // never enter the manifest, so they don't generate spurious
+  // "deletions" — the diff routine sees them as if they never
+  // existed.
+  const current: FileInfo[] = [];
+  const indexable: TFile[] = [];
+  for (const f of files) {
+    if (!(f instanceof TFile)) continue;
+    if (excluded.some((p) => f.path.startsWith(p))) continue;
+    current.push({ path: f.path, mtime: f.stat.mtime, size: f.stat.size });
+    indexable.push(f);
+  }
+
+  const manifest = await loadManifest();
+  const diff = diffAgainstManifest(current, manifest);
+  const skipped = diff.unchanged.length;
+  onProgress(
+    `Diff: ${diff.added.length} added, ${diff.modified.length} modified, ` +
+      `${diff.deleted.length} deleted, ${skipped} unchanged.`,
+  );
+
+  if (
+    diff.added.length === 0 &&
+    diff.modified.length === 0 &&
+    diff.deleted.length === 0
+  ) {
+    return {
+      indexed: 0,
+      skipped,
+      added: 0,
+      modified: 0,
+      deleted: 0,
+    };
+  }
+
+  // Map for fast lookup of TFile-by-path during embedding.
+  const fileByPath = new Map(indexable.map((f) => [f.path, f]));
+  const toIndex = [...diff.added, ...diff.modified];
+
   let indexed = 0;
-  let skipped = 0;
   const BATCH_SIZE = 20;
   let batch: { path: string; title: string; content: string }[] = [];
 
-  const flush = async () => {
-    if (batch.length === 0) return;
+  const flush = async (deletes: string[] = []) => {
+    if (batch.length === 0 && deletes.length === 0) return;
     const params: RequestUrlParam = {
       url: `${httpBase(config.workerUrl)}/index`,
       method: 'POST',
@@ -152,7 +248,7 @@ export async function reindexVault(
         Authorization: `Bearer ${config.workerToken}`,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({ notes: batch }),
+      body: JSON.stringify({ notes: batch, deletes }),
       throw: false,
     };
     const resp = await requestUrl(params);
@@ -162,27 +258,39 @@ export async function reindexVault(
       );
     }
     indexed += batch.length;
-    onProgress(`Indexed ${indexed} notes…`);
+    onProgress(`Indexed ${indexed}/${toIndex.length} notes…`);
     batch = [];
   };
 
-  for (const f of files) {
-    if (!(f instanceof TFile)) continue;
-    if (excluded.some((p) => f.path.startsWith(p))) {
-      skipped++;
-      continue;
-    }
+  for (const info of toIndex) {
+    const f = fileByPath.get(info.path);
+    if (!f) continue;
     const content = await app.vault.cachedRead(f);
     batch.push({
       path: f.path,
       title: f.basename,
-      content: content.slice(0, 4000), // bge-base caps ~2KB; we send a bit more and the Worker truncates
+      // bge-base caps ~512 tokens (~2KB); the Worker truncates head
+      // excerpt + chunks longer sections, so 4KB here gives the
+      // chunker enough material.
+      content,
     });
     if (batch.length >= BATCH_SIZE) {
       await flush();
     }
   }
-  await flush();
+  // Final flush ships any leftover batch + the deletes list. The
+  // Worker removes note-summary vectors for every deleted path
+  // (section vectors orphan; cleaned up on next full reindex).
+  await flush(diff.deleted);
 
-  return { indexed, skipped };
+  const newManifest = applyDiff(manifest, diff);
+  await saveManifest(newManifest);
+
+  return {
+    indexed,
+    skipped,
+    added: diff.added.length,
+    modified: diff.modified.length,
+    deleted: diff.deleted.length,
+  };
 }

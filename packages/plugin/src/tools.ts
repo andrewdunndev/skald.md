@@ -249,7 +249,7 @@ export async function executeTool(
             is_error: true,
           };
         }
-        return await executeFindRelated(ctx.memoryClient, input);
+        return await executeFindRelated(ctx.app, ctx.memoryClient, input);
       default:
         return { content: `Unknown tool: ${name}`, is_error: true };
     }
