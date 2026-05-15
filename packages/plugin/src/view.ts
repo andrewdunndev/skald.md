@@ -14,9 +14,9 @@ import { MODELS } from './settings';
 import { ALL_TOOLS, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
-import { renderDiffCard } from './view/diff-card';
 import { loadSystemPrompt } from './view/system-prompt';
 import { renderMessageActions } from './view/message-actions';
+import { renderBlock } from './view/block-renderer';
 import { NotePicker } from './view/note-picker';
 import {
   attachmentsFromClipboard,
@@ -32,58 +32,6 @@ import type { ContentBlock, Message } from '@scribian/protocol';
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
 
 const RENDER_THROTTLE_MS = 150;
-
-/**
- * Turn a tool_use into a single-line human-readable summary for the
- * collapsed card. Raw JSON args still appear when the user expands it.
- */
-function describeToolUse(name: string, input: unknown): string {
-  const i = (input as Record<string, any>) ?? {};
-  switch (name) {
-    case 'read_note':
-      return `📖 Reading ${i.path ?? '?'}`;
-    case 'list_notes': {
-      const where = i.folder ? ` in \`${i.folder}\`` : '';
-      const limit = i.limit ? ` (limit ${i.limit})` : '';
-      return `📋 Listing notes${where}${limit}`;
-    }
-    case 'search_vault':
-      return `🔍 Searching vault for "${i.query ?? '?'}"`;
-    case 'current_note':
-      return `📍 Reading the current note`;
-    case 'metadata':
-      return `ℹ️ Metadata for ${i.path ?? '?'}`;
-    case 'web_search':
-      return `🌐 Web search: "${i.query ?? '?'}"`;
-    case 'web_fetch':
-      return `🌐 Fetching ${i.url ?? '?'}`;
-    case 'write_note':
-      return `✏️ Write ${i.path ?? '?'}`;
-    case 'edit_note':
-      return `✏️ Edit ${i.path ?? '?'}`;
-    case 'append_to_note':
-      return `➕ Append to ${i.path ?? '?'}`;
-    default:
-      return `🔧 ${name}`;
-  }
-}
-
-/**
- * Turn a tool_result into a single-line summary when content is a string.
- * Falls back to "✓ tool result" if we can't read the shape.
- */
-function describeToolResult(content: unknown, isError: boolean): string {
-  if (isError) return '⚠️ tool error';
-  if (typeof content === 'string') {
-    const firstLine = content.split('\n')[0].trim();
-    if (firstLine.length === 0) return '✓ result (empty)';
-    if (firstLine.length > 80) return `✓ ${firstLine.slice(0, 77)}…`;
-    // If the rest of the content is multi-line, hint that more is hidden
-    const more = content.includes('\n') ? ' …' : '';
-    return `✓ ${firstLine}${more}`;
-  }
-  return '✓ tool result';
-}
 
 /** Compact summary of tool input for audit log lines. */
 function summarizeToolInput(name: string, input: unknown): string {
@@ -104,7 +52,6 @@ function cssEscape(s: string): string {
   return s.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
 }
 
-// LCS-based line diff. Produces a unified-style change list.
 interface MessageRow {
   el: HTMLDivElement;
   body: HTMLDivElement;
@@ -761,15 +708,25 @@ export class ScribianView extends ItemView {
 
     row.body.empty();
 
+    const blockCtx = this.blockContext(row.component);
+
     if (typeof msg.content === 'string') {
       if (msg.content.trim()) {
-        await this.renderMarkdownInto(row.body, msg.content, row.component);
+        const wrap = row.body.createDiv({ cls: 'scribian-text' });
+        wrap.addClass('markdown-rendered');
+        await MarkdownRenderer.render(
+          this.app,
+          msg.content,
+          wrap,
+          '',
+          row.component,
+        );
       }
       return;
     }
 
     for (const block of msg.content) {
-      await this.renderBlock(row.body, block, row.component);
+      await renderBlock(row.body, block, blockCtx);
     }
 
     // Per-message action row at the bottom of every finalized Claude turn.
@@ -783,209 +740,16 @@ export class ScribianView extends ItemView {
   }
 
 
-  private async renderMarkdownInto(
-    el: HTMLElement,
-    md: string,
-    component: Component,
-  ): Promise<void> {
-    // sourcePath empty -> [[Note]] / ![[Note]] resolves from vault root,
-    // matching the user's mental model of "Claude references my notes."
-    // The markdown-rendered class scopes Obsidian's reading-view CSS so
-    // tables get borders, callouts get backgrounds, etc., identical to
-    // how notes look elsewhere in the app.
-    el.addClass('markdown-rendered');
-    await MarkdownRenderer.render(this.app, md, el, '', component);
+  private blockContext(component: Component) {
+    return {
+      app: this.app,
+      component,
+      pendingApproval: (id: string) => this.approvals.get(id)?.proposal ?? null,
+      onApprove: (id: string) => this.resolveApprovalUi(id, true),
+      onReject: (id: string) => this.resolveApprovalUi(id, false),
+    };
   }
 
-  private async renderBlock(
-    parent: HTMLElement,
-    block: ContentBlock,
-    component: Component,
-  ): Promise<void> {
-    const b = block as Record<string, unknown>;
-    const type = b.type as string | undefined;
-
-    if (type === 'text') {
-      const text = (b.text as string) ?? '';
-      if (!text) return;
-      const wrap = parent.createDiv({ cls: 'scribian-text' });
-      await this.renderMarkdownInto(wrap, text, component);
-      return;
-    }
-
-    if (type === 'thinking') {
-      const t = parent.createDiv({ cls: 'scribian-thinking' });
-      t.createSpan({ cls: 'scribian-thinking-icon', text: '💭' });
-      t.createSpan({ text: (b.thinking as string) ?? '' });
-      return;
-    }
-
-    if (type === 'image') {
-      // Phase 7: inline render of a user-attached image. We only
-      // build these from clipboard paste today (base64 source), so
-      // render directly from the data URL. URL-source images are
-      // also valid per the Anthropic + OpenRouter shape but we
-      // don't produce them yet; safe-fail when we encounter one.
-      const source = b.source as Record<string, unknown> | undefined;
-      if (!source) return;
-      const figure = parent.createDiv({ cls: 'scribian-image' });
-      const img = figure.createEl('img', { cls: 'scribian-image-thumb' });
-      if (source.type === 'base64') {
-        const media = String(source.media_type ?? 'image/png');
-        const data = String(source.data ?? '');
-        img.src = `data:${media};base64,${data}`;
-      } else if (source.type === 'url') {
-        img.src = String((source as { url?: unknown }).url ?? '');
-      }
-      img.alt = 'attached image';
-      return;
-    }
-
-    if (type === 'tool_use') {
-      const id = b.id as string | undefined;
-      const name = (b.name as string) ?? 'tool';
-      const input = b.input ?? b.partial_json;
-      // Single-line, human-readable summary. JSON args are intentionally
-      // hidden — non-technical users don't need to see them, and dev folks
-      // can drop to the console.
-      const row = parent.createDiv({ cls: 'scribian-tool-call' });
-      row.createSpan({
-        cls: 'scribian-tool-name',
-        text: describeToolUse(name, input),
-      });
-      const pending = id ? this.approvals.get(id) : undefined;
-      if (pending) {
-        renderDiffCard(parent, pending.proposal, {
-          onApprove: (tid) => this.resolveApprovalUi(tid, true),
-          onReject: (tid) => this.resolveApprovalUi(tid, false),
-        });
-      }
-      return;
-    }
-
-    if (type === 'tool_result') {
-      const isError = b.is_error === true;
-      const content = b.content;
-      const hasStringContent = typeof content === 'string' && content.length > 0;
-      // Tool results render as a collapsible only when there's content
-      // worth expanding. Empty / non-string results stay as a single line.
-      if (!hasStringContent) {
-        const row = parent.createDiv({
-          cls: `scribian-tool-result-row${isError ? ' scribian-tool-result-error' : ''}`,
-        });
-        row.createSpan({
-          cls: 'scribian-tool-result-label',
-          text: describeToolResult(content, isError),
-        });
-        return;
-      }
-      const card = parent.createEl('details', {
-        cls: `scribian-tool-result${isError ? ' scribian-tool-result-error' : ''}`,
-      });
-      const summary = card.createEl('summary', {
-        cls: 'scribian-tool-summary',
-      });
-      summary.createSpan({
-        cls: 'scribian-tool-result-label',
-        text: describeToolResult(content, isError),
-      });
-      const body = card.createDiv({ cls: 'scribian-tool-result-body' });
-      await this.renderMarkdownInto(body, content as string, component);
-      return;
-    }
-
-    if (type === 'web_search_tool_result') {
-      const card = parent.createEl('details', {
-        cls: 'scribian-tool-result scribian-tool-web',
-      });
-      const summary = card.createEl('summary', {
-        cls: 'scribian-tool-summary',
-      });
-      const content = b.content;
-      const hitCount = Array.isArray(content) ? content.length : 0;
-      summary.createSpan({
-        cls: 'scribian-tool-result-label',
-        text: `🌐 ${hitCount} web result${hitCount === 1 ? '' : 's'}`,
-      });
-      const body = card.createDiv({ cls: 'scribian-tool-result-body' });
-      if (Array.isArray(content)) {
-        const md = content
-          .map((entry: any) => {
-            if (entry?.type === 'web_search_result') {
-              const title = entry.title ?? entry.url ?? 'result';
-              const url = entry.url ?? '';
-              const age = entry.page_age ? ` · ${entry.page_age}` : '';
-              return `- [${title}](${url})${age}`;
-            }
-            return `- ${entry?.title ?? entry?.url ?? '(unknown result)'}`;
-          })
-          .join('\n');
-        await this.renderMarkdownInto(body, md, component);
-      } else {
-        body.createSpan({ text: '(no results)' });
-      }
-      return;
-    }
-
-    if (type === 'web_fetch_tool_result') {
-      const content = b.content as Record<string, any> | undefined;
-      const card = parent.createEl('details', {
-        cls: 'scribian-tool-result scribian-tool-web',
-      });
-      const summary = card.createEl('summary', {
-        cls: 'scribian-tool-summary',
-      });
-      const url = content?.url as string | undefined;
-      summary.createSpan({
-        cls: 'scribian-tool-result-label',
-        text: url ? `🌐 Fetched ${url}` : '🌐 Fetched',
-      });
-      const body = card.createDiv({ cls: 'scribian-tool-result-body' });
-      // web_fetch returns content as either a document object with extracted
-      // markdown, or an array of content blocks. Try to surface the text;
-      // never dump JSON.
-      const inner = content?.content as unknown;
-      if (typeof inner === 'string') {
-        await this.renderMarkdownInto(body, inner, component);
-      } else if (Array.isArray(inner)) {
-        for (const entry of inner) {
-          if (entry?.type === 'text' && typeof entry.text === 'string') {
-            await this.renderMarkdownInto(body, entry.text, component);
-          }
-        }
-      } else if (inner && typeof inner === 'object') {
-        const doc = inner as Record<string, any>;
-        const text = (doc.text as string) ?? (doc.source?.data as string);
-        if (text) {
-          await this.renderMarkdownInto(body, text, component);
-        } else {
-          body.createSpan({ text: '(fetched, but no text content surfaced)' });
-        }
-      } else {
-        body.createSpan({ text: '(empty fetch)' });
-      }
-      return;
-    }
-
-    if (type === 'server_tool_use') {
-      // Anthropic-server-side tool invocations. Same single-line summary
-      // treatment as client tool_use.
-      const name = (b.name as string) ?? 'server_tool';
-      const input = b.input;
-      const row = parent.createDiv({ cls: 'scribian-tool-call' });
-      row.createSpan({
-        cls: 'scribian-tool-name',
-        text: describeToolUse(name, input),
-      });
-      return;
-    }
-
-    // Unknown block type — surface friendly placeholder instead of JSON,
-    // which non-developer users find jarring. The block type name is
-    // shown so we can debug new Anthropic features.
-    const placeholder = parent.createDiv({ cls: 'scribian-block-unknown' });
-    placeholder.setText(`(unhandled block: ${type ?? 'unknown'})`);
-  }
 
   // ─── Approval (write tools) ──────────────────────────────────────
 
