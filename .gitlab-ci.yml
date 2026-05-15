@@ -36,6 +36,11 @@ unit-tests:
   script:
     - pnpm test
 
+file-size:
+  stage: test
+  script:
+    - pnpm check:size
+
 build-plugin:
   stage: build
   needs: ['typecheck']

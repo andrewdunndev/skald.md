@@ -49,3 +49,39 @@ becomes the first consumer once the component lands. See
 
 **Closure expires:** 2026-08-14 (~90 days from filing). Estate-level
 work; scribian doesn't block on it for shipping.
+
+## file-size: per-file LOC cap with documented exceptions
+
+**What fails:** scribian-local rule (no reference contract yet). The
+`pnpm check:size` script enforces a 400-line cap on every TS file under
+`packages/*/src` (test files included). Cap is total lines; the
+yotoshelf project's experience converged on 250 for Go / 400 for TS as
+the threshold where modules start hiding too much. Rationale: shrink
+the surface an LLM (or reviewer) has to scan when reasoning about a
+change.
+
+**Current exceptions** (also listed in `scripts/check-size.mjs` for
+machine-readability):
+
+| File | Effective cap | Expires | Note |
+|---|---|---|---|
+| `packages/plugin/src/view.ts` | 1500 | 2026-06-30 | Extract chat-renderer + input-row + diff-card |
+| `packages/worker/src/index.ts` | 1200 | 2026-06-30 | Extract HTTP handlers (memory / capture / mcp) to per-route modules |
+| `packages/plugin/src/tools.ts` | 700 | 2026-06-30 | Split into read-tools + write-tools + tool-context |
+
+**Why:** these three files predate the size cap and house complete
+subsystems whose decomposition is a real refactor, not a renaming
+pass. Each exception names the next move; an expired deviation fails
+the check.
+
+**Closure path:** refactor by the date; the check fails as
+`EXPIRED-DEVIATION` after expiry, forcing the work. The script also
+catches stale deviations — a file that drops under the cap fails as
+`STALE-DEVIATION` until removed from the exception list.
+
+**Reference-upstream candidacy:** the rule is intentionally
+scribian-local for v1. After one full refactor cycle on the cap, we
+re-evaluate whether `code-size` belongs as a `dunn.dev/reference`
+contract (or as a `dunn.dev/pipeline` catalog component). Cross-
+project pattern needs at least two consumers (scribian + yotoshelf)
+to qualify per the reference's "principles earn a slot" test.
