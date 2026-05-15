@@ -6,7 +6,10 @@ import { describe, expect, it } from 'vitest';
 // for source imports; this relative-path import keeps tests typed
 // against the mock's public ctor without disturbing source typing.
 import { TFile } from '../../../tests/obsidian-mock';
-import { buildMemorySection } from './memory-prompt';
+import {
+  buildMemorySection,
+  MEMORY_PRUNE_THRESHOLD_BYTES,
+} from './memory-prompt';
 
 function mockApp(files: Record<string, string>) {
   return {
@@ -68,5 +71,26 @@ describe('buildMemorySection', () => {
     expect(out).toContain('`inbox/memory.md`');
     expect(out).toContain('write_note');
     expect(out).toContain('edit_note');
+  });
+
+  it('does NOT inject the consolidation nudge for a small memory', async () => {
+    const app = mockApp({ 'Scribian/Memory.md': 'one short fact.' });
+    const out = await buildMemorySection(app, {
+      enabled: true,
+      path: 'Scribian/Memory.md',
+    });
+    expect(out).not.toContain('consolidation pass');
+  });
+
+  it('injects the consolidation nudge when memory exceeds the threshold', async () => {
+    // Build a body that's clearly past MEMORY_PRUNE_THRESHOLD_BYTES.
+    const big = 'fact line.\n'.repeat(MEMORY_PRUNE_THRESHOLD_BYTES);
+    const app = mockApp({ 'Scribian/Memory.md': big });
+    const out = await buildMemorySection(app, {
+      enabled: true,
+      path: 'Scribian/Memory.md',
+    });
+    expect(out).toContain('consolidation pass');
+    expect(out).toMatch(/grown to \d+\.\d KB/);
   });
 });

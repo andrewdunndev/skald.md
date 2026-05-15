@@ -17,10 +17,21 @@ export interface MemorySectionInput {
   path: string;
 }
 
+/** Byte threshold past which the system prompt adds a consolidation
+ * nudge. Tuned to roughly "a memory note that's still reasonable to
+ * inject every turn." Past this size, Claude's per-turn input cost
+ * climbs noticeably, AND human users start losing track of what's in
+ * there. The nudge is non-destructive — it asks Claude to propose
+ * a consolidation pass; the user approves via diff card. */
+export const MEMORY_PRUNE_THRESHOLD_BYTES = 4 * 1024;
+
 /**
  * Return the memory block as a system-prompt-ready string, or null
  * if the memory feature is disabled or unconfigured. The caller
- * concatenates this with other system-prompt segments.
+ * concatenates this with other system-prompt segments. When memory
+ * exceeds MEMORY_PRUNE_THRESHOLD_BYTES, a consolidation-nudge
+ * paragraph appears in the section so Claude can suggest a prune
+ * at a natural moment.
  */
 export async function buildMemorySection(
   app: App,
@@ -30,7 +41,8 @@ export async function buildMemorySection(
   if (!input.enabled || !path) return null;
 
   const body = await readMemoryNote(app, path);
-  return [
+  const bytes = byteLength(body);
+  const lines: string[] = [
     '## Long-term memory',
     '',
     `You have a long-term memory note at \`${path}\` that persists`,
@@ -43,7 +55,21 @@ export async function buildMemorySection(
     '<memory>',
     body.trim() === '' ? '(empty — no memories saved yet)' : body,
     '</memory>',
-  ].join('\n');
+  ];
+  if (bytes > MEMORY_PRUNE_THRESHOLD_BYTES) {
+    lines.push(
+      '',
+      `NOTE: This memory note has grown to ${(bytes / 1024).toFixed(1)} KB. At a natural moment in this conversation, consider proposing a consolidation pass via \`write_note\`: group related facts, drop ones the user has marked obsolete, and tighten phrasing. User approves via the diff card. Don't interrupt the user's current question to do this — wait for a lull.`,
+    );
+  }
+  return lines.join('\n');
+}
+
+function byteLength(s: string): number {
+  // Browsers + Workers have TextEncoder; this counts UTF-8 bytes
+  // (the actual on-disk + over-wire cost), not JS string length
+  // which counts UTF-16 code units.
+  return new TextEncoder().encode(s).length;
 }
 
 async function readMemoryNote(app: App, path: string): Promise<string> {
