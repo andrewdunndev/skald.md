@@ -18,6 +18,7 @@
  * metadata isn't always loaded.
  */
 
+import { Notice } from 'obsidian';
 import type { ContentBlock } from '@scribian/protocol';
 
 export type ImageMediaType =
@@ -34,12 +35,12 @@ const SUPPORTED_MEDIA_TYPES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /**
- * Per-image cap, post-base64 + chat envelope. Cloudflare's WebSocket
- * platform limit is 1 MiB per receive on the server side — that's
- * the hard ceiling for a chat turn carrying an image, because the
- * full ClientMessage (turn + image content block) ships in one WS
- * frame. Base64 inflates by ~33%, plus the JSON envelope + system
- * prompt + headers ~= 80 KB overhead. So:
+ * Per-image transit cap, post-base64 + chat envelope. Cloudflare's
+ * WebSocket platform limit is 1 MiB per receive on the server side
+ * — that's the hard ceiling for a chat turn carrying an image,
+ * because the full ClientMessage (turn + image content block) ships
+ * in one WS frame. Base64 inflates by ~33%, plus the JSON envelope
+ * + system prompt + headers ~= 80 KB overhead:
  *
  *   1 MiB platform cap
  *   − ~80 KB envelope/system-prompt overhead
@@ -47,15 +48,16 @@ const SUPPORTED_MEDIA_TYPES: ReadonlySet<string> = new Set<string>([
  *   ÷ 1.33 (base64 inflation)
  *   = ~730 KB raw image
  *
- * We round down to 700 KB. That covers screenshots, scanned
- * receipts, document photos, and most phone-camera output at
- * reasonable JPEG compression. Larger photos must be down-sampled
- * by the user — the chip shows "skipped (too large)" with the
- * concrete cap so they know what they're up against.
+ * We round down to 700 KB. Source blobs OVER the cap are auto-
+ * compressed via `compressImageBlob` (Canvas re-encode to JPEG
+ * with progressively smaller dimensions + quality) until they fit.
+ * The chip label surfaces the downsize ratio so the user sees what
+ * happened. GIFs are an exception — re-encoding kills animation
+ * frames — so oversize GIFs are rejected with a Notice.
  *
- * Previous v1 cap was 5 MB raw which silently broke on WS send;
- * the security review caught this when it noticed real CF limits
- * vs. our advertised cap.
+ * The mobile-camera use case (a 3 MB iPhone JPEG attached via the
+ * "Identify + file" chip) was broken pre-auto-compression: the
+ * blob would silently drop. Camera-first flow now works end-to-end.
  */
 const MAX_IMAGE_BYTES = 700 * 1024;
 
@@ -131,10 +133,26 @@ export async function attachmentsFromFiles(
 
 async function blobsToAttachments(blobs: Blob[]): Promise<ImageAttachment[]> {
   const out: ImageAttachment[] = [];
-  for (const blob of blobs) {
-    if (blob.size > MAX_IMAGE_BYTES) continue;
+  for (const original of blobs) {
     try {
-      out.push(await blobToAttachment(blob));
+      let blob = original;
+      let downsized = false;
+      if (blob.size > MAX_IMAGE_BYTES) {
+        if (blob.type === 'image/gif') {
+          // Canvas re-encoding kills GIF animation frames; reject
+          // cleanly so the user knows why nothing attached.
+          notifyOversizeSkip(original, 'GIF compression would drop animation frames');
+          continue;
+        }
+        const compressed = await compressImageBlob(blob, MAX_IMAGE_BYTES);
+        if (!compressed) {
+          notifyOversizeSkip(original, 'could not compress under transit limit');
+          continue;
+        }
+        blob = compressed;
+        downsized = true;
+      }
+      out.push(await blobToAttachment(blob, original, downsized));
     } catch {
       // skip unencodable
     }
@@ -142,18 +160,117 @@ async function blobsToAttachments(blobs: Blob[]): Promise<ImageAttachment[]> {
   return out;
 }
 
-async function blobToAttachment(blob: Blob): Promise<ImageAttachment> {
+async function blobToAttachment(
+  blob: Blob,
+  original: Blob,
+  downsized: boolean,
+): Promise<ImageAttachment> {
   const buf = await blob.arrayBuffer();
   const base64 = arrayBufferToBase64(buf);
+  const filename = (original as Blob & { name?: string }).name;
+  const baseLabel = filename || `pasted ${original.type.replace('image/', '')}`;
   return {
     id: crypto.randomUUID(),
     mediaType: blob.type as ImageMediaType,
-    label:
-      (blob as Blob & { name?: string }).name ||
-      `pasted ${blob.type.replace('image/', '')}`,
+    label: downsized
+      ? `${baseLabel} (downsized ${humanByteCount(original.size)} → ${humanByteCount(blob.size)})`
+      : baseLabel,
     base64,
     byteLength: blob.size,
   };
+}
+
+/**
+ * Re-encode an oversize image as JPEG, iteratively dropping
+ * dimensions + quality until it fits under `targetBytes`. Returns
+ * null when even the smallest acceptable encoding still overshoots
+ * (rare — usually means an unreadable source). Pure runtime API
+ * (Canvas + createImageBitmap) — no unit-testable path; verified
+ * via the CDP walkthrough on real Obsidian.
+ *
+ * The mobile-photo case (a 3 MB iPhone JPEG into a 700 KB target)
+ * usually settles in 2-3 iterations at quality ~0.7 + dimensions
+ * ~70% of original. Output is always JPEG; alpha channels are
+ * lost on transparent PNGs but the vision use cases here (photos,
+ * scans, screenshots) don't typically need alpha.
+ */
+export async function compressImageBlob(
+  blob: Blob,
+  targetBytes: number,
+): Promise<Blob | null> {
+  // Some runtimes (older webviews) don't have createImageBitmap;
+  // fall back to <img> if needed. Both paths produce a drawable
+  // source for the canvas.
+  let source: ImageBitmap | HTMLImageElement;
+  try {
+    source = await createImageBitmap(blob);
+  } catch {
+    source = await blobToImageElement(blob);
+  }
+  const { width: srcW, height: srcH } = source as { width: number; height: number };
+
+  // Quality + scale schedule: start gentle, then escalate. The
+  // schedule is small (5 attempts max) so iPhone photos converge
+  // quickly without burning frames.
+  const attempts: Array<{ scale: number; quality: number }> = [
+    { scale: 1.0, quality: 0.85 },
+    { scale: 0.85, quality: 0.8 },
+    { scale: 0.7, quality: 0.75 },
+    { scale: 0.55, quality: 0.7 },
+    { scale: 0.4, quality: 0.65 },
+  ];
+
+  for (const { scale, quality } of attempts) {
+    const w = Math.max(1, Math.round(srcW * scale));
+    const h = Math.max(1, Math.round(srcH * scale));
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return null;
+    ctx.drawImage(source as CanvasImageSource, 0, 0, w, h);
+    const out = await canvasToBlob(canvas, 'image/jpeg', quality);
+    if (out && out.size <= targetBytes) return out;
+  }
+  return null;
+}
+
+function blobToImageElement(blob: Blob): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      resolve(img);
+    };
+    img.onerror = (e) => {
+      URL.revokeObjectURL(url);
+      reject(e);
+    };
+    img.src = url;
+  });
+}
+
+function canvasToBlob(
+  canvas: HTMLCanvasElement,
+  type: string,
+  quality: number,
+): Promise<Blob | null> {
+  return new Promise((resolve) => {
+    canvas.toBlob((b) => resolve(b), type, quality);
+  });
+}
+
+/** Surface a one-shot Notice when an image is skipped so the user
+ * sees the failure path (silent dropping is worse than visible
+ * rejection — they tap the camera chip again expecting a different
+ * result). The console.warn is the durable trail. */
+function notifyOversizeSkip(blob: Blob, reason: string): void {
+  const name = (blob as Blob & { name?: string }).name || 'image';
+  console.warn(
+    `scribian: skipped attachment "${name}" (${humanByteCount(blob.size)}): ${reason}.`,
+  );
+  new Notice(`scribian: skipped image (${reason})`, 6000);
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {
