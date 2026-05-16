@@ -190,9 +190,13 @@ async function appendToCurrent(
     return;
   }
   try {
-    const existing = await cfg.app.vault.read(file);
-    const sep = existing.endsWith('\n') ? '\n' : '\n\n';
-    await cfg.app.vault.modify(file, existing + sep + text);
+    // vault.process atomically appends against current on-disk
+    // content — handles the case where the active note has
+    // unsaved editor edits without clobbering them.
+    await cfg.app.vault.process(file, (current) => {
+      const sep = current.endsWith('\n') ? '\n' : '\n\n';
+      return current + sep + text;
+    });
     new Notice(`Appended to ${file.basename}`);
   } catch (err) {
     new Notice(

@@ -1,31 +1,15 @@
 /**
  * iOS share-sheet + URL-scheme capture (phase 8).
  *
- * A capture is a one-shot Claude turn that turns shared content
- * (a URL, a snippet of text, an image) into a vault note. The
- * trigger is `obsidian://scribian-capture?...` — fired by an Apple
- * Shortcut the user installs once; that Shortcut sits in the iOS
- * share-sheet target list.
+ * Trigger: `obsidian://scribian-capture?...` (fired by an Apple
+ * Shortcut). Flow: parseCaptureParams → CaptureService.run() →
+ * POST /capture on the Worker → routeCapture picks destination
+ * (auto-route via vault.process to matched note, or create in
+ * captureFolder).
  *
- * Flow:
- *   1. ProtocolData arrives → parseCaptureParams
- *   2. CaptureService.run() builds the prompt + POSTs /capture on
- *      the user's Worker
- *   3. Worker returns {body, title}; plugin writes it as a vault
- *      note in capturesFolder with a stable slug filename
- *   4. (optional) Plugin opens the captured note in a new pane
- *
- * The prompt-building and parameter parsing are pure functions —
- * unit-testable without an Obsidian runtime. The CaptureService
- * class composes them with vault I/O + HTTP.
- *
- * Privacy posture: capture is a transient pipe (incoming content →
- * Worker → Anthropic → response → vault). The Worker doesn't
- * persist captured content beyond the moment of processing — same
- * posture as the existing chat path. Captured content does pass
- * through your selected LLM provider; users opting in should know
- * the share-sheet handler does the same thing as typing the
- * content into the chat pane.
+ * Privacy posture: transient pipe. Worker holds nothing
+ * post-response. Same trust as the chat path. Rate-limited at
+ * the handler level — see CAPTURE_RATE_LIMIT_COUNT.
  */
 
 import {
@@ -39,6 +23,14 @@ import {
   type RequestUrlParam,
 } from 'obsidian';
 import { searchVault, type MemoryClientConfig, type SearchHit } from './memory-client';
+import { SlidingWindow } from './rate-limit';
+import {
+  captureFilename,
+  safeAtob,
+  safeDecodeURIComponent,
+} from './capture-util';
+
+export { captureFilename } from './capture-util';
 
 export type CaptureKind = 'url' | 'text' | 'image' | 'pdf';
 
@@ -146,61 +138,9 @@ export function buildCapturePrompt(
   return `${head}${titleHint}\n\n---\n\n${params.content}`;
 }
 
-/**
- * Generate a vault-safe filename for a captured note. Strips path
- * separators + `..` (defense in depth against malformed titles
- * coming from Apple Shortcuts). Falls back to a timestamp when the
- * title yields nothing slug-worthy.
- */
-export function captureFilename(
-  captureFolder: string,
-  title: string | null,
-  now: Date = new Date(),
-): string {
-  const dateStr = now.toISOString().slice(0, 10);
-  const slug = slugify(title ?? '', 40) ||
-    'capture-' + now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const folder = captureFolder.replace(/\/$/, '');
-  return folder ? `${folder}/${dateStr}-${slug}.md` : `${dateStr}-${slug}.md`;
-}
-
-function slugify(text: string, max = 40): string {
-  // Replace path separators + `..` with whitespace BEFORE the
-  // character-class strip so a title like "foo/../bar" yields
-  // "foo-bar" rather than collapsing to "foobar". Defense in depth
-  // against malformed titles from Apple Shortcuts.
-  return text
-    .toLowerCase()
-    .replace(/\.\.+/g, ' ')
-    .replace(/[/\\]+/g, ' ')
-    .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .slice(0, max);
-}
-
-function safeAtob(s: string): string {
-  try {
-    // atob returns a binary string (each char = one byte). Re-
-    // interpret as UTF-8 so multi-byte chars (é, em-dash, emoji)
-    // come back correctly. Without this, "éclair" round-trips to
-    // mojibake.
-    const binary = atob(s);
-    const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
-    return new TextDecoder('utf-8').decode(bytes);
-  } catch {
-    return '';
-  }
-}
-
-function safeDecodeURIComponent(s: string): string {
-  try {
-    return decodeURIComponent(s);
-  } catch {
-    return s;
-  }
-}
+// captureFilename + slugify + safeAtob + safeDecodeURIComponent
+// live in ./capture-util.ts so this file stays focused on the
+// CaptureService orchestration.
 
 export interface CaptureServiceConfig {
   workerUrl: string;
@@ -272,7 +212,22 @@ export async function routeCapture(
   };
 }
 
+/** Rate limit on the capture protocol handler. The handler can be
+ * fired by ANY page that crafts an `obsidian://scribian-capture`
+ * URL — an iframe in a hostile webpage could fire it in a loop to
+ * drain the user's Anthropic/OpenRouter spend. 5 captures per 60
+ * seconds covers normal share-sheet bursts (forwarding a few
+ * articles in quick succession) without enabling abuse. Above
+ * the threshold, captures are rejected with a Notice. */
+export const CAPTURE_RATE_LIMIT_COUNT = 5;
+export const CAPTURE_RATE_LIMIT_WINDOW_MS = 60_000;
+
 export class CaptureService {
+  private readonly limiter = new SlidingWindow(
+    CAPTURE_RATE_LIMIT_COUNT,
+    CAPTURE_RATE_LIMIT_WINDOW_MS,
+  );
+
   constructor(
     private readonly app: App,
     private readonly cfg: () => CaptureServiceConfig,
@@ -284,6 +239,17 @@ export class CaptureService {
       new Notice('scribian: capture had no content to process.');
       return;
     }
+    if (this.limiter.isExceeded()) {
+      new Notice(
+        `scribian: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
+        10_000,
+      );
+      console.warn(
+        `scribian: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
+      );
+      return;
+    }
+    this.limiter.record();
     const progress = new Notice('scribian: capturing…', 0);
     try {
       const note = await this.run(params);
@@ -353,11 +319,15 @@ export class CaptureService {
       const path = normalizePath(route.path);
       const existing = this.app.vault.getAbstractFileByPath(path);
       if (existing instanceof TFile) {
-        const current = await this.app.vault.read(existing);
-        const sep = current.endsWith('\n') ? '\n' : '\n\n';
+        // vault.process applies the transform atomically against
+        // whatever's on disk at the moment of write — safer than
+        // read-then-modify when the user has the target note open
+        // in another editor pane with unsaved edits.
         const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-        const appended = `${current}${sep}---\n\nCaptured ${stamp}\n\n${body.body}`;
-        await this.app.vault.modify(existing, appended);
+        await this.app.vault.process(existing, (current) => {
+          const sep = current.endsWith('\n') ? '\n' : '\n\n';
+          return `${current}${sep}---\n\nCaptured ${stamp}\n\n${body.body}`;
+        });
         return { path, routedTo: 'append' };
       }
       // Target vanished between search and write — fall back to create.

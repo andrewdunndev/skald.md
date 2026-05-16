@@ -10,15 +10,17 @@ import {
   runMetadata,
 } from './read';
 import {
-  MEMORY_TOOLS,
   WRITE_TOOLS,
   runWriteNote,
   runEditNote,
   runAppendToNote,
+} from './write';
+import {
+  MEMORY_TOOLS,
   runRememberFact,
   runUpdateMemory,
   runForgetFact,
-} from './write';
+} from './memory';
 import { SERVER_TOOLS } from './server';
 
 export type {

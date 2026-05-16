@@ -5,7 +5,7 @@ import {
   runRememberFact,
   runUpdateMemory,
   runForgetFact,
-} from './write';
+} from './memory';
 import type { WriteProposal } from './context';
 
 /** Minimal App stub cast to the real Obsidian App surface. The memory

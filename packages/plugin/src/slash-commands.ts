@@ -96,6 +96,13 @@ function parseCommand(file: TFile, body: string): SlashCommand {
  * — we don't want bad templates to silently leave `{{foo}}` literals
  * in the prompt.
  */
+/** Max characters injected via `{{active_note}}`. ~80 KB which is
+ * ~20K tokens — covers normal note sizes (most notes are well
+ * under 10 KB) while bounding the cost surface for the pathological
+ * case of a 1 MB megafile. When truncated, a marker line tells
+ * Claude exactly what happened. */
+export const ACTIVE_NOTE_INJECT_MAX_CHARS = 80_000;
+
 export async function renderCommand(
   app: App,
   cmd: SlashCommand,
@@ -113,17 +120,51 @@ export async function renderCommand(
   // the existing chat input uses for @-attached notes so Claude sees
   // the same structure whether the user attaches or invokes a command.
   if (activeFile && cmd.includesActiveNote && activeBody) {
+    const { body, truncatedAt } = truncateForInject(activeBody);
+    const truncMarker = truncatedAt
+      ? `\n\n[scribian: truncated at ${truncatedAt} chars; original was ${activeBody.length} chars]`
+      : '';
     variables.active_note =
-      `<context>\n  <file path="${activeFile.path}">\n${activeBody}\n  </file>\n</context>`;
+      `<context>\n  <file path="${activeFile.path}">\n${body}${truncMarker}\n  </file>\n</context>`;
   } else {
     variables.active_note = '';
   }
 
-  return cmd.template.replace(/\{\{([^}]+)\}\}/g, (_match, raw: string) => {
+  return renderTemplate(cmd.template, cmd.id, variables);
+}
+
+/** Truncate an active-note body to ACTIVE_NOTE_INJECT_MAX_CHARS.
+ * Caps at the last newline before the limit so we don't slice
+ * mid-paragraph. Returns `truncatedAt: null` when under cap. Pure. */
+export function truncateForInject(body: string): {
+  body: string;
+  truncatedAt: number | null;
+} {
+  if (body.length <= ACTIVE_NOTE_INJECT_MAX_CHARS) {
+    return { body, truncatedAt: null };
+  }
+  // lastIndexOf returns -1 when no newline exists at or before the
+  // index. -1 is truthy in JS, so `|| fallback` does NOT fire —
+  // must check >= 0 explicitly. Without this guard, a body with no
+  // newlines silently slices to length-1 of the cap.
+  const last = body.lastIndexOf('\n', ACTIVE_NOTE_INJECT_MAX_CHARS);
+  const cutPoint = last >= 0 ? last : ACTIVE_NOTE_INJECT_MAX_CHARS;
+  return {
+    body: body.slice(0, cutPoint),
+    truncatedAt: cutPoint,
+  };
+}
+
+function renderTemplate(
+  template: string,
+  cmdId: string,
+  variables: Record<string, string>,
+): string {
+  return template.replace(/\{\{([^}]+)\}\}/g, (_match, raw: string) => {
     const [name, fallback] = raw.split('|').map((s) => s.trim());
     if (name in variables) return variables[name];
     if (fallback !== undefined) return fallback;
-    console.warn(`scribian: slash command '${cmd.id}' referenced unknown variable '${name}'`);
+    console.warn(`scribian: slash command '${cmdId}' referenced unknown variable '${name}'`);
     return '';
   });
 }

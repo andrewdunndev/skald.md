@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 // See memory-prompt.test.ts for the import-from-mock-path rationale.
 import { TFile } from '../../../tests/obsidian-mock';
 import {
+  ACTIVE_NOTE_INJECT_MAX_CHARS,
   loadSlashCommands,
   renderCommand,
+  truncateForInject,
   type SlashCommand,
 } from './slash-commands';
 
@@ -147,5 +149,62 @@ describe('renderCommand', () => {
       template: 'Hello {{unknown}}.',
     });
     expect(out).toBe('Hello .');
+  });
+});
+
+describe('truncateForInject', () => {
+  it('returns input unchanged when under cap', () => {
+    const out = truncateForInject('hello world');
+    expect(out).toEqual({ body: 'hello world', truncatedAt: null });
+  });
+
+  it('returns exact cap-length input unchanged (boundary)', () => {
+    const body = 'a'.repeat(ACTIVE_NOTE_INJECT_MAX_CHARS);
+    const out = truncateForInject(body);
+    expect(out.truncatedAt).toBeNull();
+    expect(out.body.length).toBe(ACTIVE_NOTE_INJECT_MAX_CHARS);
+  });
+
+  it('truncates over-cap input at the last newline before the limit', () => {
+    // Build a body with newlines at known positions so we can
+    // assert the cut lands on one.
+    const paragraph = 'lorem ipsum dolor sit amet\n';
+    const repeats = Math.ceil(ACTIVE_NOTE_INJECT_MAX_CHARS / paragraph.length) + 100;
+    const body = paragraph.repeat(repeats);
+    const out = truncateForInject(body);
+    expect(out.truncatedAt).not.toBeNull();
+    expect(out.truncatedAt).toBeLessThanOrEqual(ACTIVE_NOTE_INJECT_MAX_CHARS);
+    expect(out.body.length).toBe(out.truncatedAt);
+    // Cut at a newline: the next char in the original body is the
+    // start of a paragraph.
+    expect(body[out.truncatedAt!]).toMatch(/[a-z\n]/);
+  });
+
+  it('falls back to the hard cap when no newline appears before the limit', () => {
+    const body = 'x'.repeat(ACTIVE_NOTE_INJECT_MAX_CHARS + 1000);
+    const out = truncateForInject(body);
+    // lastIndexOf returns -1 when not found; falsy → uses cap value.
+    // The actual cut should be at ACTIVE_NOTE_INJECT_MAX_CHARS.
+    expect(out.body.length).toBe(ACTIVE_NOTE_INJECT_MAX_CHARS);
+    expect(out.truncatedAt).toBe(ACTIVE_NOTE_INJECT_MAX_CHARS);
+  });
+
+  it('renderCommand surfaces a truncation marker in the rendered output', async () => {
+    const big = 'paragraph.\n'.repeat(10_000); // >100 KB
+    const file = new TFile('big.md');
+    const app = {
+      workspace: { getActiveFile: () => file },
+      vault: { cachedRead: async () => big },
+    } as unknown as import('obsidian').App;
+    const out = await renderCommand(app, {
+      id: 'summarize',
+      path: 'Scribian/Commands/summarize.md',
+      name: 'summarize',
+      description: '',
+      includesActiveNote: true,
+      template: 'Summarize: {{active_note}}',
+    });
+    expect(out).toContain('scribian: truncated at');
+    expect(out).toContain(`original was ${big.length} chars`);
   });
 });
