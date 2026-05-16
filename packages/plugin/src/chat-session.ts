@@ -53,7 +53,11 @@ export class ChatSession {
     private readonly modelProvider: () => string,
     private readonly systemProvider: () => Promise<string | undefined>,
     private readonly providerConfigProvider: () => ProviderConfig,
-    private readonly toolDefinitions: ToolDefinition[],
+    /** Per-turn provider of the active tool set. Reading at
+     * dispatch time lets setting changes (memory enabled/disabled,
+     * future model-capability gating) apply on the next turn
+     * without recreating the session. */
+    private readonly toolDefinitionsProvider: () => ToolDefinition[],
     private readonly toolExecutor: ToolExecutor,
     private readonly handlers: ChatSessionHandlers,
   ) {}
@@ -140,7 +144,8 @@ export class ChatSession {
       max_tokens: 4096,
     };
     if (system) payload.system = system;
-    if (this.toolDefinitions.length > 0) payload.tools = this.toolDefinitions;
+    const tools = this.toolDefinitionsProvider();
+    if (tools.length > 0) payload.tools = tools;
 
     const msg: import('@scribian/protocol').ClientMessage = {
       type: 'chat',

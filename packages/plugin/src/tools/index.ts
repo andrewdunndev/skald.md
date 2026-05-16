@@ -35,6 +35,11 @@ export { READ_ONLY_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS };
  * READ_ONLY_TOOLS + WRITE_TOOLS + MEMORY_TOOLS through executeTool;
  * SERVER_TOOLS execute on the provider side and never reach the
  * executor.
+ *
+ * Prefer `buildActiveTools()` for live chat sessions — it gates the
+ * memory tools on settings so Claude doesn't see tools that would
+ * error at execution. ALL_TOOLS stays for tests + callers that
+ * need the full catalog.
  */
 export const ALL_TOOLS: ToolDefinition[] = [
   ...READ_ONLY_TOOLS,
@@ -42,6 +47,32 @@ export const ALL_TOOLS: ToolDefinition[] = [
   ...MEMORY_TOOLS,
   ...SERVER_TOOLS,
 ];
+
+export interface ActiveToolInput {
+  /** Whether memory-prompt injection is enabled. When false, the
+   * memory tools (remember_fact / update_memory / forget_fact)
+   * are filtered out — they require a configured memory path and
+   * surfacing them would invite Claude to call tools that return
+   * "memory path not configured" errors. */
+  memoryEnabled: boolean;
+  /** Vault-relative path of the memory note. Empty disables the
+   * memory tools even if memoryEnabled is true. */
+  memoryPath: string;
+}
+
+/**
+ * Build the per-turn tool catalog for a chat session. Filters
+ * tools whose preconditions aren't met given the current settings,
+ * so Claude only sees tools it can actually use successfully.
+ */
+export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
+  const tools: ToolDefinition[] = [...READ_ONLY_TOOLS, ...WRITE_TOOLS];
+  if (input.memoryEnabled && input.memoryPath.trim()) {
+    tools.push(...MEMORY_TOOLS);
+  }
+  tools.push(...SERVER_TOOLS);
+  return tools;
+}
 
 export async function executeTool(
   name: string,

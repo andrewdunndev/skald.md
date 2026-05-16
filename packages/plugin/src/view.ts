@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf, setIcon, setTooltip } from 'obsidian';
 import type ScribianPlugin from './main';
 import { Transport } from './transport';
 import { ChatSession } from './chat-session';
-import { ALL_TOOLS, executeTool } from './tools';
+import { buildActiveTools, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
 import { loadSystemPrompt } from './view/system-prompt';
@@ -129,23 +129,25 @@ export class ScribianView extends ItemView {
     this.activeNote = null;
     this.messageList?.cancelPendingRender();
     this.messageList?.tearDown();
-    // Resolve any pending write-approvals as rejected so the tool
-    // runner Promises don't dangle. Without this, an in-flight
-    // diff card at view-close time leaves the runner waiting
-    // forever on a pane that no longer exists.
-    this.approvals.abandonAll();
+    this.dropSessionState();
     this.transport?.close();
     this.transport = null;
     this.session = null;
   }
 
+  /** Shared cleanup for new-chat / reconnect / close. Resolves
+   * pending approvals as rejected so runner Promises don't dangle,
+   * and drops picked attachments so previous-chat context doesn't
+   * bleed into the next message via augmentUserText. */
+  private dropSessionState(): void {
+    this.approvals.abandonAll();
+    this.composer?.clearAttachments();
+  }
+
   private resetChat(): void {
     this.session?.reset();
     this.messageList.tearDown();
-    // New-chat with a pending approval: the diff card vanishes
-    // with the message rows, so resolve it as rejected — same
-    // effect the user would see if they tapped the X.
-    this.approvals.abandonAll();
+    this.dropSessionState();
     this.requestRender();
   }
 
@@ -154,9 +156,7 @@ export class ScribianView extends ItemView {
     this.transport = null;
     this.session = null;
     this.messageList.tearDown();
-    // Reconnect drops the current session; pending approvals are
-    // orphaned from any executor that might still be waiting.
-    this.approvals.abandonAll();
+    this.dropSessionState();
     this.connect();
   }
 
@@ -192,7 +192,11 @@ export class ScribianView extends ItemView {
             : s.anthropicApiKey || undefined;
         return { provider, apiKey };
       },
-      ALL_TOOLS,
+      () =>
+        buildActiveTools({
+          memoryEnabled: this.plugin.settings.memoryEnabled,
+          memoryPath: this.plugin.settings.memoryPath,
+        }),
       (name, input, toolUseId) =>
         executeTool(name, input, toolUseId, {
           app: this.app,

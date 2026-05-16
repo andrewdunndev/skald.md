@@ -187,6 +187,19 @@ export class Composer {
   }
 
   /**
+   * Drop every attached note + image. Called on new-chat / reset
+   * so a fresh conversation starts with no carryover context.
+   * Without this, picked notes from before "New chat" silently
+   * survive into the next turn and bleed into augmentUserText.
+   */
+  clearAttachments(): void {
+    this.pickedFiles = [];
+    this.pickedImages = [];
+    this.clearInput();
+    this.renderChip();
+  }
+
+  /**
    * Toggle send/stop button state. When busy, send becomes disabled
    * and stop becomes visible; on done, the reverse.
    */
