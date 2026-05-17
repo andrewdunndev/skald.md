@@ -4,7 +4,7 @@
  * Anthropic / OpenRouter; users configure it once per device.
  */
 
-import { Notice, Setting } from 'obsidian';
+import { Notice, Setting, requestUrl } from 'obsidian';
 import type ScribianPlugin from '../main';
 
 export function renderWorkerSection(
@@ -59,6 +59,12 @@ export function renderWorkerSection(
  * Hit the Worker's /health endpoint and surface the result as a
  * Notice. Doesn't validate SCRIBIAN_TOKEN — that only matters on
  * WebSocket upgrades.
+ *
+ * Uses Obsidian's `requestUrl` (server-side fetch) rather than the
+ * browser's `fetch`. Plugins run in the `app://obsidian.md` origin
+ * which CF Workers don't allow-list by default — native fetch
+ * trips a CORS preflight and surfaces as `TypeError: Failed to
+ * fetch`. requestUrl bypasses the browser CORS layer.
  */
 async function testWorkerHealth(plugin: ScribianPlugin): Promise<void> {
   const url = plugin.settings.workerUrl.trim();
@@ -68,18 +74,22 @@ async function testWorkerHealth(plugin: ScribianPlugin): Promise<void> {
   }
   const httpUrl = url.replace(/^ws/, 'http').replace(/\/$/, '') + '/health';
   try {
-    const resp = await fetch(httpUrl);
-    if (!resp.ok) {
-      new Notice(`Worker returned ${resp.status}`);
+    const resp = await requestUrl({ url: httpUrl, throw: false });
+    if (resp.status >= 400) {
+      new Notice(
+        `Worker returned ${resp.status}: ${resp.text.slice(0, 200)}`,
+        7000,
+      );
       return;
     }
-    const data = (await resp.json()) as Record<string, unknown>;
+    const data = (resp.json ?? {}) as Record<string, unknown>;
     const aig = data.ai_gateway ? ' · AI Gateway on' : '';
     const key = data.anthropic_key_present ? ' · Worker key set' : '';
     new Notice(`Worker OK (v${data.version ?? '?'})${aig}${key}`, 5000);
   } catch (err) {
     new Notice(
       `Connection failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      7000,
     );
   }
 }

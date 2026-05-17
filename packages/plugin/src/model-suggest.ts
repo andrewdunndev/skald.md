@@ -1,4 +1,4 @@
-import { AbstractInputSuggest, App } from 'obsidian';
+import { AbstractInputSuggest, App, requestUrl } from 'obsidian';
 
 /**
  * OpenRouter model catalog autocomplete. Fetches the public
@@ -144,14 +144,21 @@ async function ensureCatalog(): Promise<ModelInfo[]> {
 }
 
 async function fetchCatalog(): Promise<ModelInfo[]> {
-  const resp = await fetch(CATALOG_URL, {
+  // requestUrl (server-side fetch) bypasses the CORS layer that
+  // would otherwise block requests from the app://obsidian.md
+  // origin. OpenRouter's catalog endpoint may permit CORS today,
+  // but the requestUrl path is robust regardless of upstream
+  // headers + matches the rest of the plugin's HTTP layer.
+  const resp = await requestUrl({
+    url: CATALOG_URL,
     method: 'GET',
     headers: { accept: 'application/json' },
+    throw: false,
   });
-  if (!resp.ok) {
+  if (resp.status >= 400) {
     throw new Error(`OpenRouter catalog fetch ${resp.status}`);
   }
-  const body = (await resp.json()) as OpenRouterCatalogResponse;
+  const body = (resp.json ?? {}) as OpenRouterCatalogResponse;
   const raw = body.data ?? [];
   return raw.map(normalize).sort((a, b) => a.id.localeCompare(b.id));
 }
