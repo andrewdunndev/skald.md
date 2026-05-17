@@ -108,15 +108,24 @@ export class MessageList {
   }
 
   /** Schedule a render. Coalesces multiple updates within the throttle
-   * window so streaming SSE chunks don't trigger a render per delta. */
+   * window so streaming SSE chunks don't trigger a render per delta.
+   *
+   * Takes GETTERS (not values) so the throttled tick reads live
+   * state at fire time. Capturing the values at schedule time was a
+   * real bug: a getInFlight() returning a non-null reference at
+   * schedule time would be re-evaluated as still-truthy at fire
+   * time EVEN IF the session had nulled its inFlight between
+   * schedule and fire. Result: an extra DOM row for an inFlight
+   * that had already been finalized + appended to the history.
+   * Manifested as duplicate assistant rows after every chat turn. */
   requestRender(
-    history: Message[],
-    inFlight: { blocks: Message['content'] } | null,
+    getHistory: () => Message[],
+    getInFlight: () => { blocks: Message['content'] } | null,
   ): void {
     if (this.renderTimer !== null) return;
     this.renderTimer = window.setTimeout(() => {
       this.renderTimer = null;
-      void this.flushRender(history, inFlight);
+      void this.flushRender(getHistory(), getInFlight());
     }, RENDER_THROTTLE_MS);
   }
 

@@ -354,19 +354,18 @@ export class ScribianView extends ItemView {
   }
 
   private requestRender(): void {
-    if (!this.session) return;
+    const s = this.session;
+    if (!s) return;
     this.messageList.requestRender(
-      this.session.getMessages(),
-      this.session.getInFlight(),
+      () => s.getMessages(),
+      () => s.getInFlight(),
     );
   }
 
   private async flushRender(): Promise<void> {
-    if (!this.session) return;
-    await this.messageList.flushRender(
-      this.session.getMessages(),
-      this.session.getInFlight(),
-    );
+    const s = this.session;
+    if (!s) return;
+    await this.messageList.flushRender(s.getMessages(), s.getInFlight());
   }
 
   private requestApproval(proposal: WriteProposal): Promise<boolean> {
