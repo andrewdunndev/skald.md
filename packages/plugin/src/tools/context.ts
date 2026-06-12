@@ -1,5 +1,6 @@
 import { App, normalizePath } from 'obsidian';
 import type { MemoryClientConfig } from '../memory-client';
+import type { ConnectionMode } from '../settings';
 
 export interface ToolExecutionResult {
   content: string;
@@ -43,12 +44,12 @@ export interface ToolContext {
    * those tools return a "not configured" error. */
   memoryPath?: string;
   /**
-   * Connection mode. 'direct' disables find_related at the executor
-   * level — if the tool definition somehow appears on a direct-mode
-   * session, it returns a clear "worker required" error rather than
-   * crashing. Absent → treated as 'worker' for backward compatibility.
+   * Connection mode. Used by the find_related executor gate — if the
+   * tool somehow appears in a mode without semanticSearch, the executor
+   * returns a clear error rather than crashing. Absent → treated as
+   * 'worker' for backward compatibility.
    */
-  connectionMode?: 'direct' | 'worker';
+  connectionMode?: ConnectionMode;
 }
 
 /**

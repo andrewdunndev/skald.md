@@ -2,6 +2,7 @@ import { Notice, Plugin } from 'obsidian';
 import { ScribianView, VIEW_TYPE_SCRIBIAN } from './view';
 import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './settings';
 import { migrateConnectionMode } from './settings/connection-mode';
+import { resolveConnectionMode } from './mode-capabilities';
 import { Logger } from './logger';
 import { reindexVault } from './memory-client';
 import { emptyManifest, type IndexManifest } from './index-manifest';
@@ -17,6 +18,14 @@ import {
 
 export default class ScribianPlugin extends Plugin {
   settings: ScribianSettings = DEFAULT_SETTINGS;
+  /**
+   * The raw connectionMode string as stored in data.json. Kept separately
+   * so that a future mode value stored by a newer version of scribian is
+   * preserved on save rather than clobbered by downgrade to 'direct'.
+   * Runtime code always reads this.settings.connectionMode (a valid
+   * ConnectionMode resolved by resolveConnectionMode).
+   */
+  private _rawConnectionMode: string = DEFAULT_SETTINGS.connectionMode;
   logger!: Logger;
   private captureService!: CaptureService;
 
@@ -179,16 +188,38 @@ export default class ScribianPlugin extends Plugin {
   }
 
   async loadSettings() {
-    const stored = (await this.loadData()) as Partial<ScribianSettings> | null;
+    const stored = (await this.loadData()) as Partial<Record<string, unknown>> | null;
     const base = stored ?? {};
-    // Migrate connectionMode before merging with defaults so the upgrade
-    // from no-connectionMode (Worker era) preserves the 'worker' choice.
-    const connectionMode = migrateConnectionMode(base);
-    this.settings = { ...DEFAULT_SETTINGS, ...base, connectionMode };
+    // Step 1: migrate — detect Worker-era installs without connectionMode.
+    // migrateConnectionMode returns a valid ConnectionMode or the existing
+    // recognized value; it doesn't handle unrecognized future values.
+    const migrated = migrateConnectionMode(base);
+    // Step 2: resolve — if migration returned a recognized value, use it.
+    // If the raw stored value is an unrecognized future mode, preserve it
+    // in _rawConnectionMode for round-trip fidelity and fall back to
+    // 'direct' for runtime behavior.
+    const rawStored = base.connectionMode;
+    this._rawConnectionMode =
+      typeof rawStored === 'string' && rawStored ? rawStored : migrated;
+    const connectionMode = resolveConnectionMode(this._rawConnectionMode);
+    this.settings = {
+      ...DEFAULT_SETTINGS,
+      ...(base as Partial<ScribianSettings>),
+      connectionMode,
+    };
   }
 
   async saveSettings() {
-    await this.saveData(this.settings);
+    // Preserve the raw connectionMode string so a future mode value stored
+    // by a newer version of scribian is not clobbered on downgrade.
+    // If the current runtime mode differs from the raw stored value (user
+    // changed mode in settings), the new mode becomes the canonical value.
+    const rawMode =
+      this.settings.connectionMode !== resolveConnectionMode(this._rawConnectionMode)
+        ? this.settings.connectionMode
+        : this._rawConnectionMode;
+    await this.saveData({ ...this.settings, connectionMode: rawMode });
+    this._rawConnectionMode = rawMode;
   }
 
   /**

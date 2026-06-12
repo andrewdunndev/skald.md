@@ -1,6 +1,8 @@
 import type { ToolDefinition } from '@scribian/protocol';
 import { executeFindRelated } from '../memory-client';
 import type { ToolContext, ToolExecutionResult } from './context';
+import type { ConnectionMode } from '../settings';
+import { modeCapabilities } from '../mode-capabilities';
 import {
   READ_ONLY_TOOLS,
   runReadNote,
@@ -61,12 +63,12 @@ export interface ActiveToolInput {
    * memory tools even if memoryEnabled is true. */
   memoryPath: string;
   /**
-   * Connection mode. In 'direct' mode, server tools (web_search /
-   * web_fetch) are still available — they run on the provider side.
-   * find_related is unavailable in 'direct' mode because it requires
-   * the Worker's Vectorize binding. executeTool gates the call site too.
+   * Connection mode. find_related is only available when the mode's
+   * semanticSearch capability is true (currently 'worker' only).
+   * Server tools (web_search / web_fetch) work in all modes.
+   * executeTool gates the call site as defense-in-depth.
    */
-  connectionMode?: 'direct' | 'worker';
+  connectionMode?: ConnectionMode;
 }
 
 /**
@@ -75,15 +77,18 @@ export interface ActiveToolInput {
  * so Claude only sees tools it can actually use successfully.
  */
 export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
-  // In direct mode, find_related is unavailable (requires the Worker's
-  // Vectorize binding). Exclude it so Claude never calls a tool that
-  // will always error. The executor gate remains as defense-in-depth.
-  const readTools =
-    input.connectionMode === 'direct'
-      ? READ_ONLY_TOOLS.filter(
-          (t) => (t as Record<string, unknown>).name !== 'find_related',
-        )
-      : READ_ONLY_TOOLS;
+  // Exclude find_related when the mode lacks semantic search (requires
+  // the Worker's Vectorize binding). The executor gate remains as
+  // defense-in-depth. When connectionMode is absent, default to 'worker'
+  // behavior (include the tool) for backward compatibility.
+  const caps = input.connectionMode
+    ? modeCapabilities(input.connectionMode)
+    : { semanticSearch: true };
+  const readTools = caps.semanticSearch
+    ? READ_ONLY_TOOLS
+    : READ_ONLY_TOOLS.filter(
+        (t) => (t as Record<string, unknown>).name !== 'find_related',
+      );
 
   const tools: ToolDefinition[] = [...readTools, ...WRITE_TOOLS];
   if (input.memoryEnabled && input.memoryPath.trim()) {
@@ -144,11 +149,16 @@ export async function executeTool(
           ctx.approve,
           ctx.memoryPath,
         );
-      case 'find_related':
-        if (ctx.connectionMode === 'direct') {
+      case 'find_related': {
+        // Defense-in-depth: if the mode lacks semanticSearch, the tool
+        // should not have appeared in the catalog — but guard here too.
+        const findCaps = ctx.connectionMode
+          ? modeCapabilities(ctx.connectionMode)
+          : { semanticSearch: true };
+        if (!findCaps.semanticSearch) {
           return {
             content:
-              'find_related is not available in direct mode. Switch to Worker mode in plugin settings to enable semantic search.',
+              'find_related requires semantic search (Worker mode). Switch to Worker mode in plugin settings to enable it.',
             is_error: true,
           };
         }
@@ -160,6 +170,7 @@ export async function executeTool(
           };
         }
         return await executeFindRelated(ctx.app, ctx.memoryClient, input);
+      }
       default:
         return { content: `Unknown tool: ${name}`, is_error: true };
     }

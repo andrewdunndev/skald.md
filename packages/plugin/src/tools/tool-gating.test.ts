@@ -86,8 +86,10 @@ describe('executeTool: find_related in direct mode', () => {
       connectionMode: 'direct',
     });
     expect(result.is_error).toBe(true);
-    expect(result.content).toMatch(/direct mode/i);
-    expect(result.content).toMatch(/worker/i);
+    // Message should mention the requirement (semantic search / Worker mode)
+    // but NOT claim it's specifically a "direct mode" message — the gate
+    // now uses modeCapabilities().semanticSearch rather than a string compare.
+    expect(result.content).toMatch(/semantic search|worker mode/i);
   });
 });
 

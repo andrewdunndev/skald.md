@@ -2,8 +2,9 @@
  * Transport + ChatSession construction for the chat view.
  *
  * Extracted from view.ts so the main view file stays under the 400-line
- * cap. Contains the connection-mode branching logic: WorkerTransport in
- * 'worker' mode, DirectTransport in 'direct' mode.
+ * cap. Transport selection is an exhaustive switch on ConnectionMode via
+ * modeCapabilities — adding a new mode requires updating mode-capabilities.ts
+ * and satisfying the compiler here.
  *
  * Returns the constructed transport and session (or null when configuration
  * is missing in worker mode).
@@ -17,6 +18,7 @@ import { DirectTransport } from '../direct-transport';
 import { ChatSession } from '../chat-session';
 import { buildActiveTools, executeTool } from '../tools';
 import type { WriteProposal } from '../tools';
+import { modeCapabilities, assertNever } from '../mode-capabilities';
 import { loadSystemPrompt } from './system-prompt';
 
 export interface ConnectResult {
@@ -71,24 +73,31 @@ export function connectSession(
     },
   };
 
+  const caps = modeCapabilities(mode);
   let transport: ScribianTransport;
 
-  if (mode === 'worker') {
-    const { workerUrl, workerToken } = plugin.settings;
-    if (!workerUrl || !workerToken) {
-      cbs.setStatus('Not configured. Add Worker URL + token in settings.', 'error');
-      return null;
+  switch (mode) {
+    case 'worker': {
+      const { workerUrl, workerToken } = plugin.settings;
+      if (!workerUrl || !workerToken) {
+        cbs.setStatus('Not configured. Add Worker URL + token in settings.', 'error');
+        return null;
+      }
+      cbs.setStatus('Connecting…');
+      transport = new Transport(workerUrl, workerToken, handlers);
+      break;
     }
-    cbs.setStatus('Connecting…');
-    transport = new Transport(workerUrl, workerToken, handlers);
-  } else {
-    transport = new DirectTransport(
-      {
-        getAnthropicKey: () => plugin.settings.anthropicApiKey,
-        getOpenRouterKey: () => plugin.settings.openrouterApiKey,
-      },
-      handlers,
-    );
+    case 'direct':
+      transport = new DirectTransport(
+        {
+          getAnthropicKey: () => plugin.settings.anthropicApiKey,
+          getOpenRouterKey: () => plugin.settings.openrouterApiKey,
+        },
+        handlers,
+      );
+      break;
+    default:
+      return assertNever(mode);
   }
 
   transport.connect();
@@ -120,13 +129,12 @@ export function connectSession(
             ...proposal,
             informedBy: cbs.currentTurnReads(proposal.toolUseId),
           }),
-        memoryClient:
-          mode === 'worker'
-            ? {
-                workerUrl: plugin.settings.workerUrl,
-                workerToken: plugin.settings.workerToken,
-              }
-            : undefined,
+        memoryClient: caps.usesWorker
+          ? {
+              workerUrl: plugin.settings.workerUrl,
+              workerToken: plugin.settings.workerToken,
+            }
+          : undefined,
         memoryPath: plugin.settings.memoryPath,
         connectionMode: mode,
       }),

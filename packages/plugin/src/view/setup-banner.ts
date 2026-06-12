@@ -1,10 +1,12 @@
 import { App, Notice, setIcon } from 'obsidian';
+import type { ConnectionMode } from '../settings';
+import { modeCapabilities } from '../mode-capabilities';
 
 export interface SetupBannerInput {
-  /** Current connection mode — banner only shows in worker mode when
-   * the Worker URL or token is missing. In direct mode the plugin
-   * works immediately; no banner needed. */
-  connectionMode: 'direct' | 'worker';
+  /** Current connection mode — resolved by resolveConnectionMode before
+   * reaching here. Capability lookup determines whether a banner is needed;
+   * no inline mode-string comparisons. */
+  connectionMode: ConnectionMode;
   workerUrl: string;
   workerToken: string;
 }
@@ -22,7 +24,8 @@ export function maybeRenderSetupBanner(
   app: App,
   input: SetupBannerInput,
 ): HTMLDivElement | null {
-  if (input.connectionMode === 'direct') return null;
+  const caps = modeCapabilities(input.connectionMode);
+  if (caps.banner === 'direct') return null;
   if (input.workerUrl && input.workerToken) return null;
   const banner = parent.createDiv({ cls: 'scribian-setup-banner' });
   const icon = banner.createDiv({ cls: 'scribian-setup-banner-icon' });
