@@ -230,26 +230,36 @@ describe('DirectTransport: HTTP error mapping', () => {
     }
   });
 
-  it('emits error frame when no API key is configured', async () => {
+  it('emits non-retryable error and does NOT call fetch when Anthropic key is empty', async () => {
     const { transport, handlers } = makeTransport({ anthropicKey: '' });
     transport.connect();
-    transport.send({
-      type: 'chat',
-      id: 'turn1',
-      payload: {
-        model: 'claude-sonnet-4-6',
-        messages: [{ role: 'user', content: 'hi' }],
-        max_tokens: 100,
-      },
-    });
-
-    // error is synchronous in this path (no fetch needed)
+    transport.send({ type: 'chat', id: 't1',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 } });
     await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
     const err = handlers.messages.find((m) => m.type === 'error');
+    expect(err?.type).toBe('error');
     if (err?.type === 'error') {
-      expect(err.error).toMatch(/api key/i);
+      expect(err.error).toMatch(/anthropic api key/i);
+      expect(err.error).toMatch(/settings/i);
       expect(err.retryable).toBe(false);
     }
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('emits non-retryable error and does NOT call fetch when OpenRouter key is empty', async () => {
+    const { transport, handlers } = makeTransport({ openrouterKey: '' });
+    transport.connect();
+    transport.send({ type: 'chat', id: 't2', provider: 'openrouter',
+      payload: { model: 'anthropic/claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 } });
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
+    const err = handlers.messages.find((m) => m.type === 'error');
+    expect(err?.type).toBe('error');
+    if (err?.type === 'error') {
+      expect(err.error).toMatch(/openrouter api key/i);
+      expect(err.error).toMatch(/settings/i);
+      expect(err.retryable).toBe(false);
+    }
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
 

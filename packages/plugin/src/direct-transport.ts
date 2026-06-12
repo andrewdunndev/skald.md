@@ -117,12 +117,10 @@ export class DirectTransport implements ScribianTransport {
 
     if (!apiKey) {
       const which = provider === 'openrouter' ? 'OpenRouter' : 'Anthropic';
-      const settingsField =
-        provider === 'openrouter' ? 'openrouterApiKey' : 'anthropicApiKey';
       this.handlers.onMessage({
         type: 'error',
         id,
-        error: `No ${which} API key. Add it in plugin settings (${settingsField}).`,
+        error: `No ${which} API key configured — add it in Settings → Scribian.`,
         retryable: false,
       });
       return;
