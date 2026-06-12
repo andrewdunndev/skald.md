@@ -16,11 +16,10 @@ Conversations save back into your vault as markdown. iOS share-sheet
 capture turns anything you share from another app into a
 Claude-processed vault note.
 
-> **Status:** pre-alpha. Phases 0–6 shipped. Multi-provider
-> (Anthropic + OpenRouter), direct-mode transport, and vault-as-memory
-> live as of 2026-05-14. BRAT + community plugins listing pending — see
-> `campaigns/factory/notes/scribian-roadmap.md` in the
-> [storr](https://gitlab.com/dunn.dev/storr) harness for the full plan.
+> **Status:** pre-release. Feature-complete for v1 — direct mode,
+> multi-provider (Anthropic + OpenRouter), vault tools with approval,
+> vault-as-memory, share-sheet capture. Awaiting the final on-device
+> test pass; BRAT + community plugins listing to follow.
 
 ## Quick start
 
