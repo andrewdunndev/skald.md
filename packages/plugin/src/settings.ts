@@ -32,6 +32,7 @@ import { renderVaultSection } from './settings/vault';
 import { renderPersonasSection } from './settings/personas';
 import { renderCommandsSection } from './settings/commands';
 import { renderCaptureSection } from './settings/capture';
+import { renderMemoryToggle, renderMemoryAdvanced } from './settings/memory';
 import { modeCapabilities } from './mode-capabilities';
 
 /** Connection mode. 'direct' calls Anthropic / OpenRouter from the plugin
@@ -168,7 +169,7 @@ export class ScribianSettingTab extends PluginSettingTab {
 
     // Memory toggle lives in core so the most common toggle is
     // immediately accessible without expanding Advanced.
-    renderMemoryToggleOnly(containerEl, this.plugin);
+    renderMemoryToggle(containerEl, this.plugin);
 
     // ── Advanced expander ────────────────────────────────────────────
     renderAdvancedExpander(containerEl, this._advancedExpanded, (expanded) => {
@@ -186,71 +187,6 @@ export class ScribianSettingTab extends PluginSettingTab {
   }
 }
 
-/** Render just the memory toggle (always-visible core item). */
-function renderMemoryToggleOnly(
-  containerEl: HTMLElement,
-  plugin: ScribianPlugin,
-): void {
-  new Setting(containerEl)
-    .setName('Enable memory note')
-    .setDesc(
-      "Inject a single vault note's contents into every chat's system prompt as Claude's long-term memory. Claude can read it inline and propose updates via write_note / edit_note (you approve via diff card).",
-    )
-    .addToggle((t) =>
-      t.setValue(plugin.settings.memoryEnabled).onChange(async (v) => {
-        plugin.settings.memoryEnabled = v;
-        await plugin.saveSettings();
-      }),
-    );
-}
-
-/** Render only the advanced memory items (path + reindex) for the
- * Advanced section. Delegates reindex gating to renderMemorySection. */
-function renderMemoryAdvanced(
-  containerEl: HTMLElement,
-  plugin: ScribianPlugin,
-  usesWorker: boolean,
-): void {
-  // renderMemorySection renders heading + toggle + path + reindex.
-  // We skip the toggle here (it lives in core) by rendering a
-  // dedicated sub-section with just the path and reindex items.
-  new Setting(containerEl).setName('Memory').setHeading();
-
-  new Setting(containerEl)
-    .setName('Memory note path')
-    .setDesc(
-      'Vault-relative path of the memory note. Created on first write if it does not exist. Default: Scribian/Memory.md',
-    )
-    .addText((t) => {
-      t.setPlaceholder('Scribian/Memory.md')
-        .setValue(plugin.settings.memoryPath)
-        .onChange(async (v) => {
-          plugin.settings.memoryPath = v.trim();
-          await plugin.saveSettings();
-        });
-    });
-
-  if (usesWorker) {
-    new Setting(containerEl)
-      .setName('Reindex vault for semantic search')
-      .setDesc(
-        "Walk markdown notes (excluding chats/logs/saved folders), embed each via Workers AI, upsert to the Worker's Vectorize index. Required before find_related works. Re-run after major vault changes. Cost: ~one cent per 1000 notes.",
-      )
-      .addButton((b) =>
-        b.setButtonText('Reindex').onClick(() => {
-          void plugin.reindexVault();
-        }),
-      );
-  } else {
-    new Setting(containerEl)
-      .setName('Reindex vault for semantic search')
-      .setDesc(
-        "Requires Worker mode — semantic search uses the Worker's Vectorize binding which is unavailable in direct mode. Switch to Worker mode to enable reindexing.",
-      )
-      .addButton((b) => b.setButtonText('Reindex').setDisabled(true));
-  }
-}
-
 /** Render the Advanced toggle heading. Clicking it flips the expanded
  * state and calls onChange so the tab re-renders. Uses a Setting with
  * a toggle component — idiomatic Obsidian progressive disclosure. */
@@ -261,11 +197,7 @@ function renderAdvancedExpander(
 ): void {
   new Setting(containerEl)
     .setName('Advanced')
-    .setDesc(
-      expanded
-        ? 'Vault folders, memory path, personas, slash commands, capture settings.'
-        : 'Vault folders, memory path, personas, slash commands, capture settings.',
-    )
+    .setDesc('Vault folders, memory path, personas, slash commands, capture settings.')
     .setHeading()
     .addToggle((t) => {
       t.setValue(expanded).onChange((v) => onChange(v));

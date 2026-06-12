@@ -1,25 +1,19 @@
 /**
- * Memory section: long-term memory note + semantic-search reindex.
- *
- * The toggle gates whether scribian injects the memory note's body
- * into the system prompt at chat start. The path is the single
- * vault note Claude is told it can read + (with approval) update.
- * The reindex button drives the manifest-diff incremental sync that
- * powers find_related — it is only available in Worker mode because
- * it requires the Worker's Vectorize binding. Pass usesWorker=false
- * to render a disabled/explanatory state instead.
+ * Memory settings, split across the two disclosure tiers:
+ * the enable toggle is a core (always-visible) item; the note path
+ * and semantic-search reindex live in the Advanced section. Reindex
+ * requires the Worker's Vectorize binding, so in direct mode it
+ * renders disabled with an explanation rather than disappearing.
  */
 
 import { Setting } from 'obsidian';
 import type ScribianPlugin from '../main';
 
-export function renderMemorySection(
+/** Core tier: just the enable toggle. */
+export function renderMemoryToggle(
   containerEl: HTMLElement,
   plugin: ScribianPlugin,
-  opts: { usesWorker: boolean } = { usesWorker: true },
 ): void {
-  new Setting(containerEl).setName('Memory').setHeading();
-
   new Setting(containerEl)
     .setName('Enable memory note')
     .setDesc(
@@ -31,6 +25,15 @@ export function renderMemorySection(
         await plugin.saveSettings();
       }),
     );
+}
+
+/** Advanced tier: note path + reindex. */
+export function renderMemoryAdvanced(
+  containerEl: HTMLElement,
+  plugin: ScribianPlugin,
+  usesWorker: boolean,
+): void {
+  new Setting(containerEl).setName('Memory').setHeading();
 
   new Setting(containerEl)
     .setName('Memory note path')
@@ -46,7 +49,7 @@ export function renderMemorySection(
         });
     });
 
-  if (opts.usesWorker) {
+  if (usesWorker) {
     new Setting(containerEl)
       .setName('Reindex vault for semantic search')
       .setDesc(
