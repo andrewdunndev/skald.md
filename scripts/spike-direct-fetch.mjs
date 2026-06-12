@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// DEV ONLY — not part of the plugin build or release assets.
 /**
  * SPIKE: direct-mode transport feasibility — can the Obsidian renderer
  * call api.anthropic.com directly with `anthropic-dangerous-direct-

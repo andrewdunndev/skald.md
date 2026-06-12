@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// DEV ONLY — not part of the plugin build or release assets.
 // Evaluate a JS expression in the running Obsidian renderer (CDP :9222).
 // Usage: node scripts/cdp-eval.mjs 'app.vault.getName()'
 const expr = process.argv[2];
