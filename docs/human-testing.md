@@ -15,9 +15,13 @@ skip what you've already verified in earlier passes.
 
 The minimum-viable-baseline. If this breaks, nothing else matters.
 
-- [ ] Open Settings → Scribian. **Worker URL** + **Worker token**
-      populated. Tap **Test connection**. Expected: green Notice
-      "Worker OK (v...)".
+Run phase A in **direct mode** (the default for new installs). If you
+also have a Worker deployed, repeat with mode switched to worker to
+verify both paths.
+
+- [ ] Open Settings → Scribian. **Connection mode** should read
+      "Direct". **Provider** set to Anthropic. **API key** populated.
+      Verify no error banner in the chat pane.
 - [ ] Open the chat pane from the ribbon icon. Empty state renders:
       "Your vault, on call." + 5 starter chips + sparkles icon.
 - [ ] Tap "Capture this idea" chip. Composer pre-fills with the
@@ -29,6 +33,12 @@ The minimum-viable-baseline. If this breaks, nothing else matters.
 - [ ] Check `Scribian/Chats/<date>-…-<id>.md` was saved with
       frontmatter (model, usage, cost).
 
+If you have the Worker deployed:
+
+- [ ] Switch **Connection mode** to "Worker". Set **Worker URL** +
+      **Worker token**. Tap **Test connection**. Expected: green Notice
+      "Worker OK (v...)". Send a message; verify streaming works.
+
 ## Phase B: iPad / iPhone (15 min)
 
 The real target. If this breaks, scribian breaks.
@@ -38,11 +48,17 @@ The real target. If this breaks, scribian breaks.
       Verify scribian plugin auto-syncs into the device's plugins
       folder (give it ~30s).
 - [ ] Enable scribian in Settings → Community plugins.
-- [ ] Open chat pane. Verify: if URL+token already in vault data,
-      no setup banner. If not, banner shows + tapping "Open
+- [ ] Open chat pane. In direct mode: if the API key is already in
+      vault data (synced from desktop), no setup banner — chat is
+      ready immediately. If not, banner shows + tapping "Open
       settings" lands in scribian's tab.
 
-### Setup URI flow (the "wife test")
+### Setup URI flow (worker mode "wife test")
+
+The setup URI applies to worker mode — it carries the Worker URL +
+token. In direct mode, the API key syncs automatically via plugin
+data.
+
 - [ ] On desktop, construct
       `obsidian://scribian-setup?endpoint=<URL>&token=<TOKEN>`.
       AirDrop / Messages-to-self to the iPad.
@@ -76,15 +92,17 @@ The real target. If this breaks, scribian breaks.
 - [ ] In Safari, share an article via the Scribian Capture
       Shortcut (see `docs/apple-shortcut-recipe.md`).
 - [ ] Verify: Obsidian foregrounds, "scribian: capturing…" Notice
-      shows, then "scribian: captured → ..." OR "scribian: routed
-      to ..." depending on whether find_related matched a target.
+      shows, then "scribian: captured → …" (direct mode always
+      creates in the captures folder) OR "scribian: routed to …"
+      (worker mode when find_related matched a target at ≥ 0.85
+      similarity).
 - [ ] Open the resulting note. Verify the body is a clean
       scribian-generated summary, not raw HTML.
 
 ## Phase C: Provider + security (10 min)
 
 ### OpenRouter swap (live smoke test)
-- [ ] In settings, set **Active provider** to OpenRouter. Set
+- [ ] In settings, set **Provider** to OpenRouter. Set
       **OpenRouter API key**. Select a model via fuzzy search
       (e.g. `anthropic/claude-sonnet-4-6`).
 - [ ] Send a turn. Verify streaming works, response renders,
@@ -92,9 +110,9 @@ The real target. If this breaks, scribian breaks.
 - [ ] Ask Claude to "search the web for X." Verify
       `web_search_tool_result` renders correctly (the translator
       converted `openrouter:web_search` → scribian-canonical).
-- [ ] Send a turn with `find_related` query. Verify the vault
-      tools still work through the WS bridge regardless of
-      provider.
+- [ ] (Worker mode only) Send a turn that triggers `find_related`.
+      Verify semantic search results render correctly regardless
+      of which provider is active.
 
 ### Setup URI security
 - [ ] Craft a malicious URI:

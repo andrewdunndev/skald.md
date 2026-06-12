@@ -50,6 +50,38 @@ becomes the first consumer once the component lands. See
 **Closure expires:** 2026-08-14 (~90 days from filing). Estate-level
 work; scribian doesn't block on it for shipping.
 
+## architecture: direct-mode pivot (2026-06-12)
+
+**What changed:** scribian's headline deployment shape flipped from
+Worker-mandatory to direct-mode-default. Prior to this date, the
+architecture was: plugin → Cloudflare Worker (required) → Anthropic.
+The Worker was the only supported path; direct-to-API was not exposed.
+
+**New shape:** fresh installs default to `connectionMode = 'direct'`.
+The plugin calls Anthropic (or OpenRouter) directly via `fetch` with
+the `anthropic-dangerous-direct-browser-access: true` CORS header.
+No Worker needed. The Worker is now an opt-in power tier that adds
+semantic vault search (`find_related` via Vectorize), capture
+auto-routing, key-off-device, and per-client token revocation.
+
+**Migration:** existing installs that have a Worker URL already in
+`data.json` stay on `connectionMode = 'worker'` via
+`migrateConnectionMode()` in `settings/connection-mode.ts`. The
+upgrade is non-disruptive. Unknown mode strings stored by a newer
+version fall back to `'direct'` at runtime via `resolveConnectionMode()`
+without clobbering the stored value.
+
+**What this is NOT a deviation from:** no `dunn.dev/reference`
+contract covers deployment topology choices. This entry records the
+architectural decision so future readers don't mistake "direct mode"
+for a regressed feature. The prior Worker-mandatory shape was the
+correct v0 design decision; direct-mode-default is the correct v1
+decision for community-plugin distribution (no infra barrier to entry).
+
+**Closure:** permanent record. Not a gap to close.
+
+---
+
 ## file-size: per-file LOC cap with documented exceptions
 
 **What fails:** scribian-local rule (no reference contract yet). The

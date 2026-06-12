@@ -12,24 +12,41 @@ targets — that's a system-level Apple limitation, not an Obsidian one.
 The canonical workaround across the Obsidian ecosystem (Advanced URI,
 Actions URI, Save-to-Obsidian) is the Apple Shortcuts bridge:
 
+**Direct mode:**
+
+```
+iOS Share Sheet
+  └─ Shortcuts "Scribian Capture" (you install once)
+       └─ obsidian://scribian-capture?... URL
+            └─ Obsidian launches → scribian plugin protocol handler
+                 └─ Direct API call (Anthropic / OpenRouter)
+                      └─ Note written to Scribian/Captures/YYYY-MM-DD-<slug>.md
+                           └─ (optional) Obsidian opens the captured note
+```
+
+**Worker mode (adds auto-routing):**
+
 ```
 iOS Share Sheet
   └─ Shortcuts "Scribian Capture" (you install once)
        └─ obsidian://scribian-capture?... URL
             └─ Obsidian launches → scribian plugin protocol handler
                  └─ POST /capture on your Worker (Claude one-shot)
-                      └─ Note written to Scribian/Captures/YYYY-MM-DD-<slug>.md
-                           └─ (optional) Obsidian opens the captured note
+                      └─ find_related checks vault similarity (≥ 0.85 → append)
+                           └─ Note written or appended in your vault
+                                └─ (optional) Obsidian opens the captured note
 ```
 
 The Shortcut is the share-sheet target the iOS system sees. scribian
 provides the protocol handler that turns its URL output into a
-finished vault note.
+finished vault note. Capture works in both modes; auto-routing requires
+the Worker.
 
 ## Setup (one-time)
 
-1. **Install scribian** and complete the normal Worker setup
-   (`docs/deploying-the-worker.md`) so you have a working chat already.
+1. **Install scribian** and configure it (direct mode: paste your API
+   key; worker mode: complete Worker setup per
+   `docs/deploying-the-worker.md`). Verify chat works first.
 2. **Install the scribian capture Shortcut.** Open the iCloud share
    link from the scribian repo's `shortcuts/scribian-capture.shortcut`
    on your iPhone or iPad. Tap "Add Shortcut."
@@ -72,11 +89,13 @@ content second.
 
 The capture flow has the same trust boundary as the chat path:
 
-- The shared content traverses your Worker → Claude (Anthropic or
-  OpenRouter, depending on your provider setting) → back to your
-  Worker → back to the plugin → vault file.
-- The Worker doesn't persist any of this. No durable storage. No
-  cache. The vault file is the only record.
+- In direct mode: shared content goes from the plugin → Anthropic or
+  OpenRouter → back to the plugin → vault file.
+- In worker mode: shared content traverses plugin → your Worker →
+  Claude (Anthropic or OpenRouter) → back to your Worker → back to
+  the plugin → vault file.
+- Neither the Worker nor the provider persists the captured content.
+  No durable storage. No cache. The vault file is the only record.
 - Apple Shortcuts URL-decoded payloads are passed through verbatim;
   scribian doesn't log them outside the standard plugin log file (and
   even there, only the kind + outcome — not content).

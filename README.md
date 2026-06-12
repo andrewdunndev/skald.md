@@ -5,26 +5,56 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![status](https://img.shields.io/badge/status-pre--alpha-orange)]()
 
-**Vault-native Claude in Obsidian, mobile first. Your Cloudflare
-Worker, your Anthropic key, your vault.**
+**Mobile-first AI companion for Obsidian. Install the plugin, paste your
+API key, chat. No server to deploy, nothing to host.**
 
-scribian is a Claude client that lives where you write. Streams via
-WebSocket through a Cloudflare Worker you deploy to your own CF
-account with your own API key — no scribian-side backend, no shared
-service. Reads + writes your vault under explicit user approval.
-Searches the web inline. Conversations save back into your vault as
-markdown. iOS share-sheet capture turns anything you share from
-another app into a Claude-processed vault note. Long-term memory
-note + semantic search over your vault keep Claude grounded across
-sessions, without any vault content persisting outside the vault
-(only embedding vectors do — one-way derivative data).
+scribian is a Claude client that lives where you write. It streams
+responses from Anthropic (or OpenRouter) directly — no relay,
+no shared backend, no account beyond your API key. Reads and writes
+your vault under explicit user approval. Searches the web inline.
+Conversations save back into your vault as markdown. iOS share-sheet
+capture turns anything you share from another app into a
+Claude-processed vault note.
 
 > **Status:** pre-alpha. Phases 0–6 shipped. Multi-provider
-> (Anthropic + OpenRouter) and vault-as-memory (Cloudflare Vectorize
-> + Workers AI embeddings) live as of 2026-05-14. BRAT + community
-> plugins listing pending — see `campaigns/factory/notes/scribian-roadmap.md`
-> in the [storr](https://gitlab.com/dunn.dev/storr) harness for the
-> full plan.
+> (Anthropic + OpenRouter), direct-mode transport, and vault-as-memory
+> live as of 2026-05-14. BRAT + community plugins listing pending — see
+> `campaigns/factory/notes/scribian-roadmap.md` in the
+> [storr](https://gitlab.com/dunn.dev/storr) harness for the full plan.
+
+## Quick start
+
+### 1. Install the plugin
+
+Today: manual install. Copy `packages/plugin/dist/{manifest.json,
+main.js, styles.css}` into your vault's
+`.obsidian/plugins/scribian/` folder, enable the plugin in Obsidian.
+
+See [`docs/installing-the-plugin.md`](docs/installing-the-plugin.md)
+for the full path, including the upcoming BRAT route.
+
+### 2. Add your API key
+
+Open Obsidian → Settings → Scribian. The five core settings:
+
+1. **Connection mode** — leave on "Direct" (the default for new
+   installs)
+2. **Provider** — Anthropic (default) or OpenRouter
+3. **API key** — your `sk-ant-…` from
+   [console.anthropic.com](https://console.anthropic.com/) (or your
+   OpenRouter key)
+4. **Default model** — `claude-sonnet-4-6` pre-filled
+5. **Memory** — toggle on to keep a long-term memory note across
+   sessions
+
+Everything else (vault folders, personas, slash commands, capture
+settings) is behind an **Advanced** expander and has safe defaults.
+
+### 3. Chat
+
+Open the chat pane via the speech-bubble ribbon icon or **Scribian:
+Open chat** from the command palette. Type a question. Watch markdown
+stream in.
 
 ## What it is
 
@@ -34,19 +64,48 @@ Two artifacts in one repo:
    markdown-rendered messages (mermaid, tables, math, internal links),
    diff-card approval for vault edits, server-side web search,
    per-conversation Anthropic / OpenRouter provider switching,
-   semantic-search `find_related` over your vault, and a long-term
-   memory note Claude can read and propose updates to.
-2. **`packages/worker/`** — Cloudflare Worker. Durable Object with
-   Hibernation API. Provider-aware dispatch (Anthropic-direct +
-   OpenRouter via the Anthropic-compatible `/api/v1/messages`
-   endpoint). Vectorize + Workers AI bindings for vault embeddings.
-   Optional AI Gateway routing. BYO-deployed (you own it, you pay
-   for it).
+   and a long-term memory note Claude can read and propose updates to.
+2. **`packages/worker/`** — Cloudflare Worker (optional). Durable
+   Object with Hibernation API. Provider-aware dispatch. Vectorize +
+   Workers AI bindings for vault embeddings. Optional AI Gateway
+   routing. BYO-deployed (you own it, you pay for it).
 
 Plus `packages/protocol/` — the TypeScript wire types shared between
 plugin and Worker.
 
+## Going further: the Worker (optional power tier)
+
+The Cloudflare Worker is not required to use scribian. It adds:
+
+- **Semantic search** (`find_related`) — Claude can search your vault
+  by meaning, not just substring, backed by Cloudflare Vectorize +
+  Workers AI embeddings. This tool is not advertised to the model in
+  direct mode.
+- **Capture auto-routing** — when you share content via the iOS
+  share-sheet, auto-route can append to an existing matching note
+  (≥ 0.85 similarity score) rather than always filing to the inbox.
+  In direct mode, captures always go to the inbox.
+- **Key off-device** — set your Anthropic key as a Worker secret
+  instead of in plugin settings, so it doesn't travel in `data.json`
+  via Obsidian Sync.
+- **Multi-device token management** — issue per-client tokens with
+  independent revocation without touching your API key.
+
+See [`docs/deploying-the-worker.md`](docs/deploying-the-worker.md) for
+the deploy guide.
+
 ## Architecture
+
+**Direct mode (default):**
+
+```
+Obsidian plugin (iOS / iPad / desktop)
+    │  HTTPS streaming — anthropic-dangerous-direct-browser-access header
+    ▼
+api.anthropic.com/v1/messages    (or openrouter.ai/api/v1/messages)
+```
+
+**Worker mode (optional):**
 
 ```
 Obsidian plugin (iOS / iPad / desktop)
@@ -58,87 +117,31 @@ Cloudflare Worker (Durable Object, Hibernation API)
 api.anthropic.com/v1/messages    (or AI Gateway if configured)
 ```
 
-- Plugin owns conversation history. Worker is stateless except for
-  the WebSocket connection itself.
-- Vault tools execute locally inside the plugin against Obsidian's
-  Vault API. Write tools require explicit user approval via diff
-  card before any file is touched.
-- Server-side tools (`web_search`, `web_fetch`) run on Anthropic's
-  infrastructure and stream results back into the chat.
-- Conversations save as plain markdown in your vault — searchable,
-  movable, editable like any other note.
+In both modes: plugin owns conversation history; vault tools execute
+locally inside the plugin against Obsidian's Vault API; write tools
+require explicit user approval via diff card; server-side tools
+(`web_search`, `web_fetch`) run on Anthropic's infrastructure.
 
-## Quick install
+The mode seam is documented in
+[`docs/connection-modes.md`](docs/connection-modes.md).
 
-You need:
+## Trust model
 
-- A Cloudflare account (Workers free tier is fine to start)
-- An Anthropic API key from [console.anthropic.com](https://console.anthropic.com/)
-- Obsidian 1.4+ on at least one device
+**Direct mode:** your Anthropic (or OpenRouter) API key lives in the
+plugin's `data.json` inside your vault. People who sync their vault via
+Obsidian Sync should be aware the key travels in the sync payload —
+Obsidian Sync is E2EE with your sync password, but the key is plaintext
+within the vault. Any other plugin you install can also read it from
+the filesystem.
 
-### 1. Deploy the Worker
+**Worker mode:** the key lives in Cloudflare Worker secrets. The plugin
+holds only a revocable bearer token. Obsidian Sync carries the token
+(not the key), so the exposure footprint is smaller.
 
-```sh
-git clone https://gitlab.com/dunn.dev/scribian.git
-cd scribian
-pnpm install
+Mitigation either way: set a [spend limit](https://console.anthropic.com/settings/limits)
+on the Anthropic console so a leaked key has bounded financial damage.
 
-cd packages/worker
-pnpm exec wrangler login
-
-# Generate a random bearer token; you'll paste this into the plugin too
-TOKEN=$(openssl rand -hex 32)
-echo "Save this: $TOKEN"
-printf "%s" "$TOKEN" | pnpm exec wrangler secret put SCRIBIAN_TOKEN
-
-pnpm exec wrangler deploy
-```
-
-Wrangler prints your Worker URL — something like
-`https://scribian.<your-subdomain>.workers.dev`. Save it.
-
-See [`docs/deploying-the-worker.md`](docs/deploying-the-worker.md) for
-the full guide, including AI Gateway opt-in and an optional
-`ANTHROPIC_API_KEY` fallback secret.
-
-### 2. Install the plugin
-
-Today: manual install. Copy `packages/plugin/dist/{manifest.json,
-main.js, styles.css}` into your vault's
-`.obsidian/plugins/scribian/` folder, enable the plugin in Obsidian.
-
-See [`docs/installing-the-plugin.md`](docs/installing-the-plugin.md)
-for the full path, including the upcoming BRAT route.
-
-### 3. Configure
-
-Open Obsidian → Settings → Scribian:
-
-1. **Worker URL** — `wss://scribian.<your-subdomain>.workers.dev`
-2. **Worker token** — the hex string you generated above
-3. **Anthropic API key** — your `sk-ant-…`
-4. **Test connection** to confirm the Worker is reachable
-
-Open the chat pane via the speech-bubble ribbon icon or the "Open
-chat" command. Type a question. Watch markdown stream in.
-
-## What's secure
-
-- **Plugin → Worker:** wss:// TLS, bearer-token auth via subprotocol
-- **Worker → Anthropic:** https:// TLS, your API key
-- **Plugin data:** lives in your vault's `data.json`, encrypted in
-  transit between your devices via Obsidian Sync (E2EE)
-- **Worker:** stateless except for the open WS, logs metadata only
-  (token counts, latency, no message content), runs in your own
-  CF account
-
-## What's not E2EE (and why)
-
-Anthropic generates the responses, so they read the prompts. Any
-LLM client that claims end-to-end encryption is lying.
-[`docs/security-model.md`](docs/security-model.md) has the honest
-framing: encrypted at rest between your devices, audited in transit,
-minimized in flight.
+Full framing in [`docs/security-model.md`](docs/security-model.md).
 
 ## Develop
 
@@ -149,7 +152,7 @@ pnpm install
 SCRIBIAN_OUT_DIR="$HOME/your-vault/.obsidian/plugins/scribian" \
   pnpm dev:plugin
 
-# Deploy Worker
+# Deploy Worker (if you're working on the worker)
 cd packages/worker
 pnpm exec wrangler deploy
 ```

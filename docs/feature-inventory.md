@@ -12,12 +12,20 @@ non-obvious mode / state, it's called out.
 
 ## 1. Onboarding
 
-- [ ] **Setup banner (first-run)**
-  - Trigger: Open the chat pane with `workerUrl` OR `workerToken`
-    empty.
+Direct mode is the default for fresh installs. Existing installs with
+a Worker URL configured stay on worker mode automatically.
+
+- [ ] **Setup banner (direct mode, fresh install)**
+  - Trigger: Open the chat pane with no API key set (fresh install,
+    direct mode).
   - Verify: A banner shows at the top of the pane with a missing-
     field summary + an "Open settings" button that lands you on
     the scribian settings tab.
+
+- [ ] **Setup banner (worker mode)**
+  - Trigger: Switch to worker mode; leave `workerUrl` OR `workerToken`
+    empty.
+  - Verify: Banner shows the missing-field summary + "Open settings".
 
 - [ ] **Setup URI: confirmation modal**
   - Trigger: Open `obsidian://scribian-setup?endpoint=<url>&token=<tok>`
@@ -33,11 +41,12 @@ non-obvious mode / state, it's called out.
   - Verify: "scribian: setup link invalid" Notice. No modal. No
     settings change.
 
-- [ ] **Test connection button**
-  - Trigger: Settings → Scribian → Worker section → "Test
-    connection".
+- [ ] **Test connection button (worker mode only)**
+  - Trigger: Switch to worker mode. Settings → Scribian → Worker
+    section → "Test connection".
   - Verify: Green Notice `Worker OK (v...)` when reachable; clear
-    error Notice when not.
+    error Notice when not. (Direct mode has no test button — the
+    connection is implicit once an API key is present.)
 
 ---
 
@@ -430,11 +439,21 @@ Auto-route is worker-only; direct mode always routes to inbox.
 
 ## 14. Settings sections
 
-- [ ] **Worker URL + token + test**
+Core settings (always visible):
+
+- [ ] **Connection mode** (direct / worker)
 - [ ] **Provider toggle (anthropic / openrouter)**
-- [ ] **Anthropic API key**
-- [ ] **OpenRouter API key + model fuzzy picker**
-- [ ] **Default Anthropic model**
+- [ ] **API key for the active provider**
+- [ ] **Default model**
+- [ ] **Memory toggle**
+
+Worker section (visible only when mode = worker):
+
+- [ ] **Worker URL + token + test**
+
+Advanced expander:
+
+- [ ] **OpenRouter API key + model fuzzy picker** (when provider=openrouter)
 - [ ] **Harness folder** (CLAUDE.md + skills/ injection)
 - [ ] **Chats folder**
 - [ ] **Saved notes folder**

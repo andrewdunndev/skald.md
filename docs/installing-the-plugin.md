@@ -57,23 +57,36 @@ automatically. No more disable/enable cycles.
 
 ## Configure
 
-After install:
+After install, open Obsidian → Settings → Scribian.
 
-1. Obsidian → Settings → Scribian
-2. **Worker URL:** the `wss://` URL from your Worker deploy
-   (see [`deploying-the-worker.md`](deploying-the-worker.md))
-3. **Worker token:** the hex token you generated as a Worker secret
-4. **Anthropic API key:** your `sk-ant-…` from
-   [console.anthropic.com](https://console.anthropic.com/)
-5. Tap **Test connection** under the Worker URL field; you should see
-   a green Notice: `Worker OK (v3)`
+**Direct mode (default — no server needed):**
 
-Open the chat pane via the speech-bubble ribbon icon or run
+1. **Connection mode** should read "Direct" — leave it.
+2. **Provider** — Anthropic (default) or OpenRouter.
+3. **API key** — your `sk-ant-…` from
+   [console.anthropic.com](https://console.anthropic.com/) (or your
+   OpenRouter key if using OpenRouter).
+4. **Memory** — toggle on to enable the long-term memory note.
+
+That's it. Open the chat pane via the speech-bubble ribbon icon or
 **Scribian: Open chat** from the command palette.
 
-## Quick onboarding via setup URI
+**Worker mode (optional — adds semantic search + capture auto-routing):**
 
-The plugin registers a protocol handler at
+1. Set **Connection mode** to "Worker".
+2. **Worker URL:** the `wss://` URL from your Worker deploy
+   (see [`deploying-the-worker.md`](deploying-the-worker.md))
+3. **Worker token:** the hex token you generated as a Worker secret.
+4. Tap **Test connection**; expect a green Notice: `Worker OK (v3)`.
+5. **Anthropic API key** — either paste it here OR store it as a
+   Worker secret (`ANTHROPIC_API_KEY`) and leave this field blank.
+
+## Quick onboarding via setup URI (worker mode)
+
+In direct mode, the API key syncs automatically via plugin data (via
+Obsidian Sync) — no setup URI needed.
+
+For worker mode, the plugin registers a protocol handler at
 `obsidian://scribian-setup?endpoint=<worker-url>&token=<worker-token>`.
 Tap a link in that shape on a configured Obsidian device and the
 plugin writes both fields into settings without keyboard entry.
@@ -140,8 +153,10 @@ goal is "one config, all devices."
    - Open the chat pane — config is already there
 
 Obsidian Sync is end-to-end encrypted between your devices (with the
-sync password). The Worker token and Anthropic key in `data.json`
-never leave that E2EE channel.
+sync password). Plugin data — including the API key (direct mode) or
+the Worker token (worker mode) — never leaves that E2EE channel in
+plaintext. See `docs/security-model.md` for the honest framing of what
+this means in practice.
 
 ## Update
 
@@ -166,5 +181,5 @@ account until you remove it from the Workers dashboard.
 - **WebSocket reconnect:** if you background Obsidian, the connection
   drops; on foreground, scribian auto-reconnects within a second.
 - **Settings tab on phone:** Settings → swipe → Scribian. The
-  three-section layout (Worker / Anthropic / Vault integration) is
-  the same as desktop.
+  layout is the same as desktop (connection mode + provider + API key +
+  memory toggle, with Advanced below).

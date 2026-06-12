@@ -6,10 +6,13 @@ into Claude's working memory across chat sessions. Two pieces:
 1. **Long-term memory note** — a single vault note Claude reads at
    the start of every chat and can propose updates to. Diff-card
    approval gates every write, same as any other write tool.
+   Available in both direct and worker modes.
 2. **Semantic search via `find_related`** — Claude can search your
    vault by *meaning*, not just substring. Backed by Cloudflare
    Vectorize + Workers AI embeddings, kept entirely inside your CF
    account (Workers AI's data-usage policy excludes training).
+   **Worker mode only** — `find_related` is not available in direct
+   mode and is not advertised to the model when running direct.
 
 ## Setting it up
 

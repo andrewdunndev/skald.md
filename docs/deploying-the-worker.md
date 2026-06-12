@@ -1,9 +1,16 @@
 # Deploying the Worker
 
-The scribian Worker is a Cloudflare Workers Durable Object that
-proxies streaming chat between the Obsidian plugin and the Anthropic
-Messages API. You deploy it to your own CF account; nobody else's
-Worker handles your traffic.
+> **You do not need the Worker to use scribian.** Direct mode (the
+> default) calls Anthropic or OpenRouter from the plugin with no
+> server in the middle. The Worker is the optional power tier — deploy
+> it when you want semantic vault search (`find_related`), capture
+> auto-routing, key off-device, or per-client token revocation.
+
+The scribian Worker is a Cloudflare Workers Durable Object that proxies
+streaming chat between the Obsidian plugin and the Anthropic Messages
+API, and hosts the Vectorize bindings that back `find_related`. You
+deploy it to your own CF account; nobody else's Worker handles your
+traffic.
 
 ## Prerequisites
 
