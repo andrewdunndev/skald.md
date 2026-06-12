@@ -1,5 +1,6 @@
 import type {
   ChatRequest,
+  ClientMessage,
   ContentBlock,
   Message,
   Provider,
@@ -8,7 +9,7 @@ import type {
   Usage,
 } from '@scribian/protocol';
 import { sumUsage } from './pricing';
-import { Transport } from './transport';
+import type { ScribianTransport } from './transport-interface';
 
 export interface InFlight {
   id: string;
@@ -49,7 +50,7 @@ export class ChatSession {
   conversationCreated: string = new Date().toISOString();
 
   constructor(
-    private readonly transport: Transport,
+    private readonly transport: ScribianTransport,
     private readonly modelProvider: () => string,
     private readonly systemProvider: () => Promise<string | undefined>,
     private readonly providerConfigProvider: () => ProviderConfig,
@@ -147,7 +148,7 @@ export class ChatSession {
     const tools = this.toolDefinitionsProvider();
     if (tools.length > 0) payload.tools = tools;
 
-    const msg: import('@scribian/protocol').ClientMessage = {
+    const msg: ClientMessage = {
       type: 'chat',
       id,
       payload,

@@ -1,22 +1,23 @@
-import type { ClientMessage, ServerMessage } from '@scribian/protocol';
+/**
+ * WorkerTransport: WebSocket-based transport to the Cloudflare Worker.
+ *
+ * Exponential backoff for unexpected disconnects, capped at 30 s. Mobile
+ * WebSockets get killed when the app backgrounds; backoff + visibility-
+ * change handling pulls the connection back up without user intervention.
+ *
+ * Implements ScribianTransport so it can be used interchangeably with
+ * DirectTransport inside ChatSession and view.ts.
+ */
+import type { ClientMessage } from '@scribian/protocol';
+import type { ScribianTransport, TransportHandlers } from './transport-interface';
 
-export interface TransportHandlers {
-  onOpen: () => void;
-  onClose: (code: number, reason: string) => void;
-  onMessage: (msg: ServerMessage) => void;
-  onError: (err: string) => void;
-}
+export type { ScribianTransport, TransportHandlers } from './transport-interface';
 
-export type SendMessage = ClientMessage;
-
-// Exponential backoff for unexpected disconnects, capped at 30s. Mobile
-// WebSockets get killed when the app backgrounds; backoff + visibility-
-// change handling pulls the connection back up without user intervention.
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
 const RECONNECT_MAX_ATTEMPTS = 8;
 
-export class Transport {
+export class Transport implements ScribianTransport {
   private ws: WebSocket | null = null;
   private closed = false;
   private reconnectAttempt = 0;
@@ -73,7 +74,7 @@ export class Transport {
     this.ws.addEventListener('error', () => this.handlers.onError('socket error'));
     this.ws.addEventListener('message', (e) => {
       try {
-        const msg = JSON.parse(e.data as string) as ServerMessage;
+        const msg = JSON.parse(e.data as string) as import('@scribian/protocol').ServerMessage;
         this.handlers.onMessage(msg);
       } catch {
         this.handlers.onError('parse error');

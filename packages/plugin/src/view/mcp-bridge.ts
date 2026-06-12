@@ -1,12 +1,12 @@
 import type { App } from 'obsidian';
 import type { Logger } from '../logger';
-import type { Transport } from '../transport';
+import type { ScribianTransport } from '../transport-interface';
 import { executeTool } from '../tools';
 import type { MemoryClientConfig } from '../memory-client';
 
 export interface McpBridgeContext {
   app: App;
-  transport: Transport;
+  transport: ScribianTransport;
   logger: Logger;
   memoryClient: MemoryClientConfig;
 }
