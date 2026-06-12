@@ -51,11 +51,7 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
     const r = new TokenRegistry({
       SCRIBIAN_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'token-a', scopes: ['chat'] },
-        {
-          label: 'claude-code',
-          token: 'token-b',
-          scopes: ['mcp:read'],
-        },
+        { label: 'reader', token: 'token-b', scopes: ['chat'] },
       ]),
     });
     expect(r.authenticate('token-a')).toEqual({
@@ -63,8 +59,8 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
       scopes: ['chat'],
     });
     expect(r.authenticate('token-b')).toEqual({
-      label: 'claude-code',
-      scopes: ['mcp:read'],
+      label: 'reader',
+      scopes: ['chat'],
     });
   });
 
@@ -96,7 +92,7 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
         { label: 'good', token: 'tok', scopes: ['chat'] },
         { label: 'no-token' }, // missing token + scopes
         { token: 'orphan', scopes: ['chat'] }, // missing label
-        { label: 'bad-scope', token: 'tok2', scopes: ['admin'] }, // unknown scope
+        { label: 'bad-scope', token: 'tok2', scopes: ['mcp:read'] }, // now unknown scope
         { label: 'empty-token', token: '', scopes: ['chat'] }, // empty token
       ]),
     });
@@ -108,12 +104,12 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
 });
 
 describe('TokenRegistry: SCRIBIAN_TOKEN (legacy single token)', () => {
-  it('treats SCRIBIAN_TOKEN as a default record with full scopes', () => {
+  it('treats SCRIBIAN_TOKEN as a default record with chat scope', () => {
     const r = new TokenRegistry({ SCRIBIAN_TOKEN: 'legacy-secret' });
     expect(r.hasAny()).toBe(true);
     expect(r.authenticate('legacy-secret')).toEqual({
       label: 'default',
-      scopes: ['chat', 'mcp:read', 'mcp:write'],
+      scopes: ['chat'],
     });
   });
 
@@ -145,7 +141,7 @@ describe('TokenRegistry: SCRIBIAN_TOKEN (legacy single token)', () => {
     });
     expect(r.authenticate('legacy-b')).toEqual({
       label: 'default',
-      scopes: ['chat', 'mcp:read', 'mcp:write'],
+      scopes: ['chat'],
     });
   });
 });
@@ -174,7 +170,7 @@ describe('TokenRegistry: tokenSummaries', () => {
       ]),
     });
     const summaries = r.tokenSummaries();
-    summaries[0].scopes.push('mcp:write' as Scope);
+    summaries[0].scopes.push('chat' as Scope);
     // Mutation through the summary must not affect the registry.
     const second = r.tokenSummaries();
     expect(second[0].scopes).toEqual(['chat']);
@@ -183,13 +179,11 @@ describe('TokenRegistry: tokenSummaries', () => {
 
 describe('hasScope', () => {
   it('returns true when the required scope is in the list', () => {
-    expect(hasScope(['chat', 'mcp:read'], 'chat')).toBe(true);
-    expect(hasScope(['chat', 'mcp:read'], 'mcp:read')).toBe(true);
+    expect(hasScope(['chat'], 'chat')).toBe(true);
   });
 
   it('returns false when the required scope is not in the list', () => {
-    expect(hasScope(['chat'], 'mcp:read')).toBe(false);
-    expect(hasScope(['mcp:read'], 'mcp:write')).toBe(false);
+    expect(hasScope([], 'chat')).toBe(false);
   });
 
   it('returns false for an empty scope list', () => {

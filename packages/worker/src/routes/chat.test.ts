@@ -46,13 +46,13 @@ describe('handleChatRoute (WS upgrade)', () => {
     expect(await r.text()).toBe('bad token');
   });
 
-  it('returns 403 when token lacks chat scope (mcp-only token tries WS)', async () => {
+  it('returns 403 when token lacks chat scope', async () => {
     const { env } = makeDOStub();
     const r = await handleChatRoute(
       new Request('https://w.example/', {
         headers: {
           Upgrade: 'websocket',
-          'Sec-WebSocket-Protocol': 'tok-mcp',
+          'Sec-WebSocket-Protocol': 'tok-empty',
         },
       }),
       env,

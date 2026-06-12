@@ -16,7 +16,6 @@
  *
  * echo/ping: handled synchronously (echoed/pong) — no network round-trip.
  * cancel: aborts the in-flight fetch via AbortController.
- * mcp_result: no-op (MCP bridge requires the Worker WS path).
  */
 import type { ClientMessage, Provider, ServerMessage, Usage } from '@scribian/protocol';
 import type { ScribianTransport, TransportHandlers } from './transport-interface';
@@ -98,9 +97,6 @@ export class DirectTransport implements ScribianTransport {
         if (ac) ac.abort();
         return;
       }
-      case 'mcp_result':
-        // MCP bridge requires the Worker path; silently ignore in direct mode.
-        return;
       case 'chat':
         void this.runChat(msg);
         return;

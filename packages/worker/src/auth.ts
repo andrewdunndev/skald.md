@@ -3,8 +3,7 @@
  *
  * Two storage modes:
  * - SCRIBIAN_TOKENS  JSON array (preferred). Each entry:
- *     { "label": "plugin",      "token": "<hex>", "scopes": ["chat","mcp:read"] }
- *     { "label": "claude-code", "token": "<hex>", "scopes": ["mcp:read"] }
+ *     { "label": "plugin",      "token": "<hex>", "scopes": ["chat"] }
  *   Tokens are revocable individually (drop one entry, push the secret again).
  *
  * - SCRIBIAN_TOKEN   legacy single hex token. Implicitly has all scopes.
@@ -12,7 +11,7 @@
  *   multi-token model. New deploys should use SCRIBIAN_TOKENS.
  */
 
-export type Scope = 'chat' | 'mcp:read' | 'mcp:write';
+export type Scope = 'chat';
 
 export interface TokenRecord {
   label: string;
@@ -48,7 +47,7 @@ export class TokenRegistry {
       this.records.push({
         label: 'default',
         token: env.SCRIBIAN_TOKEN,
-        scopes: ['chat', 'mcp:read', 'mcp:write'],
+        scopes: ['chat'],
       });
     }
   }
@@ -96,9 +95,7 @@ export class TokenRegistry {
       rec.token.length > 0 &&
       Array.isArray(rec.scopes) &&
       rec.scopes.every(
-        (s) =>
-          typeof s === 'string' &&
-          (s === 'chat' || s === 'mcp:read' || s === 'mcp:write'),
+        (s) => typeof s === 'string' && s === 'chat',
       )
     );
   }

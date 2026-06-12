@@ -16,7 +16,7 @@ describe('handleIndexRoute', () => {
   it('returns 403 when token lacks chat scope', async () => {
     const r = await handleIndexRoute(
       new Request('https://w.example/index', {
-        headers: { Authorization: 'Bearer tok-mcp' },
+        headers: { Authorization: 'Bearer tok-empty' },
       }),
       {} as Env,
       makeRegistry(),

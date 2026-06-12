@@ -57,13 +57,12 @@ describe('renderAdminPage', () => {
       ...BASE_VM,
       tokenSummaries: [
         { label: 'plugin', scopes: ['chat'] },
-        { label: 'claude-code', scopes: ['mcp:read'] },
+        { label: 'reader', scopes: ['chat'] },
       ],
     });
     expect(html).toContain('<td>plugin</td>');
-    expect(html).toContain('<td>claude-code</td>');
+    expect(html).toContain('<td>reader</td>');
     expect(html).toContain('chat');
-    expect(html).toContain('mcp:read');
   });
 
   it('NEVER leaks a token value in the rendered HTML', () => {
@@ -97,19 +96,19 @@ describe('renderAdminPage', () => {
         },
         {
           ts: Date.UTC(2026, 4, 14, 12, 5, 0),
-          type: 'mcp',
-          label: 'claude-code',
-          detail: 'tools/list',
+          type: 'tool',
+          label: 'plugin',
+          detail: 'read_note',
         },
       ],
     });
-    // Newest first means mcp/claude-code appears BEFORE chat/plugin
+    // Newest first means tool event appears BEFORE chat event
     // in the rendered output.
-    const mcpIdx = html.indexOf('claude-code');
+    const toolIdx = html.indexOf('read_note');
     const chatIdx = html.indexOf('msgs=2');
-    expect(mcpIdx).toBeGreaterThan(-1);
+    expect(toolIdx).toBeGreaterThan(-1);
     expect(chatIdx).toBeGreaterThan(-1);
-    expect(mcpIdx).toBeLessThan(chatIdx);
+    expect(toolIdx).toBeLessThan(chatIdx);
     // Provider rendered for events that carry one; em-dash for those
     // that don't.
     expect(html).toContain('anthropic');

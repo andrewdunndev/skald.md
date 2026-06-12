@@ -39,10 +39,9 @@ Two artifacts in one repo:
 2. **`packages/worker/`** — Cloudflare Worker. Durable Object with
    Hibernation API. Provider-aware dispatch (Anthropic-direct +
    OpenRouter via the Anthropic-compatible `/api/v1/messages`
-   endpoint). MCP server (`/mcp`) bridging external clients
-   (Claude Code, Cursor, Claude Desktop) to the plugin's vault tools.
-   Vectorize + Workers AI bindings for vault embeddings. Optional AI
-   Gateway routing. BYO-deployed (you own it, you pay for it).
+   endpoint). Vectorize + Workers AI bindings for vault embeddings.
+   Optional AI Gateway routing. BYO-deployed (you own it, you pay
+   for it).
 
 Plus `packages/protocol/` — the TypeScript wire types shared between
 plugin and Worker.

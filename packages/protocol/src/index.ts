@@ -80,15 +80,7 @@ export type ClientMessage =
       anthropic_api_key?: string;
       openrouter_api_key?: string;
     }
-  | { type: 'cancel'; id: string }
-  // MCP bridge: plugin executes a vault tool on behalf of an MCP
-  // client connected to the Worker, returns the result here.
-  | {
-      type: 'mcp_result';
-      id: string;
-      content: string;
-      is_error?: boolean;
-    };
+  | { type: 'cancel'; id: string };
 
 // Worker → Plugin
 export type ServerMessage =
@@ -105,16 +97,4 @@ export type ServerMessage =
       // for backward compatibility with older Workers.
       provider?: Provider;
     }
-  | { type: 'error'; id?: string; error: string; retryable?: boolean }
-  // MCP bridge: Worker forwards a tool call from an MCP client over
-  // the plugin's existing WS. Plugin executes locally against Vault
-  // API and replies with mcp_result. caller_label identifies which
-  // token (and therefore which client — Claude Code, Cursor, etc.)
-  // made the request so the plugin can audit-log it.
-  | {
-      type: 'mcp_call';
-      id: string;
-      name: string;
-      input: unknown;
-      caller_label?: string;
-    };
+  | { type: 'error'; id?: string; error: string; retryable?: boolean };

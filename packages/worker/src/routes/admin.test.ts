@@ -58,7 +58,6 @@ describe('handleAdminRoute', () => {
     );
     expect(summaries).toEqual([
       { label: 'plugin', scopes: ['chat'] },
-      { label: 'claude-code', scopes: ['mcp:read'] },
       { label: 'noscope', scopes: [] },
     ]);
     const envSnap = JSON.parse(

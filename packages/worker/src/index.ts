@@ -12,16 +12,13 @@ import { handleAdminRoute } from './routes/admin';
 import { handleCaptureRoute } from './routes/capture';
 import { handleIndexRoute } from './routes/index';
 import { handleSearchRoute } from './routes/search';
-import { handleMcpRoute, handleMcpRpc, type McpContext } from './routes/mcp';
 import { handleChatRoute, runChat } from './routes/chat';
 
 export type { Env } from './env';
 
 const MAX_RECENT_EVENTS = 50;
 
-// Single-vault DO name. All authenticated tokens reach this DO so the
-// MCP bridge can find the plugin's WS. Multi-vault would need to derive
-// this from a vault identifier on the token record (future work).
+// Single-vault DO name.
 const SESSION_DO_NAME = 'scribian-default';
 
 export default {
@@ -37,7 +34,6 @@ export default {
         ai_gateway: !!env.AI_GATEWAY_URL,
         tokens_configured: registry.hasAny(),
         version: 7,
-        mcp: '/mcp',
         admin: '/admin',
       });
     }
@@ -65,10 +61,6 @@ export default {
       return handleSearchRoute(req, env, registry);
     }
 
-    if (url.pathname === '/mcp') {
-      return handleMcpRoute(req, env, registry, SESSION_DO_NAME);
-    }
-
     return handleChatRoute(req, env, registry, SESSION_DO_NAME);
   },
 };
@@ -87,10 +79,6 @@ export class ScribianSession {
   private readonly state: DurableObjectState;
   private readonly env: Env;
   private readonly activeChats: Map<string, AbortController> = new Map();
-  private readonly pendingMcp: Map<
-    string,
-    (result: { content: string; is_error?: boolean }) => void
-  > = new Map();
   private recentEvents: AuditEvent[] = [];
 
   constructor(state: DurableObjectState, env: Env) {
@@ -128,11 +116,6 @@ export class ScribianSession {
   async fetch(req: Request): Promise<Response> {
     const url = new URL(req.url);
 
-    if (url.pathname === '/mcp') {
-      const callerLabel = req.headers.get('x-scribian-caller-label') ?? 'unknown';
-      return handleMcpRpc(req, callerLabel, this.mcpContext());
-    }
-
     if (url.pathname === '/admin') {
       return this.handleAdmin(req);
     }
@@ -150,15 +133,6 @@ export class ScribianSession {
       webSocket: client,
       headers: { 'Sec-WebSocket-Protocol': echoed },
     });
-  }
-
-  private mcpContext(): McpContext {
-    return {
-      sockets: () => this.state.getWebSockets(),
-      pendingMcp: this.pendingMcp,
-      send: (ws, msg) => this.send(ws, msg),
-      record: (method, callerLabel) => this.record('mcp', callerLabel, method),
-    };
   }
 
   private handleAdmin(req: Request): Response {
@@ -260,15 +234,6 @@ export class ScribianSession {
         activeChats: this.activeChats,
         send: (s, m) => this.send(s, m),
       });
-      return;
-    }
-
-    if (msg.type === 'mcp_result') {
-      const cb = this.pendingMcp.get(msg.id);
-      if (cb) {
-        this.pendingMcp.delete(msg.id);
-        cb({ content: msg.content, is_error: msg.is_error });
-      }
       return;
     }
 

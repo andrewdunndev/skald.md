@@ -10,7 +10,6 @@ import { loadStarterChips } from './view/empty-state';
 import { renderHeader } from './view/header';
 import { augmentUserText } from './view/augment-user-text';
 import { readsBeforeToolUse } from './view/inflight-reads';
-import { handleMcpCall } from './view/mcp-bridge';
 import { MessageList } from './view/message-list';
 import { maybeRenderSetupBanner } from './view/setup-banner';
 import { connectSession } from './view/connect-session';
@@ -278,42 +277,8 @@ export class ScribianView extends ItemView {
     );
   }
 
-  /**
-   * Dispatch incoming Worker messages. mcp_call messages are MCP bridge
-   * tool calls from external clients (Claude Code, Cursor, etc.) routed
-   * through our Worker — execute locally and reply with mcp_result.
-   * Everything else is chat traffic.
-   */
   private handleServerMessage(msg: import('@scribian/protocol').ServerMessage): void {
-    if (msg.type === 'mcp_call') {
-      void this.bridgeMcpCall(msg.id, msg.name, msg.input, msg.caller_label);
-      return;
-    }
     this.session?.handleServer(msg);
-  }
-
-  private async bridgeMcpCall(
-    id: string,
-    name: string,
-    input: unknown,
-    callerLabel?: string,
-  ): Promise<void> {
-    if (!this.transport) return;
-    await handleMcpCall(
-      {
-        app: this.app,
-        transport: this.transport,
-        logger: this.plugin.logger,
-        memoryClient: {
-          workerUrl: this.plugin.settings.workerUrl,
-          workerToken: this.plugin.settings.workerToken,
-        },
-      },
-      id,
-      name,
-      input,
-      callerLabel,
-    );
   }
 
   private requestRender(): void {

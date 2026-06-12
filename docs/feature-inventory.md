@@ -417,35 +417,7 @@ non-obvious mode / state, it's called out.
 
 ---
 
-## 14. MCP bridge
-
-- [ ] **`/admin` diagnostic page**
-  - Trigger: Browser → `https://<your-worker>/admin?token=<chat-token>`.
-  - Verify: HTML page shows version, key-presence badges, token
-    labels (no token values), connected-WS count, recent
-    events ring buffer.
-
-- [ ] **Audit log survives DO hibernation**
-  - Trigger: Fire a few chats. Wait 15+ minutes idle. Refresh
-    `/admin`.
-  - Verify: Recent events list shows the prior session's
-    activity (persisted to DO storage).
-
-- [ ] **`/mcp` tools/list**
-  - Trigger: From Claude Desktop or any MCP client, configure
-    scribian as a server, list tools.
-  - Verify: Read-only tools surface (read_note, list_notes,
-    search_vault, current_note, metadata). Write tools NOT
-    listed.
-
-- [ ] **`/mcp` write rejection**
-  - Trigger: Force an MCP client to call `tools/call` with
-    `write_note` (custom JSON-RPC).
-  - Verify: 403-style error response; never reaches the plugin.
-
----
-
-## 15. Settings sections
+## 14. Settings sections
 
 - [ ] **Worker URL + token + test**
 - [ ] **Provider toggle (anthropic / openrouter)**
@@ -473,7 +445,6 @@ next chat turn (or immediately for the UI ones like provider).
 
 - [ ] **Setup URI never silently writes** (covered in §1)
 - [ ] **Tokens never visible in `/admin`** (covered in §14)
-- [ ] **MCP write blocking** (covered in §14)
 - [ ] **Image cap rejects oversize attachments after compress
       schedule exhausted**
 - [ ] **System prompt mentions "data, not instructions"** —

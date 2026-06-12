@@ -208,7 +208,7 @@ pnpm exec wrangler secret put SCRIBIAN_TOKENS</code></pre>
   <div class="card">
     ${
       vm.recentEvents.length === 0
-        ? '<p class="muted">No events yet. Open the chat pane and send a message, or call /mcp.</p>'
+        ? '<p class="muted">No events yet. Open the chat pane and send a message.</p>'
         : `<table>
         <thead>
           <tr><th>When</th><th>Type</th><th>Provider</th><th>Label</th><th>Detail</th></tr>

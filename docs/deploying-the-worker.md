@@ -40,17 +40,7 @@ human-readable label, the token itself, and a list of scopes:
   {
     "label": "plugin",
     "token": "<64-hex>",
-    "scopes": ["chat", "mcp:read"]
-  },
-  {
-    "label": "claude-code",
-    "token": "<64-hex>",
-    "scopes": ["mcp:read"]
-  },
-  {
-    "label": "cursor",
-    "token": "<64-hex>",
-    "scopes": ["mcp:read"]
+    "scopes": ["chat"]
   }
 ]
 ```
@@ -58,22 +48,17 @@ human-readable label, the token itself, and a list of scopes:
 **Scopes:**
 
 - `chat` — open the chat WebSocket (plugin only)
-- `mcp:read` — call read-only vault tools via MCP
-- `mcp:write` — reserved for future write tools via MCP (today,
-  write tools live only inside the chat pane's approval flow)
 
 **Generate tokens + post the secret:**
 
 ```sh
 # Generate
 PLUGIN=$(openssl rand -hex 32)
-CLAUDE_CODE=$(openssl rand -hex 32)
 
 # Build the JSON
 cat <<JSON > /tmp/scribian-tokens.json
 [
-  { "label": "plugin",      "token": "$PLUGIN",      "scopes": ["chat", "mcp:read"] },
-  { "label": "claude-code", "token": "$CLAUDE_CODE", "scopes": ["mcp:read"] }
+  { "label": "plugin", "token": "$PLUGIN", "scopes": ["chat"] }
 ]
 JSON
 cat /tmp/scribian-tokens.json  # save these — you'll paste into clients

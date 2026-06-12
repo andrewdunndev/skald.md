@@ -13,7 +13,6 @@ export function makeRegistry(): TokenRegistry {
   return new TokenRegistry({
     SCRIBIAN_TOKENS: JSON.stringify([
       { label: 'plugin', token: 'tok-plugin', scopes: ['chat'] },
-      { label: 'claude-code', token: 'tok-mcp', scopes: ['mcp:read'] },
       { label: 'noscope', token: 'tok-empty', scopes: [] },
     ]),
   });

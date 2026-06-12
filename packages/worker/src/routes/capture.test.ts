@@ -16,7 +16,7 @@ describe('handleCaptureRoute', () => {
   it('returns 403 when token lacks chat scope', async () => {
     const r = await handleCaptureRoute(
       new Request('https://w.example/capture', {
-        headers: { Authorization: 'Bearer tok-mcp' },
+        headers: { Authorization: 'Bearer tok-empty' },
       }),
       {} as Env,
       makeRegistry(),
