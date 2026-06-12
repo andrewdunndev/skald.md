@@ -1,16 +1,18 @@
 import { App, Notice, setIcon } from 'obsidian';
 
 export interface SetupBannerInput {
+  /** Current connection mode — banner only shows in worker mode when
+   * the Worker URL or token is missing. In direct mode the plugin
+   * works immediately; no banner needed. */
+  connectionMode: 'direct' | 'worker';
   workerUrl: string;
   workerToken: string;
 }
 
 /**
- * First-run setup banner. Shown when workerUrl OR workerToken is
- * empty — the bare "Disconnected" status doesn't tell a new user
- * what to do next. The banner names the missing piece and opens
- * settings with one tap. Returns null when both fields are
- * populated (caller renders nothing).
+ * First-run setup banner. In worker mode: shown when workerUrl OR
+ * workerToken is empty — names the missing piece and opens settings.
+ * In direct mode: always returns null (plugin works without a Worker).
  *
  * Mounted at the top of the chat root so it's the first thing a
  * new user sees, above messages + composer.
@@ -20,6 +22,7 @@ export function maybeRenderSetupBanner(
   app: App,
   input: SetupBannerInput,
 ): HTMLDivElement | null {
+  if (input.connectionMode === 'direct') return null;
   if (input.workerUrl && input.workerToken) return null;
   const banner = parent.createDiv({ cls: 'scribian-setup-banner' });
   const icon = banner.createDiv({ cls: 'scribian-setup-banner-icon' });

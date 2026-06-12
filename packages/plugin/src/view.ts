@@ -1,11 +1,9 @@
 import { ItemView, WorkspaceLeaf, setIcon, setTooltip } from 'obsidian';
 import type ScribianPlugin from './main';
-import { Transport } from './transport';
+import type { ScribianTransport } from './transport-interface';
 import { ChatSession } from './chat-session';
-import { buildActiveTools, executeTool } from './tools';
 import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
-import { loadSystemPrompt } from './view/system-prompt';
 import { ActiveNoteIndicator } from './view/active-note';
 import { Composer } from './view/composer';
 import { loadStarterChips } from './view/empty-state';
@@ -15,6 +13,7 @@ import { readsBeforeToolUse } from './view/inflight-reads';
 import { handleMcpCall } from './view/mcp-bridge';
 import { MessageList } from './view/message-list';
 import { maybeRenderSetupBanner } from './view/setup-banner';
+import { connectSession } from './view/connect-session';
 import { toImageContentBlock } from './image-attach';
 import { saveConversation } from './conversation-store';
 import { estimateTurnCost, formatTurnStatus } from './pricing';
@@ -24,7 +23,7 @@ export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
 
 export class ScribianView extends ItemView {
   private plugin: ScribianPlugin;
-  private transport: Transport | null = null;
+  private transport: ScribianTransport | null = null;
   private session: ChatSession | null = null;
   private modelSelect!: HTMLSelectElement;
   private statusEl!: HTMLDivElement;
@@ -90,6 +89,7 @@ export class ScribianView extends ItemView {
     });
 
     maybeRenderSetupBanner(root, this.app, {
+      connectionMode: this.plugin.settings.connectionMode ?? 'direct',
       workerUrl: this.plugin.settings.workerUrl,
       workerToken: this.plugin.settings.workerToken,
     });
@@ -161,63 +161,23 @@ export class ScribianView extends ItemView {
   }
 
   private connect(): void {
-    const { workerUrl, workerToken } = this.plugin.settings;
-    if (!workerUrl || !workerToken) {
-      this.setStatus(
-        'Not configured. Add Worker URL + token in settings.',
-        'error',
-      );
-      return;
-    }
-    this.setStatus('Connecting…');
-    this.transport = new Transport(workerUrl, workerToken, {
-      onOpen: () => this.setStatus('Connected', 'connected'),
-      onClose: (code, reason) =>
-        this.setStatus(`Disconnected (${code}${reason ? `: ${reason}` : ''})`),
-      onMessage: (msg) => this.handleServerMessage(msg),
-      onError: (err) => this.setStatus(`Error: ${err}`, 'error'),
+    const result = connectSession(this.app, this.plugin, {
+      setStatus: (t, m) => this.setStatus(t, m),
+      handleServerMessage: (msg) => this.handleServerMessage(msg),
+      requestRender: () => this.requestRender(),
+      requestApproval: (proposal) =>
+        this.requestApproval({
+          ...proposal,
+          informedBy: this.currentTurnReads(proposal.toolUseId),
+        }),
+      getModelValue: () => this.modelSelect.value,
+      currentTurnReads: (id) => this.currentTurnReads(id),
+      onDone: (stopReason, usage, provider) =>
+        this.onTurnDone(stopReason, usage, provider),
     });
-    this.transport.connect();
-
-    this.session = new ChatSession(
-      this.transport,
-      () => this.modelSelect.value,
-      () => loadSystemPrompt(this.app, this.plugin.settings),
-      () => {
-        const s = this.plugin.settings;
-        const provider = s.provider ?? 'anthropic';
-        const apiKey =
-          provider === 'openrouter'
-            ? s.openrouterApiKey || undefined
-            : s.anthropicApiKey || undefined;
-        return { provider, apiKey };
-      },
-      () =>
-        buildActiveTools({
-          memoryEnabled: this.plugin.settings.memoryEnabled,
-          memoryPath: this.plugin.settings.memoryPath,
-        }),
-      (name, input, toolUseId) =>
-        executeTool(name, input, toolUseId, {
-          app: this.app,
-          approve: (proposal) =>
-            this.requestApproval({
-              ...proposal,
-              informedBy: this.currentTurnReads(proposal.toolUseId),
-            }),
-          memoryClient: {
-            workerUrl: this.plugin.settings.workerUrl,
-            workerToken: this.plugin.settings.workerToken,
-          },
-          memoryPath: this.plugin.settings.memoryPath,
-        }),
-      {
-        onUpdate: () => this.requestRender(),
-        onError: (err) => this.setStatus(`Chat error: ${err}`, 'error'),
-        onDone: (stopReason, usage, provider) =>
-          this.onTurnDone(stopReason, usage, provider),
-      },
-    );
+    if (!result) return;
+    this.transport = result.transport;
+    this.session = result.session;
     this.requestRender();
   }
 
