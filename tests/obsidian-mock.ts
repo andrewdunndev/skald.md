@@ -98,3 +98,11 @@ export class Notice {
   setMessage(_m: string): void {}
   hide(): void {}
 }
+
+/** Default stub — tests that call requestUrl should override this
+ * via vi.spyOn(obsidianMod, 'requestUrl').mockResolvedValue(...). */
+export function requestUrl(
+  _params: unknown,
+): Promise<{ status: number; text: string; json: unknown }> {
+  return Promise.reject(new Error('requestUrl: not mocked in this test'));
+}

@@ -1,28 +1,34 @@
 /**
- * iOS share-sheet + URL-scheme capture (phase 8).
+ * iOS share-sheet + URL-scheme capture (phase 8 / 8b).
  *
  * Trigger: `obsidian://scribian-capture?...` (fired by an Apple
  * Shortcut). Flow: parseCaptureParams → CaptureService.run() →
- * POST /capture on the Worker → routeCapture picks destination
- * (auto-route via vault.process to matched note, or create in
- * captureFolder).
+ * mode dispatch:
+ *   worker: POST /capture on the Worker → routeCapture
+ *   direct: plugin calls provider API via requestUrl → routeCapture
+ *             (auto-route is inbox-only in direct mode; no Vectorize)
  *
- * Privacy posture: transient pipe. Worker holds nothing
- * post-response. Same trust as the chat path. Rate-limited at
- * the handler level — see CAPTURE_RATE_LIMIT_COUNT.
+ * Privacy posture: transient pipe. Worker (or provider API) holds
+ * nothing post-response. Same trust as the chat path. Rate-limited
+ * at the handler level — see CAPTURE_RATE_LIMIT_COUNT.
  */
 
 import {
   normalizePath,
   Notice,
-  requestUrl,
   TFile,
   TFolder,
   type App,
   type ObsidianProtocolData,
-  type RequestUrlParam,
 } from 'obsidian';
-import { searchVault, type MemoryClientConfig, type SearchHit } from './memory-client';
+import {
+  CAPTURE_DEFAULT_PROMPTS,
+  type Provider,
+} from '@scribian/protocol';
+import { modeCapabilities } from './mode-capabilities';
+import type { ConnectionMode } from './settings';
+import { workerCapture, directCapture } from './capture-provider';
+import { searchVault, type SearchHit } from './memory-client';
 import { SlidingWindow } from './rate-limit';
 import {
   captureFilename,
@@ -78,13 +84,9 @@ export interface CaptureParams {
   silent: boolean;
 }
 
-const DEFAULT_PROMPT_BY_KIND: Record<CaptureKind, string> = {
-  url: 'The user shared this URL from their phone. Open it (or use what you know about it) and write a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, list any action items, suggest tags (Obsidian #tag format).',
-  text: 'The user shared this text from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, suggest tags.',
-  image:
-    'The user shared this image from their phone (you have access to it as an image attachment). Describe what is shown, transcribe any visible text, and write a vault-ready capture note: title (≤8 words), description, any extracted text, suggested tags.',
-  pdf: 'The user shared this PDF from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, identify any action items, suggest tags.',
-};
+// Default prompts from protocol (single source of truth — no copy-paste).
+const defaultPromptForKind = (kind: CaptureKind): string =>
+  CAPTURE_DEFAULT_PROMPTS[kind] ?? CAPTURE_DEFAULT_PROMPTS['text']!;
 
 /**
  * Parse an Obsidian protocol-handler payload into a typed
@@ -131,7 +133,7 @@ export function buildCapturePrompt(
   params: CaptureParams,
   customPromptBody: string | null,
 ): string {
-  const head = customPromptBody?.trim() || DEFAULT_PROMPT_BY_KIND[params.kind];
+  const head = customPromptBody?.trim() || defaultPromptForKind(params.kind);
   const titleHint = params.title
     ? `\n\nTitle hint from share source: ${params.title}`
     : '';
@@ -143,8 +145,20 @@ export function buildCapturePrompt(
 // CaptureService orchestration.
 
 export interface CaptureServiceConfig {
+  /** Connection mode — determines which capture path is used. */
+  connectionMode: ConnectionMode;
   workerUrl: string;
   workerToken: string;
+  /** Active provider for direct mode (ignored in worker mode). */
+  provider: Provider;
+  /** Anthropic API key for direct mode. */
+  anthropicApiKey: string;
+  /** OpenRouter API key for direct mode. */
+  openrouterApiKey: string;
+  /** Default Anthropic model id for direct mode. */
+  defaultModel: string;
+  /** Default OpenRouter model id for direct mode. */
+  openrouterModel: string;
   captureFolder: string;
   /** Vault-relative path of a prompt-template note. Empty → use
    * the kind-default prompt baked into this module. */
@@ -153,7 +167,8 @@ export interface CaptureServiceConfig {
    * to the top match when score >= CAPTURE_ROUTE_THRESHOLD. 'inbox'
    * always creates in captureFolder. Default is 'auto-route' —
    * intelligent triage is scribian's value-add over Obsidian's
-   * native share-sheet handler. */
+   * native share-sheet handler. In direct mode, auto-route is
+   * silently treated as inbox (Vectorize is not available). */
   mode: CaptureMode;
 }
 
@@ -266,54 +281,68 @@ export class CaptureService {
     }
   }
 
-  /** Run a capture end-to-end: prompt → /capture → routing → vault
-   * write. Returns the resolved path + whether it created or appended.
-   * Exposed for testing / future programmatic capture sources
-   * (browser extension). */
+  /** Run a capture end-to-end: prompt → provider call → routing →
+   * vault write. Returns the resolved path + whether it created or
+   * appended. Exposed for testing / future programmatic capture
+   * sources (browser extension).
+   *
+   * Mode dispatch is exhaustive on ConnectionMode so adding a third
+   * mode produces a compile-time error here. */
   async run(
     params: CaptureParams,
   ): Promise<{ path: string; routedTo: 'create' | 'append' }> {
     const cfg = this.cfg();
-    if (!cfg.workerUrl || !cfg.workerToken) {
-      throw new Error('Worker URL + token must be configured first.');
-    }
     const customPromptBody = await this.readPromptTemplate(cfg.promptPath);
     const prompt = buildCapturePrompt(params, customPromptBody);
 
-    const reqParams: RequestUrlParam = {
-      url: `${cfg.workerUrl.replace(/^ws/, 'http').replace(/\/$/, '')}/capture`,
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${cfg.workerToken}`,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ prompt, kind: params.kind }),
-      throw: false,
-    };
-    const resp = await requestUrl(reqParams);
-    if (resp.status >= 400) {
-      throw new Error(
-        `/capture returned ${resp.status}: ${resp.text.slice(0, 300)}`,
-      );
-    }
-    const body = resp.json as { body?: string; title?: string };
-    if (!body.body) {
-      throw new Error('/capture response missing body');
+    let captureBody: string;
+    let captureTitle: string;
+
+    switch (cfg.connectionMode) {
+      case 'worker':
+        ({ body: captureBody, title: captureTitle } = await workerCapture({
+          workerUrl: cfg.workerUrl,
+          workerToken: cfg.workerToken,
+          prompt,
+          kind: params.kind,
+        }));
+        break;
+      case 'direct':
+        ({ body: captureBody, title: captureTitle } = await directCapture({
+          provider: cfg.provider,
+          anthropicApiKey: cfg.anthropicApiKey,
+          openrouterApiKey: cfg.openrouterApiKey,
+          defaultModel: cfg.defaultModel,
+          openrouterModel: cfg.openrouterModel,
+          prompt,
+        }));
+        break;
+      default:
+        return modeCapabilities(cfg.connectionMode as never) as never;
     }
 
-    const memoryClient: MemoryClientConfig = {
-      workerUrl: cfg.workerUrl,
-      workerToken: cfg.workerToken,
-    };
-    const route = await routeCapture(
-      (q, k) => searchVault(memoryClient, q, k),
-      {
-        mode: cfg.mode,
-        title: body.title ?? params.title ?? '',
-        body: body.body,
-        captureFolder: cfg.captureFolder,
-      },
-    );
+    // In direct mode, semantic search (Vectorize) is unavailable.
+    // Gate on the capability flag, not the mode string, so adding a
+    // future 'remote' mode only requires updating modeCapabilities.
+    const caps = modeCapabilities(cfg.connectionMode);
+    const effectiveMode: CaptureMode = caps.semanticSearch ? cfg.mode : 'inbox';
+
+    const searcher: (q: string, k: number) => Promise<SearchHit[]> =
+      caps.semanticSearch
+        ? (q, k) =>
+            searchVault(
+              { workerUrl: cfg.workerUrl, workerToken: cfg.workerToken },
+              q,
+              k,
+            )
+        : async () => [];
+
+    const route = await routeCapture(searcher, {
+      mode: effectiveMode,
+      title: captureTitle,
+      body: captureBody,
+      captureFolder: cfg.captureFolder,
+    });
 
     if (route.kind === 'append') {
       const path = normalizePath(route.path);
@@ -326,7 +355,7 @@ export class CaptureService {
         const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
         await this.app.vault.process(existing, (current) => {
           const sep = current.endsWith('\n') ? '\n' : '\n\n';
-          return `${current}${sep}---\n\nCaptured ${stamp}\n\n${body.body}`;
+          return `${current}${sep}---\n\nCaptured ${stamp}\n\n${captureBody}`;
         });
         return { path, routedTo: 'append' };
       }
@@ -336,10 +365,10 @@ export class CaptureService {
     await this.ensureFolder(cfg.captureFolder);
     const filename = captureFilename(
       cfg.captureFolder,
-      body.title ?? params.title ?? null,
+      captureTitle || params.title || null,
     );
     const path = normalizePath(filename);
-    await this.app.vault.create(path, body.body);
+    await this.app.vault.create(path, captureBody);
     return { path, routedTo: 'create' };
   }
 

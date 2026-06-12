@@ -271,23 +271,34 @@ non-obvious mode / state, it's called out.
 
 ## 8. Capture (share-sheet)
 
-- [ ] **Apple Shortcut share-sheet**
-  - Trigger: In Safari, share an article via the scribian
-    Shortcut (build per `docs/apple-shortcut-recipe.md`).
-  - Verify: Obsidian foregrounds. "scribian: capturing…"
-    progress Notice → "scribian: captured → X.md" OR
-    "scribian: routed to X.md" depending on mode + match.
+Capture works in **both modes** (direct + worker). The model call
+happens in the plugin (direct mode) or via the Worker (worker mode).
+Auto-route is worker-only; direct mode always routes to inbox.
 
-- [ ] **Auto-route mode** (default)
-  - Trigger: Capture content that closely resembles a vault
-    note you already have (e.g. share a related article).
+- [ ] **Apple Shortcut share-sheet (direct mode)**
+  - Trigger: direct mode configured with an Anthropic or OpenRouter
+    key. In Safari, share an article via the scribian Shortcut.
+  - Verify: Obsidian foregrounds. "scribian: capturing…" progress
+    Notice → "scribian: captured → X.md". Note lands in the
+    captures folder (inbox; auto-route is unavailable in direct mode).
+
+- [ ] **Apple Shortcut share-sheet (worker mode)**
+  - Trigger: worker mode configured. Share an article via the Shortcut.
+  - Verify: "scribian: capturing…" → "scribian: captured → X.md" OR
+    "scribian: routed to X.md" depending on routing mode + match.
+
+- [ ] **Auto-route mode** (worker mode only)
+  - Trigger: worker mode. Capture content that closely resembles a
+    vault note you already have (e.g. share a related article).
   - Verify: When find_related's top match scores ≥ 0.85, the
-    capture appends to that note with a date-stamped
-    separator. Otherwise creates in `capturesFolder`.
+    capture appends to that note with a date-stamped separator.
+    Otherwise creates in `capturesFolder`.
+  - Note: the auto-route option is hidden/disabled in the capture
+    routing dropdown when in direct mode.
 
 - [ ] **Inbox mode**
   - Trigger: Settings → Capture routing → "Always create in
-    captures folder". Share something.
+    captures folder" (or direct mode, which always uses inbox).
   - Verify: Always lands in `Scribian/Captures/` regardless
     of vault matches.
 
@@ -295,7 +306,7 @@ non-obvious mode / state, it's called out.
   - Trigger: Fire 6+ captures within 60 seconds (simulate via
     repeated taps in the Shortcut).
   - Verify: First 5 process normally. The 6th triggers a
-    "rate-limit hit" Notice + no Worker call.
+    "rate-limit hit" Notice + no provider/Worker call.
 
 ---
 

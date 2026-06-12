@@ -3,6 +3,9 @@
 // Phase 0 retains `echo` / `pong` / `echoed` for diagnostics.
 // Phase 1 adds Anthropic-shaped chat passthrough.
 // Phase 5 adds provider routing for OpenRouter fallback.
+// Phase 8b: shared capture constants (prompt templates + response
+//   parsing) hoisted here so the Worker and the plugin direct path
+//   share a single source of truth. Duplication-drift is unacceptable.
 //
 // Type-loose by design: content blocks and tool definitions flow as
 // opaque records so the protocol stays current as Anthropic adds
@@ -81,6 +84,35 @@ export type ClientMessage =
       openrouter_api_key?: string;
     }
   | { type: 'cancel'; id: string };
+
+// ── Capture shared constants ─────────────────────────────────────────────
+
+/** Max bytes for a capture prompt. Enforced both in the Worker's /capture
+ * route and on the direct plugin path so neither side can be tricked into
+ * a runaway upstream LLM spend. 100 KB is generous for "shared from Safari
+ * Reader" content while bounding a malicious payload. */
+export const CAPTURE_MAX_PROMPT_BYTES = 100 * 1024;
+
+/** Per-kind default prompt text for capture. Shared so the Worker and the
+ * plugin direct path produce identical prompts — changing the prompt in one
+ * place changes it everywhere. */
+export const CAPTURE_DEFAULT_PROMPTS: Record<string, string> = {
+  url: 'The user shared this URL from their phone. Open it (or use what you know about it) and write a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, list any action items, suggest tags (Obsidian #tag format).',
+  text: 'The user shared this text from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, suggest tags.',
+  image:
+    'The user shared this image from their phone (you have access to it as an image attachment). Describe what is shown, transcribe any visible text, and write a vault-ready capture note: title (≤8 words), description, any extracted text, suggested tags.',
+  pdf: 'The user shared this PDF from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, identify any action items, suggest tags.',
+};
+
+/** Extract the title from a model-generated capture body.
+ * Contract: first H1 if present, else first non-empty line,
+ * capped at 60 chars. This is the single parsing rule both the
+ * Worker /capture route and the plugin direct path use. */
+export function extractCaptureTitle(text: string): string {
+  const firstLine = text.split('\n').find((l) => l.trim().length > 0) ?? '';
+  const titleMatch = firstLine.match(/^#+\s+(.*)$/);
+  return (titleMatch?.[1] ?? firstLine).slice(0, 60).trim();
+}
 
 // Worker → Plugin
 export type ServerMessage =

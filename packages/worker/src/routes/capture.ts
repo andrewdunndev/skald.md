@@ -1,16 +1,12 @@
-import type { ChatRequest } from '@scribian/protocol';
+import { type ChatRequest, CAPTURE_MAX_PROMPT_BYTES, extractCaptureTitle } from '@scribian/protocol';
 import type { Env } from '../env';
 import { TokenRegistry, hasScope } from '../auth';
 import { dispatchFor, resolveProviderKey } from '../providers';
 import { authBearer } from './auth-helpers';
 
-/** Max bytes for a capture prompt. The captured payload (article
- * body, image OCR target, etc.) is built into the prompt client-
- * side, so this caps the upstream LLM request size. 100KB is
- * generous for "shared from Safari Reader" content while bounding
- * a malicious payload from one URL trigger draining the user's
- * Anthropic / OpenRouter spend. */
-export const CAPTURE_MAX_PROMPT_BYTES = 100 * 1024;
+// CAPTURE_MAX_PROMPT_BYTES is the shared constant from @scribian/protocol —
+// re-export for the worker's own tests that reference it by name here.
+export { CAPTURE_MAX_PROMPT_BYTES } from '@scribian/protocol';
 
 interface CaptureRequestBody {
   prompt?: string;
@@ -111,12 +107,9 @@ async function handleCapture(req: Request, env: Env): Promise<Response> {
   if (!text) {
     return new Response('upstream returned no text content', { status: 502 });
   }
-  // Title extraction: first H1 if present, else first non-empty
-  // line, capped at 60 chars. Plugin uses this for the filename
-  // slug; if the model didn't produce a useful first line the
-  // plugin falls back to a timestamp.
-  const firstLine = text.split('\n').find((l) => l.trim().length > 0) ?? '';
-  const titleMatch = firstLine.match(/^#+\s+(.*)$/);
-  const title = (titleMatch?.[1] ?? firstLine).slice(0, 60).trim();
+  // Title extraction via the shared protocol helper — plugin uses
+  // this for the filename slug; falls back to a timestamp if the
+  // model didn't produce a useful first line.
+  const title = extractCaptureTitle(text);
   return Response.json({ body: text, title });
 }

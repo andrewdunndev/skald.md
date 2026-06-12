@@ -35,8 +35,14 @@ export default class ScribianPlugin extends Plugin {
     this.logger.info('scribian loaded');
 
     this.captureService = new CaptureService(this.app, () => ({
+      connectionMode: this.settings.connectionMode,
       workerUrl: this.settings.workerUrl,
       workerToken: this.settings.workerToken,
+      provider: this.settings.provider,
+      anthropicApiKey: this.settings.anthropicApiKey,
+      openrouterApiKey: this.settings.openrouterApiKey,
+      defaultModel: this.settings.defaultModel,
+      openrouterModel: this.settings.openrouterModel,
       captureFolder: this.settings.capturesFolder,
       promptPath: this.settings.capturePromptPath,
       mode: this.settings.captureMode,
