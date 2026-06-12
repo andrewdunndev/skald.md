@@ -60,6 +60,13 @@ export interface ActiveToolInput {
   /** Vault-relative path of the memory note. Empty disables the
    * memory tools even if memoryEnabled is true. */
   memoryPath: string;
+  /**
+   * Connection mode. In 'direct' mode, server tools (web_search /
+   * web_fetch) are still available — they run on the provider side.
+   * find_related is unavailable in 'direct' mode because it requires
+   * the Worker's Vectorize binding. executeTool gates the call site too.
+   */
+  connectionMode?: 'direct' | 'worker';
 }
 
 /**
@@ -72,6 +79,8 @@ export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
   if (input.memoryEnabled && input.memoryPath.trim()) {
     tools.push(...MEMORY_TOOLS);
   }
+  // Server tools (web_search / web_fetch) work in both modes — they
+  // execute on the provider side regardless of how we connect.
   tools.push(...SERVER_TOOLS);
   return tools;
 }
@@ -126,6 +135,13 @@ export async function executeTool(
           ctx.memoryPath,
         );
       case 'find_related':
+        if (ctx.connectionMode === 'direct') {
+          return {
+            content:
+              'find_related is not available in direct mode. Switch to Worker mode in plugin settings to enable semantic search.',
+            is_error: true,
+          };
+        }
         if (!ctx.memoryClient) {
           return {
             content:
