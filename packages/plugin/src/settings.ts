@@ -15,6 +15,7 @@ import { App, PluginSettingTab } from 'obsidian';
 import type { Provider } from '@scribian/protocol';
 import type ScribianPlugin from './main';
 import { ANTHROPIC_MODELS, renderProviderSection } from './settings/provider';
+import { renderConnectionModeSection } from './settings/connection-mode';
 import { renderWorkerSection } from './settings/worker';
 import { renderVaultSection } from './settings/vault';
 import { renderMemorySection } from './settings/memory';
@@ -22,7 +23,16 @@ import { renderPersonasSection } from './settings/personas';
 import { renderCommandsSection } from './settings/commands';
 import { renderCaptureSection } from './settings/capture';
 
+/** Connection mode. 'direct' calls Anthropic / OpenRouter from the plugin
+ * without a Worker; 'worker' tunnels through the Cloudflare Worker.
+ * Fresh installs default to 'direct'. Existing installs with a Worker URL
+ * already configured stay on 'worker' so the upgrade is non-disruptive
+ * (see migrateConnectionMode in settings/connection-mode.ts). */
+export type ConnectionMode = 'direct' | 'worker';
+
 export interface ScribianSettings {
+  /** Connection mode — whether to use the Worker or call APIs directly. */
+  connectionMode: ConnectionMode;
   workerUrl: string;
   workerToken: string;
   /**
@@ -97,6 +107,7 @@ export interface ScribianSettings {
 export const MODELS = ANTHROPIC_MODELS;
 
 export const DEFAULT_SETTINGS: ScribianSettings = {
+  connectionMode: 'direct',
   workerUrl: '',
   workerToken: '',
   provider: 'anthropic',
@@ -132,7 +143,10 @@ export class ScribianSettingTab extends PluginSettingTab {
     containerEl.empty();
     const redisplay = () => this.display();
 
-    renderWorkerSection(containerEl, this.plugin);
+    renderConnectionModeSection(containerEl, this.plugin, redisplay);
+    if (this.plugin.settings.connectionMode === 'worker') {
+      renderWorkerSection(containerEl, this.plugin);
+    }
     renderProviderSection(containerEl, this.plugin, redisplay);
     renderVaultSection(containerEl, this.plugin);
     renderMemorySection(containerEl, this.plugin);

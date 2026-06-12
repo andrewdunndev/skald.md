@@ -1,6 +1,7 @@
 import { Notice, Plugin } from 'obsidian';
 import { ScribianView, VIEW_TYPE_SCRIBIAN } from './view';
 import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './settings';
+import { migrateConnectionMode } from './settings/connection-mode';
 import { Logger } from './logger';
 import { reindexVault } from './memory-client';
 import { emptyManifest, type IndexManifest } from './index-manifest';
@@ -179,7 +180,11 @@ export default class ScribianPlugin extends Plugin {
 
   async loadSettings() {
     const stored = (await this.loadData()) as Partial<ScribianSettings> | null;
-    this.settings = { ...DEFAULT_SETTINGS, ...(stored ?? {}) };
+    const base = stored ?? {};
+    // Migrate connectionMode before merging with defaults so the upgrade
+    // from no-connectionMode (Worker era) preserves the 'worker' choice.
+    const connectionMode = migrateConnectionMode(base);
+    this.settings = { ...DEFAULT_SETTINGS, ...base, connectionMode };
   }
 
   async saveSettings() {
