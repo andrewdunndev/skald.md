@@ -75,7 +75,17 @@ export interface ActiveToolInput {
  * so Claude only sees tools it can actually use successfully.
  */
 export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
-  const tools: ToolDefinition[] = [...READ_ONLY_TOOLS, ...WRITE_TOOLS];
+  // In direct mode, find_related is unavailable (requires the Worker's
+  // Vectorize binding). Exclude it so Claude never calls a tool that
+  // will always error. The executor gate remains as defense-in-depth.
+  const readTools =
+    input.connectionMode === 'direct'
+      ? READ_ONLY_TOOLS.filter(
+          (t) => (t as Record<string, unknown>).name !== 'find_related',
+        )
+      : READ_ONLY_TOOLS;
+
+  const tools: ToolDefinition[] = [...readTools, ...WRITE_TOOLS];
   if (input.memoryEnabled && input.memoryPath.trim()) {
     tools.push(...MEMORY_TOOLS);
   }

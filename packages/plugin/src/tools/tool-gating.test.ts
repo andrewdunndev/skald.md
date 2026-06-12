@@ -1,8 +1,9 @@
 /**
  * Tool gating by connection mode. Verifies that:
- *   - buildActiveTools does NOT filter out tools in direct mode —
- *     server tools (web_search / web_fetch) are provider-side and work
- *     regardless of how the plugin connects.
+ *   - buildActiveTools EXCLUDES find_related in direct mode (it requires
+ *     the Worker's Vectorize binding and always errors without it).
+ *   - buildActiveTools does NOT filter out server tools in direct mode —
+ *     they are provider-side and work regardless of how the plugin connects.
  *   - executeTool returns a clear "worker required" error when
  *     find_related is called in direct mode (defense-in-depth; the tool
  *     should not appear in the catalog but if it somehow does, the
@@ -16,6 +17,15 @@ function toolNames(defs: ReadonlyArray<{ name?: string; type?: string }>): strin
 }
 
 describe('buildActiveTools: direct mode', () => {
+  it('EXCLUDES find_related in direct mode (requires Worker Vectorize)', () => {
+    const tools = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      connectionMode: 'direct',
+    });
+    expect(toolNames(tools)).not.toContain('find_related');
+  });
+
   it('includes server tools in direct mode (they run on the provider side)', () => {
     const tools = buildActiveTools({
       memoryEnabled: false,
@@ -45,6 +55,15 @@ describe('buildActiveTools: direct mode', () => {
       connectionMode: 'direct',
     });
     expect(toolNames(tools)).toContain('remember_fact');
+  });
+
+  it('INCLUDES find_related in worker mode', () => {
+    const tools = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      connectionMode: 'worker',
+    });
+    expect(toolNames(tools)).toContain('find_related');
   });
 });
 
