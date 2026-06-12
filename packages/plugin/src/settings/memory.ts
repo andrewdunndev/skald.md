@@ -5,7 +5,9 @@
  * into the system prompt at chat start. The path is the single
  * vault note Claude is told it can read + (with approval) update.
  * The reindex button drives the manifest-diff incremental sync that
- * powers find_related.
+ * powers find_related — it is only available in Worker mode because
+ * it requires the Worker's Vectorize binding. Pass usesWorker=false
+ * to render a disabled/explanatory state instead.
  */
 
 import { Setting } from 'obsidian';
@@ -14,6 +16,7 @@ import type ScribianPlugin from '../main';
 export function renderMemorySection(
   containerEl: HTMLElement,
   plugin: ScribianPlugin,
+  opts: { usesWorker: boolean } = { usesWorker: true },
 ): void {
   new Setting(containerEl).setName('Memory').setHeading();
 
@@ -43,14 +46,25 @@ export function renderMemorySection(
         });
     });
 
-  new Setting(containerEl)
-    .setName('Reindex vault for semantic search')
-    .setDesc(
-      "Walk markdown notes (excluding chats/logs/saved folders), embed each via Workers AI, upsert to the Worker's Vectorize index. Required before find_related works. Re-run after major vault changes. Cost: ~one cent per 1000 notes.",
-    )
-    .addButton((b) =>
-      b.setButtonText('Reindex').onClick(() => {
-        void plugin.reindexVault();
-      }),
-    );
+  if (opts.usesWorker) {
+    new Setting(containerEl)
+      .setName('Reindex vault for semantic search')
+      .setDesc(
+        "Walk markdown notes (excluding chats/logs/saved folders), embed each via Workers AI, upsert to the Worker's Vectorize index. Required before find_related works. Re-run after major vault changes. Cost: ~one cent per 1000 notes.",
+      )
+      .addButton((b) =>
+        b.setButtonText('Reindex').onClick(() => {
+          void plugin.reindexVault();
+        }),
+      );
+  } else {
+    new Setting(containerEl)
+      .setName('Reindex vault for semantic search')
+      .setDesc(
+        'Requires Worker mode — semantic search uses the Worker\'s Vectorize binding which is unavailable in direct mode. Switch to Worker mode to enable reindexing.',
+      )
+      .addButton((b) =>
+        b.setButtonText('Reindex').setDisabled(true),
+      );
+  }
 }
