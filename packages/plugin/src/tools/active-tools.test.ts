@@ -11,6 +11,7 @@ import {
   WRITE_TOOLS,
   MEMORY_TOOLS,
   SERVER_TOOLS,
+  serverToolsForModel,
 } from './index';
 
 function toolNames(defs: ReadonlyArray<{ name?: string; type?: string }>): string[] {
@@ -98,5 +99,40 @@ describe('buildActiveTools', () => {
     expect(disabled.length).toBe(
       READ_ONLY_TOOLS.length + WRITE_TOOLS.length + SERVER_TOOLS.length,
     );
+  });
+
+  it('passes model through to serverToolsForModel — haiku gets old pins', () => {
+    const tools = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      model: 'claude-haiku-4-5',
+    });
+    const haikuExpected = serverToolsForModel('claude-haiku-4-5');
+    // Every haiku server tool should appear in the built list.
+    for (const expected of haikuExpected) {
+      const match = tools.find(
+        (t) =>
+          (t as Record<string, unknown>).type ===
+          (expected as Record<string, unknown>).type,
+      );
+      expect(match, `expected type ${(expected as Record<string, unknown>).type as string}`).toBeDefined();
+    }
+  });
+
+  it('passes model through to serverToolsForModel — sonnet gets new pins', () => {
+    const tools = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      model: 'claude-sonnet-4-6',
+    });
+    const sonnetExpected = serverToolsForModel('claude-sonnet-4-6');
+    for (const expected of sonnetExpected) {
+      const match = tools.find(
+        (t) =>
+          (t as Record<string, unknown>).type ===
+          (expected as Record<string, unknown>).type,
+      );
+      expect(match, `expected type ${(expected as Record<string, unknown>).type as string}`).toBeDefined();
+    }
   });
 });

@@ -120,6 +120,9 @@ export function connectSession(
         memoryEnabled: plugin.settings.memoryEnabled,
         memoryPath: plugin.settings.memoryPath,
         connectionMode: plugin.settings.connectionMode,
+        // Source the live model the same way dispatch does (modelProvider
+        // is cbs.getModelValue()) so the two can't diverge mid-session.
+        model: cbs.getModelValue(),
       }),
     (name, input, toolUseId) =>
       executeTool(name, input, toolUseId, {

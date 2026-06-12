@@ -23,7 +23,7 @@ import {
   runUpdateMemory,
   runForgetFact,
 } from './memory';
-import { SERVER_TOOLS } from './server';
+import { SERVER_TOOLS, serverToolsForModel } from './server';
 
 export type {
   ApproveFn,
@@ -32,7 +32,7 @@ export type {
   WriteKind,
   WriteProposal,
 } from './context';
-export { READ_ONLY_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS };
+export { READ_ONLY_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS, serverToolsForModel };
 
 /**
  * Every tool definition shipped on a chat request. Plugin dispatches
@@ -69,6 +69,13 @@ export interface ActiveToolInput {
    * executeTool gates the call site as defense-in-depth.
    */
   connectionMode?: ConnectionMode;
+  /**
+   * The model id for the current turn. Used to select the correct
+   * server-tool version pins — Haiku needs 20250305/20250910 while
+   * all other Anthropic models use 20260209. Defaults to the
+   * 20260209 set when absent (backward compatibility).
+   */
+  model?: string;
 }
 
 /**
@@ -96,7 +103,8 @@ export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
   }
   // Server tools (web_search / web_fetch) work in both modes — they
   // execute on the provider side regardless of how we connect.
-  tools.push(...SERVER_TOOLS);
+  // Use the model-appropriate version pins so Haiku doesn't 400.
+  tools.push(...serverToolsForModel(input.model ?? ''));
   return tools;
 }
 
