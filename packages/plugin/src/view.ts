@@ -137,11 +137,13 @@ export class ScribianView extends ItemView {
 
   /** Shared cleanup for new-chat / reconnect / close. Resolves
    * pending approvals as rejected so runner Promises don't dangle,
-   * and drops picked attachments so previous-chat context doesn't
-   * bleed into the next message via augmentUserText. */
+   * drops picked attachments so previous-chat context doesn't
+   * bleed into the next message via augmentUserText, and resets
+   * composer busy so mid-stream disconnects don't leave it locked. */
   private dropSessionState(): void {
     this.approvals.abandonAll();
     this.composer?.clearAttachments();
+    this.composer?.setBusy(false);
   }
 
   private resetChat(): void {
@@ -174,6 +176,7 @@ export class ScribianView extends ItemView {
       currentTurnReads: (id) => this.currentTurnReads(id),
       onDone: (stopReason, usage, provider) =>
         this.onTurnDone(stopReason, usage, provider),
+      onTurnAborted: () => this.composer?.setBusy(false),
     });
     if (!result) return;
     this.transport = result.transport;

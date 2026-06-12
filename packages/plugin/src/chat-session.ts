@@ -9,6 +9,7 @@ import type {
   Usage,
 } from '@scribian/protocol';
 import { sumUsage } from './pricing';
+import { windowHistory } from './history-window';
 import type { ScribianTransport } from './transport-interface';
 
 export interface InFlight {
@@ -113,6 +114,10 @@ export class ChatSession {
     return this.inFlight;
   }
 
+  isInFlight(): boolean {
+    return this.inFlight !== null;
+  }
+
   /** Cumulative usage across every finalized turn in this
    * conversation. Reset when reset() is called (new chat). */
   getTotalUsage(): Usage {
@@ -141,7 +146,7 @@ export class ChatSession {
 
     const payload: ChatRequest = {
       model: this.modelProvider(),
-      messages: this.messages,
+      messages: windowHistory(this.messages),
       max_tokens: 4096,
     };
     if (system) payload.system = system;

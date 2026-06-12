@@ -32,6 +32,9 @@ export interface ConnectCallbacks {
   getModelValue: () => string;
   currentTurnReads: (toolUseId: string) => string[];
   onDone: (stopReason: string, usage: Usage, provider?: Provider) => void;
+  /** Called when a transport error terminates an in-flight turn so the
+   * composer busy state can be reset in the view layer. */
+  onTurnAborted: () => void;
 }
 
 /**
@@ -45,12 +48,27 @@ export function connectSession(
 ): ConnectResult | null {
   const mode = plugin.settings.connectionMode ?? 'direct';
 
+  // session is captured by reference after construction below.
+  let sessionRef: ChatSession | null = null;
+
+  const drainIfInFlight = (errorMsg: string): void => {
+    if (sessionRef?.isInFlight()) {
+      cbs.handleServerMessage({ type: 'error', error: errorMsg });
+      cbs.onTurnAborted();
+    }
+  };
+
   const handlers: TransportHandlers = {
     onOpen: () => cbs.setStatus('Connected', 'connected'),
-    onClose: (code: number, reason: string) =>
-      cbs.setStatus(`Disconnected (${code}${reason ? `: ${reason}` : ''})`),
+    onClose: (code: number, reason: string) => {
+      cbs.setStatus(`Disconnected (${code}${reason ? `: ${reason}` : ''})`);
+      drainIfInFlight('Connection lost mid-stream — reconnect and resend.');
+    },
     onMessage: (msg: ServerMessage) => cbs.handleServerMessage(msg),
-    onError: (err: string) => cbs.setStatus(`Error: ${err}`, 'error'),
+    onError: (err: string) => {
+      cbs.setStatus(`Error: ${err}`, 'error');
+      drainIfInFlight('Connection error mid-stream — reconnect and resend.');
+    },
   };
 
   let transport: ScribianTransport;
@@ -114,11 +132,17 @@ export function connectSession(
       }),
     {
       onUpdate: () => cbs.requestRender(),
-      onError: (err) => cbs.setStatus(`Chat error: ${err}`, 'error'),
+      onError: (err) => {
+        cbs.setStatus(`Chat error: ${err}`, 'error');
+        cbs.onTurnAborted();
+      },
       onDone: (stopReason, usage, provider) =>
         cbs.onDone(stopReason, usage, provider),
     },
   );
+
+  // Capture so drainIfInFlight can inspect session state on close/error.
+  sessionRef = session;
 
   return { transport, session };
 }
