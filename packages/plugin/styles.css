@@ -565,8 +565,13 @@
   background: transparent;
   border: none;
   outline: none;
+  box-shadow: none;
   padding: var(--size-2-1) 0;
   color: var(--text-normal);
+}
+
+.scribian-input:focus {
+  box-shadow: none;
 }
 
 .scribian-button-row {
