@@ -119,7 +119,7 @@ describe('runListNotes', () => {
 });
 
 // ---------------------------------------------------------------------------
-// runSearchVault — new defaults
+// runSearchVault — new defaults (substring scan path)
 // ---------------------------------------------------------------------------
 
 describe('runSearchVault', () => {
@@ -156,6 +156,145 @@ describe('runSearchVault', () => {
     const result = await runSearchVault(app, { query: 'needle', limit: 50 });
     if (result.content.length > MAX_TOOL_RESULT_BYTES) {
       expect(result.content).toContain('…truncated');
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runSearchVault — Omnisearch integration
+// ---------------------------------------------------------------------------
+
+describe('runSearchVault — Omnisearch', () => {
+  /** Build a fake Omnisearch result. */
+  function makeHit(path: string, excerpt: string, score = 1.0) {
+    return { score, path, basename: path.split('/').pop() ?? path, foundWords: [], excerpt, matches: [] };
+  }
+
+  it('uses Omnisearch when present via globalThis and prepends ranked header', async () => {
+    const files = { 'a.md': 'hello', 'b.md': 'world' };
+    const app = makeApp(files);
+
+    const hits = [makeHit('ranked/first.md', 'first excerpt'), makeHit('ranked/second.md', 'second excerpt')];
+    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
+    (globalThis as Record<string, unknown>)['omnisearch'] = { search: async () => hits };
+
+    try {
+      const result = await runSearchVault(app, { query: 'anything' });
+      expect(result.is_error).toBeFalsy();
+      expect(result.content).toContain('(via omnisearch: ranked)');
+      expect(result.content).toContain('ranked/first.md');
+      expect(result.content).toContain('first excerpt');
+      expect(result.content).toContain('ranked/second.md');
+    } finally {
+      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
+    }
+  });
+
+  it('respects limit when slicing Omnisearch results', async () => {
+    const app = makeApp({});
+    const hits = Array.from({ length: 20 }, (_, i) => makeHit(`note-${i}.md`, `excerpt ${i}`));
+    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
+    (globalThis as Record<string, unknown>)['omnisearch'] = { search: async () => hits };
+
+    try {
+      const result = await runSearchVault(app, { query: 'x', limit: 3 });
+      // Header + 3 result lines = 4 lines total
+      const lines = result.content.split('\n').filter((l) => l.trim());
+      expect(lines.length).toBe(4); // 1 header + 3 results
+      expect(result.content).toContain('note-0.md');
+      expect(result.content).not.toContain('note-3.md');
+    } finally {
+      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
+    }
+  });
+
+  it('falls back to substring scan when Omnisearch throws', async () => {
+    const app = makeApp({ 'fallback.md': 'needle content here' });
+    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
+    (globalThis as Record<string, unknown>)['omnisearch'] = {
+      search: async () => { throw new Error('index not ready'); },
+    };
+
+    try {
+      const result = await runSearchVault(app, { query: 'needle' });
+      expect(result.is_error).toBeFalsy();
+      expect(result.content).not.toContain('(via omnisearch: ranked)');
+      expect(result.content).toContain('fallback.md');
+    } finally {
+      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
+    }
+  });
+
+  it('falls back to substring scan when Omnisearch is absent', async () => {
+    // Ensure globalThis.omnisearch is undefined for this test
+    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
+    delete (globalThis as Record<string, unknown>)['omnisearch'];
+
+    const app = makeApp({ 'scan.md': 'find this needle here' });
+    try {
+      const result = await runSearchVault(app, { query: 'needle' });
+      expect(result.is_error).toBeFalsy();
+      expect(result.content).not.toContain('(via omnisearch: ranked)');
+      expect(result.content).toContain('scan.md');
+    } finally {
+      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
+    }
+  });
+
+  it('falls back to scan when Omnisearch returns zero hits', async () => {
+    const app = makeApp({ 'scan.md': 'needle present here' });
+    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
+    (globalThis as Record<string, unknown>)['omnisearch'] = { search: async () => [] };
+
+    try {
+      const result = await runSearchVault(app, { query: 'needle' });
+      expect(result.is_error).toBeFalsy();
+      // Header must NOT appear — fell through to scan
+      expect(result.content).not.toContain('(via omnisearch: ranked)');
+      expect(result.content).toContain('scan.md');
+    } finally {
+      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
+    }
+  });
+
+  it('uses Omnisearch via app.plugins when globalThis surface absent', async () => {
+    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
+    delete (globalThis as Record<string, unknown>)['omnisearch'];
+
+    const hits = [makeHit('via-plugins/note.md', 'plugin surface excerpt')];
+    const app = {
+      ...makeApp({}),
+      plugins: {
+        plugins: {
+          omnisearch: { api: { search: async () => hits } },
+        },
+      },
+    } as unknown as App;
+
+    try {
+      const result = await runSearchVault(app, { query: 'anything' });
+      expect(result.content).toContain('(via omnisearch: ranked)');
+      expect(result.content).toContain('via-plugins/note.md');
+    } finally {
+      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
+    }
+  });
+
+  it('caps Omnisearch output with truncation footer above 4KB', async () => {
+    const app = makeApp({});
+    const hits = Array.from({ length: 50 }, (_, i) =>
+      makeHit(`${'long/path/'.repeat(5)}note-${i}.md`, 'x'.repeat(200)),
+    );
+    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
+    (globalThis as Record<string, unknown>)['omnisearch'] = { search: async () => hits };
+
+    try {
+      const result = await runSearchVault(app, { query: 'x', limit: 50 });
+      if (result.content.length > MAX_TOOL_RESULT_BYTES) {
+        expect(result.content).toContain('…truncated');
+      }
+    } finally {
+      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
     }
   });
 });

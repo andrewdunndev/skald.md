@@ -2,6 +2,23 @@ import { App, TFile } from 'obsidian';
 import type { ToolDefinition } from '@scribian/protocol';
 import { safePath, type ToolExecutionResult } from './context';
 
+// ---------------------------------------------------------------------------
+// Omnisearch interop — narrow types; no external @omnisearch package needed.
+// ---------------------------------------------------------------------------
+
+interface OmnisearchResult {
+  score: number;
+  path: string;
+  basename: string;
+  foundWords: string[];
+  excerpt: string;
+  matches: { match: string; offset: number }[];
+}
+
+interface OmnisearchApi {
+  search: (query: string) => Promise<OmnisearchResult[]>;
+}
+
 /** Hard cap on most tool results. Above this we truncate + add a footer. */
 export const MAX_TOOL_RESULT_BYTES = 4096;
 
@@ -70,7 +87,7 @@ export const READ_ONLY_TOOLS: ToolDefinition[] = [
   {
     name: 'search_vault',
     description:
-      'Substring-search note contents across the ENTIRE vault. Last resort — prefer find_by_tag / find_by_link / search_in_folder to scope first. Returns matching paths with short surrounding snippets. Case-insensitive.',
+      'Search note contents across the ENTIRE vault. Last resort — prefer find_by_tag / find_by_link / search_in_folder to scope first. Returns matching paths with short surrounding snippets. When the Omnisearch plugin is installed, results are BM25-ranked (opportunistic — no install required); otherwise falls back to a case-insensitive substring scan.',
     input_schema: {
       type: 'object',
       properties: {
@@ -189,15 +206,55 @@ export async function runSearchVault(
   app: App,
   args: Record<string, unknown>,
 ): Promise<ToolExecutionResult> {
-  const query =
-    typeof args.query === 'string' ? args.query.toLowerCase().trim() : '';
-  if (!query) {
+  const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
+  if (!rawQuery) {
     return { content: 'Missing query', is_error: true };
   }
   const requestedLimit =
     typeof args.limit === 'number' ? Math.floor(args.limit) : 8;
   const limit = Math.min(Math.max(requestedLimit, 1), 50);
 
+  // ---------------------------------------------------------------------------
+  // Omnisearch fast path — BM25-ranked results when the plugin is present.
+  // Access via app.plugins is preferred (App is already in scope); fall through
+  // to the globalThis surface as a secondary probe so tests can mock either.
+  // ---------------------------------------------------------------------------
+  const omnisearchApi: OmnisearchApi | undefined =
+    (
+      app as unknown as {
+        plugins?: { plugins?: Record<string, { api?: OmnisearchApi }> };
+      }
+    ).plugins?.plugins?.['omnisearch']?.api ??
+    (globalThis as unknown as { omnisearch?: OmnisearchApi }).omnisearch;
+
+  if (omnisearchApi?.search) {
+    try {
+      const hits = await omnisearchApi.search(rawQuery);
+      const top = hits.slice(0, limit);
+      if (top.length > 0) {
+        const lines = top.map(
+          (r) => `${r.path}: …${r.excerpt.replace(/\s+/g, ' ').trim()}…`,
+        );
+        const raw = `(via omnisearch: ranked)\n${lines.join('\n')}`;
+        return {
+          content: capResult(
+            raw,
+            MAX_TOOL_RESULT_BYTES,
+            'call with limit:N or use search_in_folder to drill down',
+          ),
+        };
+      }
+      // Zero hits from Omnisearch — fall through to substring scan so the user
+      // isn't left empty-handed if the index is stale.
+    } catch {
+      // Omnisearch threw; fall through silently.
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Substring scan fallback.
+  // ---------------------------------------------------------------------------
+  const query = rawQuery.toLowerCase();
   const results: string[] = [];
   for (const file of app.vault.getMarkdownFiles()) {
     if (results.length >= limit) break;

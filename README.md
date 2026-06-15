@@ -72,6 +72,10 @@ Two artifacts in one repo:
 Plus `packages/protocol/` — the TypeScript wire types shared between
 plugin and Worker.
 
+## Optional companions
+
+- Install **[Omnisearch](https://github.com/scambier/obsidian-omnisearch)** for ranked vault search — scribian uses its BM25 results automatically when it's present, falling back to a substring scan otherwise.
+
 ## Going further: the Worker (optional power tier)
 
 The Cloudflare Worker is not required to use scribian. It adds:
