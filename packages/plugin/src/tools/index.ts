@@ -12,6 +12,14 @@ import {
   runMetadata,
 } from './read';
 import {
+  GRAPH_TOOLS,
+  runFindByTag,
+  runFindByLink,
+  runRecentNotes,
+  runOutline,
+  runSearchInFolder,
+} from './graph';
+import {
   WRITE_TOOLS,
   runWriteNote,
   runEditNote,
@@ -32,7 +40,7 @@ export type {
   WriteKind,
   WriteProposal,
 } from './context';
-export { READ_ONLY_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS, serverToolsForModel };
+export { READ_ONLY_TOOLS, GRAPH_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS, serverToolsForModel };
 
 /**
  * Every tool definition shipped on a chat request. Plugin dispatches
@@ -47,6 +55,7 @@ export { READ_ONLY_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS, serverToolsFo
  */
 export const ALL_TOOLS: ToolDefinition[] = [
   ...READ_ONLY_TOOLS,
+  ...GRAPH_TOOLS,
   ...WRITE_TOOLS,
   ...MEMORY_TOOLS,
   ...SERVER_TOOLS,
@@ -97,7 +106,7 @@ export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
         (t) => (t as Record<string, unknown>).name !== 'find_related',
       );
 
-  const tools: ToolDefinition[] = [...readTools, ...WRITE_TOOLS];
+  const tools: ToolDefinition[] = [...readTools, ...GRAPH_TOOLS, ...WRITE_TOOLS];
   if (input.memoryEnabled && input.memoryPath.trim()) {
     tools.push(...MEMORY_TOOLS);
   }
@@ -127,6 +136,16 @@ export async function executeTool(
         return await runCurrentNote(ctx.app);
       case 'metadata':
         return runMetadata(ctx.app, args);
+      case 'find_by_tag':
+        return runFindByTag(ctx.app, args);
+      case 'find_by_link':
+        return runFindByLink(ctx.app, args);
+      case 'recent_notes':
+        return runRecentNotes(ctx.app, args);
+      case 'outline':
+        return runOutline(ctx.app, args);
+      case 'search_in_folder':
+        return await runSearchInFolder(ctx.app, args);
       case 'write_note':
         return await runWriteNote(ctx.app, args, toolUseId, ctx.approve);
       case 'edit_note':

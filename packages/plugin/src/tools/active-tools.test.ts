@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 import {
   buildActiveTools,
   READ_ONLY_TOOLS,
+  GRAPH_TOOLS,
   WRITE_TOOLS,
   MEMORY_TOOLS,
   SERVER_TOOLS,
@@ -87,6 +88,7 @@ describe('buildActiveTools', () => {
     });
     expect(enabled.length).toBe(
       READ_ONLY_TOOLS.length +
+        GRAPH_TOOLS.length +
         WRITE_TOOLS.length +
         MEMORY_TOOLS.length +
         SERVER_TOOLS.length,
@@ -97,7 +99,7 @@ describe('buildActiveTools', () => {
       memoryPath: '',
     });
     expect(disabled.length).toBe(
-      READ_ONLY_TOOLS.length + WRITE_TOOLS.length + SERVER_TOOLS.length,
+      READ_ONLY_TOOLS.length + GRAPH_TOOLS.length + WRITE_TOOLS.length + SERVER_TOOLS.length,
     );
   });
 
