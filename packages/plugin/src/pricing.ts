@@ -125,6 +125,21 @@ export function sumUsage(a: Usage, b: Usage): Usage {
 }
 
 /**
+ * Format running session usage as a compact footer line for the chat pane.
+ * Shown after every turn so users can self-regulate token spend.
+ * Example: "12.4k in · 0.3k out · $0.04"
+ *
+ * Pure function — no view-layer dependencies so it's easy to test.
+ */
+export function formatUsageFooter(total: Usage, model: string): string {
+  const inK = ((total.input_tokens ?? 0) / 1000).toFixed(1);
+  const outK = ((total.output_tokens ?? 0) / 1000).toFixed(1);
+  const cost = estimateTurnCost(total, model);
+  const costPart = cost > 0 ? ` · ${formatCostUSD(cost)}` : '';
+  return `${inK}k in · ${outK}k out${costPart}`;
+}
+
+/**
  * Compose the chat status row text for a finished turn. Folds the
  * cache hit + cost + stop-reason annotations into one line. Pure
  * so it's covered by unit tests without view-layer plumbing.

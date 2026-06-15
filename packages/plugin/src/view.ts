@@ -15,7 +15,7 @@ import { maybeRenderSetupBanner } from './view/setup-banner';
 import { connectSession } from './view/connect-session';
 import { toImageContentBlock } from './image-attach';
 import { saveConversation } from './conversation-store';
-import { estimateTurnCost, formatTurnStatus } from './pricing';
+import { estimateTurnCost, formatTurnStatus, formatUsageFooter } from './pricing';
 import type { ContentBlock } from '@scribian/protocol';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
@@ -29,6 +29,7 @@ export class ScribianView extends ItemView {
   private composer!: Composer;
   private messageList!: MessageList;
   private activeNote: ActiveNoteIndicator | null = null;
+  private usageFooterEl!: HTMLDivElement;
   private readonly approvals = new ApprovalManager({
     onPendingChange: () => this.flushRender(),
     onResolve: (proposal, approved) => {
@@ -118,6 +119,9 @@ export class ScribianView extends ItemView {
         loadStarterChips(this.app, this.plugin.settings.startersPath),
     });
 
+    this.usageFooterEl = root.createDiv({ cls: 'scribian-usage-footer' });
+    this.usageFooterEl.style.display = 'none';
+
     this.composer = new Composer(root, this.app, {
       onSend: () => void this.send(),
       onStop: () => this.session?.cancel(),
@@ -152,6 +156,7 @@ export class ScribianView extends ItemView {
     this.session?.reset();
     this.messageList.tearDown();
     this.dropSessionState();
+    if (this.usageFooterEl) this.usageFooterEl.style.display = 'none';
     this.requestRender();
   }
 
@@ -252,6 +257,10 @@ export class ScribianView extends ItemView {
       }),
       'connected',
     );
+    // Update the live cost footer below the message list.
+    const footerText = formatUsageFooter(total, this.modelSelect.value);
+    this.usageFooterEl.setText(footerText);
+    this.usageFooterEl.style.display = '';
     // Force a final render to lock the finalized message rendering.
     void this.flushRender();
     // Persist the conversation to the configured chats folder. Errors are

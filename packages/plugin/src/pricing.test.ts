@@ -3,6 +3,7 @@ import {
   estimateTurnCost,
   formatCostUSD,
   formatTurnStatus,
+  formatUsageFooter,
   sumUsage,
   MODEL_PRICING,
 } from './pricing';
@@ -132,6 +133,30 @@ describe('MODEL_PRICING table', () => {
     expect(MODEL_PRICING['claude-opus-4-7']).toBeDefined();
     expect(MODEL_PRICING['claude-sonnet-4-6']).toBeDefined();
     expect(MODEL_PRICING['claude-haiku-4-5']).toBeDefined();
+  });
+});
+
+describe('formatUsageFooter', () => {
+  it('formats token counts in k and includes cost for known model', () => {
+    const usage = { input_tokens: 12400, output_tokens: 300 };
+    const out = formatUsageFooter(usage, 'claude-sonnet-4-6');
+    expect(out).toContain('12.4k in');
+    expect(out).toContain('0.3k out');
+    expect(out).toContain('$');
+  });
+
+  it('omits cost part for unknown model', () => {
+    const usage = { input_tokens: 1000, output_tokens: 500 };
+    const out = formatUsageFooter(usage, 'unknown-model');
+    expect(out).toContain('1.0k in');
+    expect(out).toContain('0.5k out');
+    expect(out).not.toContain('$');
+  });
+
+  it('handles zero usage gracefully', () => {
+    const out = formatUsageFooter({ input_tokens: 0, output_tokens: 0 }, 'claude-sonnet-4-6');
+    expect(out).toContain('0.0k in');
+    expect(out).toContain('0.0k out');
   });
 });
 

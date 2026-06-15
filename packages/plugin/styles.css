@@ -955,6 +955,16 @@
   gap: var(--size-2-2);
 }
 
+/* ── Live cost footer (session running token + USD total) ───────── */
+.scribian-usage-footer {
+  font-size: var(--font-ui-smaller);
+  font-family: var(--font-monospace);
+  color: var(--text-faint, var(--text-muted));
+  text-align: right;
+  padding: var(--size-2-1) var(--size-4-2);
+  opacity: 0.75;
+}
+
 /* ── Polish sweep: first-run setup banner ────────────────────────── */
 .scribian-setup-banner {
   display: flex;
