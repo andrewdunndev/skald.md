@@ -568,6 +568,10 @@
   box-shadow: none;
   padding: var(--size-2-1) 0;
   color: var(--text-normal);
+  -webkit-appearance: none;
+  appearance: none;
+  border-radius: 0;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .scribian-input:focus {
