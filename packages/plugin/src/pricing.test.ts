@@ -4,6 +4,7 @@ import {
   formatCostUSD,
   formatTurnStatus,
   formatUsageFooter,
+  formatSessionFooter,
   sumUsage,
   MODEL_PRICING,
 } from './pricing';
@@ -181,6 +182,31 @@ describe('formatUsageFooter', () => {
     const usage = { input_tokens: 1000, output_tokens: 200 };
     const out = formatUsageFooter(usage, 'claude-sonnet-4-6');
     expect(out).not.toContain('cached');
+  });
+});
+
+describe('formatSessionFooter', () => {
+  // 100k in + 100k out on Sonnet = $0.3 + $1.5 = $1.80 chat cost.
+  const usage = { input_tokens: 100_000, output_tokens: 100_000 };
+
+  it('appends the session cumulative when there is prior spend', () => {
+    const out = formatSessionFooter(usage, 'claude-sonnet-4-6', 1.0);
+    // chat $1.80, session = prior $1.00 + $1.80 = $2.80
+    expect(out).toContain('session: $2.80');
+    // The per-chat footer (with cost) is still present.
+    expect(out).toContain('$1.80');
+  });
+
+  it('omits the session figure on the first chat (no prior spend)', () => {
+    const out = formatSessionFooter(usage, 'claude-sonnet-4-6', 0);
+    expect(out).not.toContain('session:');
+    expect(out).toContain('$1.80');
+  });
+
+  it('falls back to the plain footer for an unknown (zero-cost) model', () => {
+    const out = formatSessionFooter(usage, 'unknown-model', 5);
+    expect(out).not.toContain('session:');
+    expect(out).not.toContain('$');
   });
 });
 

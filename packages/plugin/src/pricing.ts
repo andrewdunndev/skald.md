@@ -153,6 +153,33 @@ export function formatUsageFooter(total: Usage, model: string): string {
 }
 
 /**
+ * Footer line carrying BOTH the current chat's running cost and the
+ * app-session cumulative cost (across chats cleared via New Chat).
+ * Example: "this chat: $0.04 · session: $0.21". Compact + muted in
+ * the UI; the session figure exists to reassure cost-anxious users
+ * that the running total is bounded.
+ *
+ * `sessionPriorUSD` is the cost of all PREVIOUS (cleared) chats this
+ * session; `chatUSD` is the current chat's cost. The session figure
+ * is their sum so it updates live as the current chat grows. When the
+ * session total equals the current chat (first chat, nothing cleared
+ * yet), only the chat figure is shown to avoid redundant noise.
+ */
+export function formatSessionFooter(
+  total: Usage,
+  model: string,
+  sessionPriorUSD: number,
+): string {
+  const base = formatUsageFooter(total, model);
+  const chatCost = estimateTurnCost(total, model);
+  if (chatCost <= 0) return base;
+  const sessionCost = sessionPriorUSD + chatCost;
+  // Only surface the session figure once there's prior spend to add.
+  if (sessionPriorUSD <= 0) return base;
+  return `${base} · session: ${formatCostUSD(sessionCost)}`;
+}
+
+/**
  * Compose the chat status row text for a finished turn. Folds the
  * cache hit + cost + stop-reason annotations into one line. Pure
  * so it's covered by unit tests without view-layer plumbing.

@@ -28,6 +28,13 @@ export default class ScribianPlugin extends Plugin {
   private _rawConnectionMode: string = DEFAULT_SETTINGS.connectionMode;
   logger!: Logger;
   private captureService!: CaptureService;
+  /**
+   * Cumulative estimated cost (USD) across every chat in this app
+   * session, including chats cleared via New Chat. In-memory only —
+   * never persisted to disk; resets to 0 on plugin reload. Surfaced
+   * in the cost footer to build user confidence ("session: $0.21").
+   */
+  sessionCostUSD = 0;
 
   override async onload() {
     await this.loadSettings();

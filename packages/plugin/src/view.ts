@@ -15,7 +15,7 @@ import { maybeRenderSetupBanner } from './view/setup-banner';
 import { connectSession } from './view/connect-session';
 import { toImageContentBlock } from './image-attach';
 import { saveConversation } from './conversation-store';
-import { estimateTurnCost, formatTurnStatus, formatUsageFooter } from './pricing';
+import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
 import type { ContentBlock } from '@scribian/protocol';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
@@ -153,6 +153,15 @@ export class ScribianView extends ItemView {
   }
 
   private resetChat(): void {
+    // Roll the cleared chat's cost into the app-session cumulative so
+    // the session figure survives New Chat. In-memory on the plugin;
+    // never persisted, resets on plugin reload.
+    if (this.session) {
+      this.plugin.sessionCostUSD += estimateTurnCost(
+        this.session.getTotalUsage(),
+        this.modelSelect.value,
+      );
+    }
     this.session?.reset();
     this.messageList.tearDown();
     this.dropSessionState();
@@ -257,8 +266,14 @@ export class ScribianView extends ItemView {
       }),
       'connected',
     );
-    // Update the live cost footer below the message list.
-    const footerText = formatUsageFooter(total, this.modelSelect.value);
+    // Update the live cost footer below the message list. Includes the
+    // app-session cumulative (prior cleared chats + this chat) so users
+    // can see the running total isn't unbounded.
+    const footerText = formatSessionFooter(
+      total,
+      this.modelSelect.value,
+      this.plugin.sessionCostUSD,
+    );
     this.usageFooterEl.setText(footerText);
     this.usageFooterEl.style.display = '';
     // Force a final render to lock the finalized message rendering.
