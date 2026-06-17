@@ -9,7 +9,7 @@
  * scan as the default first reach.
  */
 
-import { App, TFile } from 'obsidian';
+import { App, TFile, TFolder } from 'obsidian';
 import type { ToolDefinition } from '@scribian/protocol';
 import type { ToolExecutionResult } from './context';
 import { safePath } from './context';
@@ -20,6 +20,12 @@ import { notesWithTag } from '../view/tag-context';
 // ---------------------------------------------------------------------------
 
 export const GRAPH_TOOLS: ToolDefinition[] = [
+  {
+    name: 'list_folders',
+    description:
+      'List the top-level folders in the vault. Use this when a query mentions a person, project, or topic that may have its own folder (e.g. "Alasdair", "taxes", "work"). Call list_folders first, check for a matching folder, then use list_notes with that folder to narrow cheaply. Much cheaper than substring-searching the whole vault.',
+    input_schema: { type: 'object', properties: {} },
+  },
   {
     name: 'find_by_tag',
     description:
@@ -341,6 +347,26 @@ export async function runSearchInFolder(
   return {
     content: results.length === 0 ? '(no matches)' : results.join('\n'),
   };
+}
+
+export function runListFolders(app: App): ToolExecutionResult {
+  const items = app.vault.getAllLoadedFiles();
+  const folders: string[] = [];
+  for (const item of items) {
+    if (item instanceof TFolder && item.path !== '/') {
+      // Only top-level folders: no slash in path (or a single root slash).
+      if (!item.path.includes('/')) {
+        folders.push(item.path);
+      }
+    }
+  }
+  folders.sort();
+  if (folders.length === 0) {
+    return { content: '(no top-level folders found)' };
+  }
+  const capped = folders.slice(0, 100);
+  const more = folders.length > 100 ? `\n… and ${folders.length - 100} more` : '';
+  return { content: capped.join('\n') + more };
 }
 
 // Re-export for convenience in tests

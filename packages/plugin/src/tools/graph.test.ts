@@ -1,12 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { App } from 'obsidian';
-import { TFile } from '../../../../tests/obsidian-mock';
+import { TFile, TFolder } from '../../../../tests/obsidian-mock';
 import {
   runFindByTag,
   runFindByLink,
   runRecentNotes,
   runOutline,
   runSearchInFolder,
+  runListFolders,
 } from './graph';
 
 // ---------------------------------------------------------------------------
@@ -321,5 +322,59 @@ describe('runSearchInFolder', () => {
       limit: 3,
     });
     expect(result.content.split('\n').length).toBe(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// list_folders
+// ---------------------------------------------------------------------------
+
+function makeAppWithFolders(folders: string[]): App {
+  const tfolders = folders.map((p) => new TFolder(p));
+  return {
+    vault: {
+      getAllLoadedFiles: () => tfolders,
+      getMarkdownFiles: () => [],
+      getAbstractFileByPath: () => null,
+      cachedRead: async () => '',
+    },
+    metadataCache: {
+      getFileCache: () => null,
+      resolvedLinks: {},
+    },
+  } as unknown as App;
+}
+
+describe('runListFolders', () => {
+  it('returns only top-level folders sorted alphabetically', () => {
+    const app = makeAppWithFolders(['work', 'personal', 'work/projects', 'Alasdair']);
+    const result = runListFolders(app);
+    const lines = result.content.split('\n');
+    expect(lines).toContain('Alasdair');
+    expect(lines).toContain('personal');
+    expect(lines).toContain('work');
+    // Subfolder should not appear
+    expect(result.content).not.toContain('work/projects');
+  });
+
+  it('returns no-folder message when vault has no folders', () => {
+    const app = makeAppWithFolders([]);
+    const result = runListFolders(app);
+    expect(result.content).toContain('(no top-level folders found)');
+  });
+
+  it('excludes root ("/") from results', () => {
+    const app = makeAppWithFolders(['/']);
+    const result = runListFolders(app);
+    expect(result.content).toBe('(no top-level folders found)');
+  });
+
+  it('caps output at 100 folders', () => {
+    const folders = Array.from({ length: 105 }, (_, i) => `folder-${i}`);
+    const app = makeAppWithFolders(folders);
+    const result = runListFolders(app);
+    const lines = result.content.split('\n').filter((l) => !l.startsWith('…'));
+    expect(lines.length).toBe(100);
+    expect(result.content).toContain('… and 5 more');
   });
 });

@@ -18,6 +18,7 @@ import {
   runRecentNotes,
   runOutline,
   runSearchInFolder,
+  runListFolders,
 } from './graph';
 import {
   WRITE_TOOLS,
@@ -136,6 +137,8 @@ export async function executeTool(
         return await runCurrentNote(ctx.app);
       case 'metadata':
         return runMetadata(ctx.app, args);
+      case 'list_folders':
+        return runListFolders(ctx.app);
       case 'find_by_tag':
         return runFindByTag(ctx.app, args);
       case 'find_by_link':
