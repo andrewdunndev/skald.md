@@ -55,9 +55,21 @@ const BASE_SETTINGS = {
 } as unknown as import('../settings').ScribianSettings;
 
 describe('loadSystemPrompt snapshot', () => {
-  it('baseline only (no persona, no memory, no harness)', async () => {
+  it('baseline only — direct mode (no persona, no memory, no harness)', async () => {
     const app = mockApp({});
-    const out = await loadSystemPrompt(app, BASE_SETTINGS);
+    const out = await loadSystemPrompt(app, {
+      ...BASE_SETTINGS,
+      connectionMode: 'direct',
+    } as unknown as import('../settings').ScribianSettings);
+    expect(out).toMatchSnapshot();
+  });
+
+  it('baseline only — worker mode (find_related guidance present)', async () => {
+    const app = mockApp({});
+    const out = await loadSystemPrompt(app, {
+      ...BASE_SETTINGS,
+      connectionMode: 'worker',
+    } as unknown as import('../settings').ScribianSettings);
     expect(out).toMatchSnapshot();
   });
 

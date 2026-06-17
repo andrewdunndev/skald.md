@@ -19,6 +19,7 @@ import { TFile, TFolder, normalizePath, type App } from 'obsidian';
 import { buildMemorySection } from '../memory-prompt';
 import { buildPersonaSection } from '../persona-prompt';
 import { buildScribianBaseline } from './scribian-baseline';
+import { modeCapabilities } from '../mode-capabilities';
 import type { ScribianSettings } from '../settings';
 
 export async function loadSystemPrompt(
@@ -27,8 +28,13 @@ export async function loadSystemPrompt(
 ): Promise<string | undefined> {
   const parts: string[] = [];
 
+  const caps = modeCapabilities(settings.connectionMode ?? 'direct');
+
   parts.push(
-    buildScribianBaseline({ memoryPath: settings.memoryPath }),
+    buildScribianBaseline({
+      memoryPath: settings.memoryPath,
+      semanticSearch: caps.semanticSearch,
+    }),
   );
 
   const personaSection = await buildPersonaSection(app, {
