@@ -282,3 +282,111 @@ export function newConversationMeta(model: string): ConversationMeta {
     updated: now,
   };
 }
+
+/**
+ * Parse a saved conversation markdown file back into structured data.
+ * Inverse of renderConversationMarkdown. Tolerant of missing fields
+ * and user edits — returns null rather than throwing.
+ */
+export function parseConversationMarkdown(
+  content: string,
+): { meta: Partial<ConversationMeta>; messages: Message[] } | null {
+  try {
+    // Extract frontmatter between the leading --- delimiters.
+    const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n?/);
+    if (!fmMatch) return null;
+    const fm = fmMatch[1];
+
+    const id = fmValue(fm, 'scribian-conversation-id');
+    if (!id) return null; // no id = not a scribian conversation
+
+    const model = fmValue(fm, 'scribian-model') ?? undefined;
+    const created = fmValue(fm, 'created') ?? undefined;
+    const updated = fmValue(fm, 'updated') ?? undefined;
+
+    const inputTokens = fmInt(fm, 'input_tokens');
+    const outputTokens = fmInt(fm, 'output_tokens');
+    const cacheRead = fmInt(fm, 'cache_read_input_tokens');
+    const cacheWrite = fmInt(fm, 'cache_creation_input_tokens');
+    const costUSD = fmFloat(fm, 'estimated_cost_usd');
+
+    const usage: Usage | undefined =
+      inputTokens !== undefined || outputTokens !== undefined
+        ? {
+            input_tokens: inputTokens ?? 0,
+            output_tokens: outputTokens ?? 0,
+            ...(cacheRead ? { cache_read_input_tokens: cacheRead } : {}),
+            ...(cacheWrite
+              ? { cache_creation_input_tokens: cacheWrite }
+              : {}),
+          }
+        : undefined;
+
+    const meta: Partial<ConversationMeta> = { id };
+    if (model) meta.model = model;
+    if (created) meta.created = created;
+    if (updated) meta.updated = updated;
+    if (usage) meta.usage = usage;
+    if (costUSD !== undefined && costUSD > 0) meta.costUSD = costUSD;
+
+    // Strip frontmatter to get the body.
+    const body = content.slice(fmMatch[0].length);
+
+    // Split on ## You / ## Claude headings.
+    const sectionRe = /^## (You|Claude)\s*$/m;
+    const parts = body.split(sectionRe);
+    // parts[0] = pre-first-heading text (ignored)
+    // parts[1,3,5,...] = role strings ('You' / 'Claude')
+    // parts[2,4,6,...] = section bodies
+
+    const messages: Message[] = [];
+    for (let i = 1; i + 1 < parts.length; i += 2) {
+      const roleLabel = parts[i].trim();
+      const sectionText = parts[i + 1];
+      const role: 'user' | 'assistant' =
+        roleLabel === 'You' ? 'user' : 'assistant';
+      const cleaned = stripDisplayArtifacts(sectionText);
+      if (!cleaned) continue; // drop empty sections
+      messages.push({ role, content: cleaned });
+    }
+
+    if (messages.length === 0) return null;
+    return { meta, messages };
+  } catch {
+    return null;
+  }
+}
+
+/** Strip display-only blockquote artifacts from a section body. */
+function stripDisplayArtifacts(text: string): string {
+  // Drop any line that is a scribian-emitted blockquote decoration.
+  const ARTIFACT = /^> (📎 \[\[|🖼 |🔧 |🌐 |⚠️ tool error|✓ tool result)/;
+  return text
+    .split('\n')
+    .filter((l) => !ARTIFACT.test(l))
+    .join('\n')
+    .trim();
+}
+
+function fmValue(fm: string, key: string): string | null {
+  const m = fm.match(new RegExp(`^${escapeRe(key)}:\\s*(.+)$`, 'm'));
+  return m ? m[1].trim() : null;
+}
+
+function fmInt(fm: string, key: string): number | undefined {
+  const v = fmValue(fm, key);
+  if (v === null) return undefined;
+  const n = parseInt(v, 10);
+  return isNaN(n) ? undefined : n;
+}
+
+function fmFloat(fm: string, key: string): number | undefined {
+  const v = fmValue(fm, key);
+  if (v === null) return undefined;
+  const n = parseFloat(v);
+  return isNaN(n) ? undefined : n;
+}
+
+function escapeRe(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}

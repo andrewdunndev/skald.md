@@ -1,19 +1,12 @@
 /**
- * Tests for the saved-conversation markdown rendering. The render
- * is also the de facto wire format users see in their vault — so
- * we lock down the shape with concrete I/O assertions, plus a
- * snapshot of the full render for a representative conversation.
- *
- * No inverse-parser exists yet (conversations are render-only
- * from the plugin side); when one ships, this file gets a
- * proper round-trip test. For now we test render correctness +
- * frontmatter shape.
+ * Tests for the saved-conversation markdown rendering and parsing.
  */
 
 import { describe, expect, it } from 'vitest';
 import type { Message } from '@scribian/protocol';
 import {
   renderConversationMarkdown,
+  parseConversationMarkdown,
   type ConversationMeta,
 } from './conversation-store';
 
@@ -230,5 +223,116 @@ describe('renderConversationMarkdown', () => {
       ],
     );
     expect(out).toMatchSnapshot();
+  });
+});
+
+describe('parseConversationMarkdown', () => {
+  it('returns null for content with no frontmatter', () => {
+    expect(parseConversationMarkdown('## You\n\nhello\n')).toBeNull();
+  });
+
+  it('returns null for content without a scribian-conversation-id', () => {
+    const content = '---\ntitle: something\n---\n\n## You\n\nhello\n';
+    expect(parseConversationMarkdown(content)).toBeNull();
+  });
+
+  it('returns null for empty or garbage input', () => {
+    expect(parseConversationMarkdown('')).toBeNull();
+    expect(parseConversationMarkdown('not markdown at all')).toBeNull();
+  });
+
+  it('returns null when there are no parseable messages', () => {
+    const content = `---\nscribian-conversation-id: abc\n---\n\n`;
+    expect(parseConversationMarkdown(content)).toBeNull();
+  });
+
+  it('round-trips a basic user→assistant exchange', () => {
+    const messages: Message[] = [
+      { role: 'user', content: 'What is 2+2?' },
+      { role: 'assistant', content: [{ type: 'text', text: 'Four.' } as any] },
+    ];
+    const rendered = renderConversationMarkdown(META, messages);
+    const parsed = parseConversationMarkdown(rendered);
+    expect(parsed).not.toBeNull();
+    expect(parsed!.meta.id).toBe(META.id);
+    expect(parsed!.meta.model).toBe(META.model);
+    expect(parsed!.messages).toHaveLength(2);
+    expect(parsed!.messages[0].role).toBe('user');
+    expect(parsed!.messages[0].content).toContain('What is 2+2?');
+    expect(parsed!.messages[1].role).toBe('assistant');
+    expect(parsed!.messages[1].content).toContain('Four.');
+  });
+
+  it('round-trips usage and cost from frontmatter', () => {
+    const meta: ConversationMeta = {
+      ...META,
+      usage: { input_tokens: 100, output_tokens: 200, cache_read_input_tokens: 50 },
+      costUSD: 0.0024,
+    };
+    const rendered = renderConversationMarkdown(meta, [
+      { role: 'user', content: 'hi' },
+    ]);
+    const parsed = parseConversationMarkdown(rendered);
+    expect(parsed!.meta.usage?.input_tokens).toBe(100);
+    expect(parsed!.meta.usage?.output_tokens).toBe(200);
+    expect(parsed!.meta.usage?.cache_read_input_tokens).toBe(50);
+    expect(parsed!.meta.costUSD).toBeCloseTo(0.0024, 6);
+  });
+
+  it('strips tool one-liners from recovered assistant text', () => {
+    const messages: Message[] = [
+      { role: 'user', content: 'Look up bailey' },
+      {
+        role: 'assistant',
+        content: [
+          { type: 'text', text: 'Let me check.' } as any,
+          { type: 'tool_use', id: 't1', name: 'read_note', input: { path: 'Bailey.md' } } as any,
+          { type: 'tool_result', tool_use_id: 't1', content: 'She is a dog.' } as any,
+          { type: 'text', text: 'Done.' } as any,
+        ],
+      },
+    ];
+    const rendered = renderConversationMarkdown(META, messages);
+    const parsed = parseConversationMarkdown(rendered);
+    expect(parsed).not.toBeNull();
+    const assistantContent = parsed!.messages[1].content as string;
+    expect(assistantContent).toContain('Let me check.');
+    expect(assistantContent).toContain('Done.');
+    expect(assistantContent).not.toContain('🔧');
+    expect(assistantContent).not.toContain('tool result');
+  });
+
+  it('strips attachment footers from recovered user text', () => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: '<context>\n  <file path="Notes/A.md">body</file>\n</context>\n\nWhat do you think?',
+      },
+    ];
+    const rendered = renderConversationMarkdown(META, messages);
+    const parsed = parseConversationMarkdown(rendered);
+    expect(parsed).not.toBeNull();
+    const userContent = parsed!.messages[0].content as string;
+    expect(userContent).toContain('What do you think?');
+    expect(userContent).not.toContain('📎');
+    expect(userContent).not.toContain('[[Notes/A.md]]');
+  });
+
+  it('strips image placeholders from recovered content', () => {
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [
+          { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: 'AA' } } as any,
+          { type: 'text', text: 'What is this?' } as any,
+        ],
+      },
+    ];
+    const rendered = renderConversationMarkdown(META, messages);
+    const parsed = parseConversationMarkdown(rendered);
+    expect(parsed).not.toBeNull();
+    const userContent = parsed!.messages[0].content as string;
+    expect(userContent).toContain('What is this?');
+    expect(userContent).not.toContain('🖼');
   });
 });
