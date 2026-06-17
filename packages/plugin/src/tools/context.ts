@@ -1,4 +1,5 @@
 import { App, normalizePath } from 'obsidian';
+import type { Provider } from '@scribian/protocol';
 import type { MemoryClientConfig } from '../memory-client';
 import type { ConnectionMode } from '../settings';
 
@@ -55,6 +56,14 @@ export interface ToolContext {
    * Absent → ancillary features that require it soft-fail gracefully.
    */
   anthropicApiKey?: string;
+  /**
+   * The active chat provider. The Haiku reranker calls Anthropic
+   * directly, so it must only fire when the user's active provider IS
+   * Anthropic — an OpenRouter user shouldn't silently hit a second
+   * provider (one-trust-boundary principle). Absent → treated as
+   * 'anthropic' for backward compatibility.
+   */
+  provider?: Provider;
 }
 
 /**

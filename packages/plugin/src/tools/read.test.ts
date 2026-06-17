@@ -347,4 +347,27 @@ describe('runSearchVault — rerank integration', () => {
 
     spy.mockRestore();
   });
+
+  it('does NOT call rerank when the active provider is openrouter', async () => {
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 8; i++) {
+      files[`note-${i}.md`] = 'needle in here';
+    }
+    const app = makeApp(files);
+
+    const spy = vi.spyOn(rerank, 'rerankCandidates');
+
+    // Even with >5 results and a key present, an OpenRouter user must
+    // not silently hit Anthropic for the rerank.
+    const result = await runSearchVault(
+      app,
+      { query: 'needle', limit: 8 },
+      'sk-ant-test',
+      'openrouter',
+    );
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.content).not.toContain('(reranked by haiku)');
+
+    spy.mockRestore();
+  });
 });

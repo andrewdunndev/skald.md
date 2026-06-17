@@ -186,19 +186,13 @@ describe('DirectTransport: HTTP error mapping', () => {
 
   it('emits error frame for HTTP 401', async () => {
     fetchMock.mockResolvedValue(errResponse(401, '{"type":"error","error":{"type":"authentication_error"}}'));
-
     const { transport, handlers } = makeTransport();
     transport.connect();
     transport.send({
       type: 'chat',
-      id: 'turn1',
-      payload: {
-        model: 'claude-sonnet-4-6',
-        messages: [{ role: 'user', content: 'hi' }],
-        max_tokens: 100,
-      },
+      id: 't',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
     });
-
     await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
     const err = handlers.messages.find((m) => m.type === 'error');
     expect(err?.type).toBe('error');
@@ -208,25 +202,44 @@ describe('DirectTransport: HTTP error mapping', () => {
     }
   });
 
-  it('marks 429 / 5xx as retryable', async () => {
-    fetchMock.mockResolvedValue(errResponse(429, 'rate limited'));
-
+  it('emits a friendly, retryable 429 message with retry-after, no raw JSON', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('{"type":"error","error":{"type":"rate_limit_error"}}', {
+        status: 429,
+        headers: { 'retry-after': '12' },
+      }),
+    );
     const { transport, handlers } = makeTransport();
     transport.connect();
     transport.send({
       type: 'chat',
-      id: 'turn1',
-      payload: {
-        model: 'claude-sonnet-4-6',
-        messages: [{ role: 'user', content: 'hi' }],
-        max_tokens: 100,
-      },
+      id: 't',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
     });
-
     await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
     const err = handlers.messages.find((m) => m.type === 'error');
     if (err?.type === 'error') {
       expect(err.retryable).toBe(true);
+      expect(err.error).toContain('Rate limit reached');
+      expect(err.error).toContain('retry in 12s');
+      expect(err.error).not.toContain('rate_limit_error'); // no raw JSON
+    }
+  });
+  it('marks 5xx retryable with a clean message (no raw body dump)', async () => {
+    fetchMock.mockResolvedValue(errResponse(503, 'big wall of upstream html'));
+    const { transport, handlers } = makeTransport();
+    transport.connect();
+    transport.send({
+      type: 'chat',
+      id: 't',
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
+    });
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
+    const err = handlers.messages.find((m) => m.type === 'error');
+    if (err?.type === 'error') {
+      expect(err.retryable).toBe(true);
+      expect(err.error).toContain('503');
+      expect(err.error).not.toContain('big wall');
     }
   });
 

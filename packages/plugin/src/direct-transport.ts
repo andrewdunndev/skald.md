@@ -168,12 +168,26 @@ export class DirectTransport implements ScribianTransport {
 
     if (!resp.ok) {
       this.activeChats.delete(id);
-      const text = await resp.text().catch(() => '');
+      if (resp.status === 429) {
+        const retryAfter = resp.headers.get('retry-after');
+        const retryHint = retryAfter
+          ? ` (retry in ${retryAfter}s)`
+          : '';
+        this.handlers.onMessage({
+          type: 'error',
+          id,
+          error: `Rate limit reached — wait a moment and resend.${retryHint}`,
+          retryable: true,
+        });
+        return;
+      }
+      // Other non-ok statuses: a short message + status is enough —
+      // don't dump a wall of raw provider JSON at the user.
       this.handlers.onMessage({
         type: 'error',
         id,
-        error: `upstream ${resp.status} (${provider}): ${text.slice(0, 500)}`,
-        retryable: resp.status >= 500 || resp.status === 429,
+        error: `Request failed — ${provider} returned ${resp.status}. Try again or check your settings.`,
+        retryable: resp.status >= 500,
       });
       return;
     }

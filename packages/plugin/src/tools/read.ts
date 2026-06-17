@@ -207,6 +207,7 @@ export async function runSearchVault(
   app: App,
   args: Record<string, unknown>,
   anthropicApiKey?: string,
+  provider?: import('@scribian/protocol').Provider,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
   if (!rawQuery) {
@@ -215,6 +216,13 @@ export async function runSearchVault(
   const requestedLimit =
     typeof args.limit === 'number' ? Math.floor(args.limit) : 8;
   const limit = Math.min(Math.max(requestedLimit, 1), 50);
+
+  // The Haiku reranker calls Anthropic directly. Only invoke it when
+  // the active provider IS Anthropic — an OpenRouter user shouldn't
+  // silently hit a second provider. Absent provider defaults to
+  // 'anthropic' (back-compat). The rerank also needs a key.
+  const canRerank =
+    (provider ?? 'anthropic') === 'anthropic' && !!anthropicApiKey;
 
   // ---------------------------------------------------------------------------
   // Omnisearch fast path — BM25-ranked results when the plugin is present.
@@ -238,8 +246,8 @@ export async function runSearchVault(
           (r) => `${r.path}: …${r.excerpt.replace(/\s+/g, ' ').trim()}…`,
         );
         let header = '(via omnisearch: ranked)';
-        if (lines.length > 5 && anthropicApiKey) {
-          const reranked = await rerankCandidates(rawQuery, lines, anthropicApiKey);
+        if (lines.length > 5 && canRerank) {
+          const reranked = await rerankCandidates(rawQuery, lines, anthropicApiKey!);
           lines = reranked;
           header = '(reranked by haiku)';
         }
@@ -283,8 +291,8 @@ export async function runSearchVault(
 
   let finalResults = results;
   let scanHeader = '';
-  if (results.length > 5 && anthropicApiKey) {
-    finalResults = await rerankCandidates(rawQuery, results, anthropicApiKey);
+  if (results.length > 5 && canRerank) {
+    finalResults = await rerankCandidates(rawQuery, results, anthropicApiKey!);
     scanHeader = '(reranked by haiku)\n';
   }
 

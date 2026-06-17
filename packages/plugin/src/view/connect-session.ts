@@ -141,6 +141,7 @@ export function connectSession(
         memoryPath: plugin.settings.memoryPath,
         connectionMode: mode,
         anthropicApiKey: plugin.settings.anthropicApiKey || undefined,
+        provider: plugin.settings.provider ?? 'anthropic',
       }),
     {
       onUpdate: () => cbs.requestRender(),
