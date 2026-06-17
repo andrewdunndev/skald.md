@@ -486,6 +486,49 @@ next chat turn (or immediately for the UI ones like provider).
 
 ---
 
+## 14. Prompt caching and reranking (direct mode)
+
+### Smoke test: Alasdair folder-first routing
+
+- [ ] **list_folders fires on named-person query**
+  - Precondition: vault has a top-level folder named `Alasdair` (or
+    any recognizable person name) with at least two notes inside.
+  - Trigger: Ask "What did Alasdair say about the project last month?"
+    in direct mode.
+  - Verify: Claude calls `list_folders` in the tool log before calling
+    `list_notes` or `search_vault`. The response draws on notes from
+    the `Alasdair/` folder without a full-vault scan.
+
+- [ ] **search_vault rerank fires on noisy results**
+  - Precondition: vault has >5 notes containing a common word
+    (e.g. "meeting"). Anthropic API key configured.
+  - Trigger: Ask "What meetings have I had about the budget?"
+  - Verify: Tool log shows `search_vault` result prefixed with
+    `(reranked by haiku)`. Response references the most relevant
+    notes first.
+
+### Cost and caching
+
+Prompt caching (Anthropic direct mode) adds an `anthropic-beta:
+prompt-caching-2024-07-31` header and wraps the system block as a
+cached text array with the last tool receiving `cache_control:
+ephemeral`. On the second and subsequent turns in a session the system
+prompt and tool definitions are served from the cache: the usage footer
+will show `Xk+Yk(cached) in` where `Y` is the cache-read token count.
+
+Cache-read tokens on Sonnet 4.6 are billed at $0.30/M (10% of the
+$3/M input rate), so a 4 k-token system prompt that hits the cache
+on every turn costs ~$0.0012 instead of ~$0.012 per turn — roughly
+90% savings on the static context portion.
+
+Haiku reranking adds a small ancillary cost: a typical rerank call
+(20 candidates, 200-token output) uses ~500 input + 200 output tokens
+on Haiku 4.5, totalling ~$0.0006 per search_vault call. This is
+generally offset by the reduced output length when Claude works from a
+tighter, more relevant candidate set.
+
+---
+
 ## What's deliberately NOT in scope to test
 
 These are documented limitations, not bugs:
