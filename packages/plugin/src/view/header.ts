@@ -5,6 +5,8 @@ import type { ScribianSettings } from '../settings';
 export interface HeaderHooks {
   onModelChange: (newModel: string) => void | Promise<void>;
   onNewChat: () => void;
+  /** Called when the user clicks the history button. */
+  onHistory?: () => void;
 }
 
 export interface HeaderRefs {
@@ -61,6 +63,16 @@ export function renderHeader(
       value: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
     });
     opt.selected = true;
+  }
+
+  if (hooks.onHistory) {
+    const historyBtn = header.createEl('button', {
+      cls: 'clickable-icon scribian-icon-btn',
+      attr: { 'aria-label': 'Chat history' },
+    });
+    setIcon(historyBtn, 'history');
+    setTooltip(historyBtn, 'Chat history');
+    historyBtn.addEventListener('click', () => hooks.onHistory?.());
   }
 
   const newChatBtn = header.createEl('button', {

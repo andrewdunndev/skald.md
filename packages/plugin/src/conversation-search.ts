@@ -42,16 +42,25 @@ interface IndexedConversation {
   body: string;
 }
 
+export interface ConversationSearchOptions {
+  /** When provided, selecting a conversation resumes it in the chat
+   * pane instead of opening it as a read-only note. */
+  onResume?: (file: TFile) => void;
+}
+
 export class ConversationSearchModal extends SuggestModal<ConversationHit> {
   private cache: IndexedConversation[] | null = null;
   private readonly folder: string;
+  private readonly onResume: ((file: TFile) => void) | undefined;
 
-  constructor(app: App, folder: string) {
+  constructor(app: App, folder: string, opts: ConversationSearchOptions = {}) {
     super(app);
     this.folder = folder;
+    this.onResume = opts.onResume;
+    const action = opts.onResume ? 'resume conversation' : 'open conversation';
     this.setPlaceholder('Search saved conversations…');
     this.setInstructions([
-      { command: 'Enter', purpose: 'open conversation' },
+      { command: 'Enter', purpose: action },
       { command: 'Esc', purpose: 'close' },
     ]);
   }
@@ -120,7 +129,11 @@ export class ConversationSearchModal extends SuggestModal<ConversationHit> {
   }
 
   override onChooseSuggestion(hit: ConversationHit): void {
-    void this.app.workspace.openLinkText(hit.file.path, '', false);
+    if (this.onResume) {
+      this.onResume(hit.file);
+    } else {
+      void this.app.workspace.openLinkText(hit.file.path, '', false);
+    }
   }
 
   private async ensureIndex(): Promise<IndexedConversation[]> {

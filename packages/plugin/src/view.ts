@@ -13,9 +13,11 @@ import { readsBeforeToolUse } from './view/inflight-reads';
 import { MessageList } from './view/message-list';
 import { maybeRenderSetupBanner } from './view/setup-banner';
 import { connectSession } from './view/connect-session';
+import { resumeConversation } from './view/resume-conversation';
 import { toImageContentBlock } from './image-attach';
 import { saveConversation } from './conversation-store';
 import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
+import { ConversationSearchModal } from './conversation-search';
 import type { ContentBlock } from '@scribian/protocol';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
@@ -70,6 +72,7 @@ export class ScribianView extends ItemView {
         await this.plugin.saveSettings();
       },
       onNewChat: () => this.resetChat(),
+      onHistory: () => this.openHistoryModal(),
     });
     this.modelSelect = refs.modelSelect;
 
@@ -176,6 +179,26 @@ export class ScribianView extends ItemView {
     this.messageList.tearDown();
     this.dropSessionState();
     this.connect();
+  }
+
+  private openHistoryModal(): void {
+    const folder = this.plugin.settings.chatsFolder?.trim() ?? '';
+    new ConversationSearchModal(this.app, folder, {
+      onResume: (file) =>
+        void resumeConversation(file, {
+          app: this.app,
+          session: this.session,
+          connect: () => this.connect(),
+          messageList: this.messageList,
+          dropSessionState: () => this.dropSessionState(),
+          getModelValue: () => this.modelSelect.value,
+          getTransport: () => this.transport,
+          setTransport: () => { this.transport = null; },
+          setSession: () => { this.session = null; },
+          usageFooterEl: this.usageFooterEl,
+          onPreClear: (cost) => { this.plugin.sessionCostUSD += cost; },
+        }),
+    }).open();
   }
 
   private connect(): void {
