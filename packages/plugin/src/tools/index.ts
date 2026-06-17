@@ -131,7 +131,7 @@ export async function executeTool(
       case 'list_notes':
         return runListNotes(ctx.app, args);
       case 'search_vault':
-        return await runSearchVault(ctx.app, args);
+        return await runSearchVault(ctx.app, args, ctx.anthropicApiKey);
       case 'current_note':
         return await runCurrentNote(ctx.app);
       case 'metadata':

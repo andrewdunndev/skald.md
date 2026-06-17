@@ -1,6 +1,7 @@
 import { App, TFile } from 'obsidian';
 import type { ToolDefinition } from '@scribian/protocol';
 import { safePath, type ToolExecutionResult } from './context';
+import { rerankCandidates } from './rerank';
 
 // ---------------------------------------------------------------------------
 // Omnisearch interop — narrow types; no external @omnisearch package needed.
@@ -205,6 +206,7 @@ export function runListNotes(
 export async function runSearchVault(
   app: App,
   args: Record<string, unknown>,
+  anthropicApiKey?: string,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
   if (!rawQuery) {
@@ -232,10 +234,16 @@ export async function runSearchVault(
       const hits = await omnisearchApi.search(rawQuery);
       const top = hits.slice(0, limit);
       if (top.length > 0) {
-        const lines = top.map(
+        let lines = top.map(
           (r) => `${r.path}: …${r.excerpt.replace(/\s+/g, ' ').trim()}…`,
         );
-        const raw = `(via omnisearch: ranked)\n${lines.join('\n')}`;
+        let header = '(via omnisearch: ranked)';
+        if (lines.length > 5 && anthropicApiKey) {
+          const reranked = await rerankCandidates(rawQuery, lines, anthropicApiKey);
+          lines = reranked;
+          header = '(reranked by haiku)';
+        }
+        const raw = `${header}\n${lines.join('\n')}`;
         return {
           content: capResult(
             raw,
@@ -269,7 +277,18 @@ export async function runSearchVault(
     results.push(`${file.path}: …${snippet}…`);
   }
 
-  const raw = results.length === 0 ? '(no matches)' : results.join('\n');
+  if (results.length === 0) {
+    return { content: '(no matches)' };
+  }
+
+  let finalResults = results;
+  let scanHeader = '';
+  if (results.length > 5 && anthropicApiKey) {
+    finalResults = await rerankCandidates(rawQuery, results, anthropicApiKey);
+    scanHeader = '(reranked by haiku)\n';
+  }
+
+  const raw = scanHeader + finalResults.join('\n');
   return {
     content: capResult(raw, MAX_TOOL_RESULT_BYTES, 'call with limit:N or use search_in_folder to drill down'),
   };

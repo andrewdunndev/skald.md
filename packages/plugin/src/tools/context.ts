@@ -50,6 +50,11 @@ export interface ToolContext {
    * 'worker' for backward compatibility.
    */
   connectionMode?: ConnectionMode;
+  /**
+   * Anthropic API key for ancillary in-plugin calls (e.g. rerank).
+   * Absent → ancillary features that require it soft-fail gracefully.
+   */
+  anthropicApiKey?: string;
 }
 
 /**

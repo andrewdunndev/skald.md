@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
 import { TFile } from '../../../../tests/obsidian-mock';
 import {
@@ -9,6 +9,7 @@ import {
   runListNotes,
   runSearchVault,
 } from './read';
+import * as rerank from './rerank';
 
 // ---------------------------------------------------------------------------
 // capResult
@@ -296,5 +297,54 @@ describe('runSearchVault — Omnisearch', () => {
     } finally {
       (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// runSearchVault — rerank integration
+// ---------------------------------------------------------------------------
+
+describe('runSearchVault — rerank integration', () => {
+  it('calls rerankCandidates and prepends "(reranked by haiku)" when >5 substring results', async () => {
+    // Build 8 files all containing the needle
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 8; i++) {
+      files[`note-${i}.md`] = 'needle in here';
+    }
+    const app = makeApp(files);
+
+    // Stub rerankCandidates to return a known reordering
+    const spy = vi.spyOn(rerank, 'rerankCandidates').mockResolvedValue([
+      'note-7.md: …needle in here…',
+      'note-6.md: …needle in here…',
+      'note-5.md: …needle in here…',
+      'note-4.md: …needle in here…',
+      'note-3.md: …needle in here…',
+    ]);
+
+    try {
+      const result = await runSearchVault(app, { query: 'needle', limit: 8 }, 'sk-ant-test');
+      expect(spy).toHaveBeenCalled();
+      expect(result.content).toContain('(reranked by haiku)');
+      expect(result.content).toContain('note-7.md');
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it('does NOT call rerank when results <= 5', async () => {
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 3; i++) {
+      files[`note-${i}.md`] = 'needle content';
+    }
+    const app = makeApp(files);
+
+    const spy = vi.spyOn(rerank, 'rerankCandidates');
+
+    const result = await runSearchVault(app, { query: 'needle' }, 'sk-ant-test');
+    expect(spy).not.toHaveBeenCalled();
+    expect(result.content).not.toContain('(reranked by haiku)');
+
+    spy.mockRestore();
   });
 });

@@ -20,6 +20,7 @@
 import type { ClientMessage, Provider, ServerMessage, Usage } from '@scribian/protocol';
 import type { ScribianTransport, TransportHandlers } from './transport-interface';
 import { SSEParser } from './sse-parser';
+import { applyAnthropicCaching } from './anthropic-caching';
 
 // ── Anthropic ─────────────────────────────────────────────────────────────
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -303,40 +304,6 @@ function buildDispatch(
   };
 }
 
-/**
- * Applies prompt-caching cache_control breakpoints for Anthropic:
- *   - system is restructured as a text-block array with ephemeral cache_control
- *   - the last tool in the tools array gets ephemeral cache_control
- *
- * Only called on the Anthropic path — OpenRouter does not support these
- * breakpoints and must receive the original request shape.
- */
-function applyAnthropicCaching(
-  req: import('@scribian/protocol').ChatRequest,
-): import('@scribian/protocol').ChatRequest {
-  const out: import('@scribian/protocol').ChatRequest = { ...req };
-
-  // Wrap plain string system as a cached text block.
-  if (typeof out.system === 'string' && out.system.length > 0) {
-    out.system = [
-      { type: 'text', text: out.system, cache_control: { type: 'ephemeral' } },
-    ];
-  }
-
-  // Cache breakpoint on the last tool so Anthropic caches the tool
-  // definitions block across turns.
-  if (Array.isArray(out.tools) && out.tools.length > 0) {
-    const tools = [...out.tools];
-    const last = tools[tools.length - 1];
-    tools[tools.length - 1] = {
-      ...(last as Record<string, unknown>),
-      cache_control: { type: 'ephemeral' },
-    };
-    out.tools = tools;
-  }
-
-  return out;
-}
 
 function identityEvent(
   event: string,
