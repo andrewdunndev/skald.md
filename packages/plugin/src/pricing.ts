@@ -180,13 +180,16 @@ export function formatSessionFooter(
 }
 
 /**
- * Compose the chat status row text for a finished turn. Folds the
- * cache hit + cost + stop-reason annotations into one line. Pure
- * so it's covered by unit tests without view-layer plumbing.
+ * Compose the chat status row text for a finished turn. Shows
+ * connection status, model route, raw token counts, and cache hit —
+ * but NOT dollar amounts (those live exclusively in the usage footer
+ * so cost appears in exactly one place).
  */
 export function formatTurnStatus(input: {
   usage: Usage;
-  total: Usage;
+  /** @deprecated — kept for call-site compatibility; cost is now
+   * shown only in the usage footer, not the status line. */
+  total?: Usage;
   model: string;
   provider?: string;
   stopReason: string;
@@ -197,11 +200,5 @@ export function formatTurnStatus(input: {
   const stop =
     input.stopReason !== 'end_turn' ? ` · ${input.stopReason}` : '';
   const via = input.provider === 'openrouter' ? ' · openrouter' : '';
-  const turnCost = estimateTurnCost(input.usage, input.model);
-  const totalCost = estimateTurnCost(input.total, input.model);
-  const costPart =
-    turnCost > 0
-      ? ` · ${formatCostUSD(turnCost)} (total ${formatCostUSD(totalCost)})`
-      : '';
-  return `Connected · last turn${via}: ${input.usage.input_tokens ?? 0} in / ${input.usage.output_tokens ?? 0} out${cache}${costPart}${stop}`;
+  return `Connected · last turn${via}: ${input.usage.input_tokens ?? 0} in / ${input.usage.output_tokens ?? 0} out${cache}${stop}`;
 }
