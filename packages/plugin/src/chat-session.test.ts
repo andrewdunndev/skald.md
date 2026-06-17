@@ -296,3 +296,62 @@ describe('ChatSession.cancel', () => {
     expect(tx.sent).toHaveLength(0);
   });
 });
+
+describe('ChatSession.hydrate', () => {
+  it('seeds messages and conversationId from prior conversation', () => {
+    const { session } = makeHarness();
+    const prior = [
+      { role: 'user' as const, content: 'hello from the past' },
+      { role: 'assistant' as const, content: 'hi there' },
+    ];
+    session.hydrate({ conversationId: 'conv-123', messages: prior });
+    expect(session.conversationId).toBe('conv-123');
+    expect(session.getMessages()).toEqual(prior);
+  });
+
+  it('restores cumulative usage so the cost footer continues', () => {
+    const { session } = makeHarness();
+    session.hydrate({
+      conversationId: 'conv-abc',
+      messages: [{ role: 'user', content: 'x' }],
+      usage: { input_tokens: 500, output_tokens: 1500, cache_read_input_tokens: 100 },
+    });
+    const u = session.getTotalUsage();
+    expect(u.input_tokens).toBe(500);
+    expect(u.output_tokens).toBe(1500);
+    expect(u.cache_read_input_tokens).toBe(100);
+  });
+
+  it('zeroes usage when none is provided', () => {
+    const { session } = makeHarness();
+    session.hydrate({ conversationId: 'x', messages: [{ role: 'user', content: 'y' }] });
+    expect(session.getTotalUsage()).toEqual({ input_tokens: 0, output_tokens: 0 });
+  });
+
+  it('is ignored when a turn is in flight', async () => {
+    const { session } = makeHarness();
+    await session.sendUserText('in-flight message');
+    expect(session.isInFlight()).toBe(true);
+    const idBefore = session.conversationId;
+    session.hydrate({ conversationId: 'should-not-apply', messages: [] });
+    expect(session.conversationId).toBe(idBefore);
+  });
+
+  it('seeded messages appear in the next dispatch payload', async () => {
+    const { tx, session } = makeHarness();
+    session.hydrate({
+      conversationId: 'conv-xyz',
+      messages: [
+        { role: 'user', content: 'old question' },
+        { role: 'assistant', content: 'old answer' },
+      ],
+    });
+    await session.sendUserText('new question');
+    const payload = lastPayload(tx);
+    // windowHistory may trim but the new message must be last
+    const msgs = payload.messages;
+    expect(msgs[msgs.length - 1]).toEqual({ role: 'user', content: 'new question' });
+    // Prior history included
+    expect(msgs.some((m) => m.content === 'old question')).toBe(true);
+  });
+});

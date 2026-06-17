@@ -133,6 +133,35 @@ export class ChatSession {
     this.handlers.onUpdate();
   }
 
+  /**
+   * Seed the session from a previously saved conversation. Restores
+   * the conversation id (so subsequent saves update the same file),
+   * replaces the message history, and restores cumulative usage so
+   * the cost footer continues from where the saved chat left off.
+   *
+   * Passive load — does NOT trigger onUpdate or onDone. Only allowed
+   * when no turn is in flight; silently ignored otherwise.
+   */
+  hydrate(opts: {
+    conversationId: string;
+    model?: string;
+    messages: Message[];
+    usage?: Usage;
+  }): void {
+    if (this.inFlight) return;
+    this.conversationId = opts.conversationId;
+    this.messages.length = 0;
+    for (const m of opts.messages) this.messages.push(m);
+    if (opts.usage) {
+      this.totalUsage = { ...opts.usage };
+    } else {
+      this.totalUsage = { input_tokens: 0, output_tokens: 0 };
+    }
+    // conversationCreated stays as-is (new session startup time);
+    // the actual created timestamp lives in the saved file meta and
+    // is passed through when persistConversation re-saves.
+  }
+
   private async dispatch(): Promise<void> {
     const id = crypto.randomUUID();
     this.inFlight = {
