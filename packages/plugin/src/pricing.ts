@@ -134,9 +134,12 @@ export function sumUsage(a: Usage, b: Usage): Usage {
 export function formatUsageFooter(total: Usage, model: string): string {
   const inK = ((total.input_tokens ?? 0) / 1000).toFixed(1);
   const outK = ((total.output_tokens ?? 0) / 1000).toFixed(1);
+  const cachedRead = total.cache_read_input_tokens ?? 0;
+  const cachedPart =
+    cachedRead > 0 ? `+${(cachedRead / 1000).toFixed(1)}k(cached)` : '';
   const cost = estimateTurnCost(total, model);
   const costPart = cost > 0 ? ` · ${formatCostUSD(cost)}` : '';
-  return `${inK}k in · ${outK}k out${costPart}`;
+  return `${inK}k${cachedPart} in · ${outK}k out${costPart}`;
 }
 
 /**

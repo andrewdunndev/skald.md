@@ -140,7 +140,8 @@ describe('formatUsageFooter', () => {
   it('formats token counts in k and includes cost for known model', () => {
     const usage = { input_tokens: 12400, output_tokens: 300 };
     const out = formatUsageFooter(usage, 'claude-sonnet-4-6');
-    expect(out).toContain('12.4k in');
+    expect(out).toContain('12.4k');
+    expect(out).toContain('in');
     expect(out).toContain('0.3k out');
     expect(out).toContain('$');
   });
@@ -148,15 +149,37 @@ describe('formatUsageFooter', () => {
   it('omits cost part for unknown model', () => {
     const usage = { input_tokens: 1000, output_tokens: 500 };
     const out = formatUsageFooter(usage, 'unknown-model');
-    expect(out).toContain('1.0k in');
+    expect(out).toContain('1.0k');
+    expect(out).toContain('in');
     expect(out).toContain('0.5k out');
     expect(out).not.toContain('$');
   });
 
   it('handles zero usage gracefully', () => {
     const out = formatUsageFooter({ input_tokens: 0, output_tokens: 0 }, 'claude-sonnet-4-6');
-    expect(out).toContain('0.0k in');
+    expect(out).toContain('0.0k');
+    expect(out).toContain('in');
     expect(out).toContain('0.0k out');
+  });
+
+  it('shows cached token count inline when cache_read_input_tokens > 0', () => {
+    const usage = {
+      input_tokens: 2100,
+      output_tokens: 300,
+      cache_read_input_tokens: 10300,
+    };
+    const out = formatUsageFooter(usage, 'claude-sonnet-4-6');
+    // Should look like "2.1k+10.3k(cached) in · 0.3k out · $..."
+    expect(out).toContain('2.1k');
+    expect(out).toContain('10.3k(cached)');
+    expect(out).toContain('in');
+    expect(out).toContain('0.3k out');
+  });
+
+  it('omits cached annotation when cache_read_input_tokens is 0 or absent', () => {
+    const usage = { input_tokens: 1000, output_tokens: 200 };
+    const out = formatUsageFooter(usage, 'claude-sonnet-4-6');
+    expect(out).not.toContain('cached');
   });
 });
 
