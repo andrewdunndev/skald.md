@@ -19,6 +19,7 @@ import { TFile, TFolder, normalizePath, type App } from 'obsidian';
 import { buildMemorySection } from '../memory-prompt';
 import { buildPersonaSection } from '../persona-prompt';
 import { buildScribianBaseline } from './scribian-baseline';
+import { buildVaultMap } from './vault-map';
 import { modeCapabilities } from '../mode-capabilities';
 import type { ScribianSettings } from '../settings';
 
@@ -36,6 +37,13 @@ export async function loadSystemPrompt(
       semanticSearch: caps.semanticSearch,
     }),
   );
+
+  // Vault structure — injected into the cached prefix so Claude can
+  // route directly to folders/notes from turn 1. Stable within a
+  // session, so it preserves the cache-hit property. Empty string
+  // for an empty vault; skip in that case.
+  const vaultMap = buildVaultMap(app);
+  if (vaultMap) parts.push(vaultMap);
 
   const personaSection = await buildPersonaSection(app, {
     path: settings.activePersona,

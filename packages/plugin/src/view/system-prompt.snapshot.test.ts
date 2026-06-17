@@ -27,6 +27,11 @@ function mockApp(files: MockFiles) {
         p in files ? new TFile(p) : null,
       cachedRead: async (f: TFile) => files[f.path] ?? '',
       read: async (f: TFile) => files[f.path] ?? '',
+      // Snapshot fixtures don't model vault structure — the vault-map
+      // section is exercised by vault-map.test.ts. Return no markdown
+      // files so the map section is skipped and snapshots stay focused
+      // on baseline/persona/harness/memory composition.
+      getMarkdownFiles: () => [],
     },
   } as unknown as import('obsidian').App;
 }
