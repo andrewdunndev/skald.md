@@ -32,8 +32,9 @@ describe('estimateTurnCost', () => {
     expect(cost).toBeCloseTo(0.3, 3);
   });
 
-  it('applies the cache_write rate when usage has cache_creation_input_tokens', () => {
-    // 1M cache_write at $3.75/M = $3.75
+  it('applies the 1-hour cache_write rate (2x base) for cache_creation_input_tokens', () => {
+    // scribian writes its prefix with a 1-hour TTL: write = 2x base
+    // input. Sonnet base is $3/M, so 1M cache_write = $6.
     const cost = estimateTurnCost(
       {
         input_tokens: 0,
@@ -42,7 +43,7 @@ describe('estimateTurnCost', () => {
       },
       'claude-sonnet-4-6',
     );
-    expect(cost).toBeCloseTo(3.75, 3);
+    expect(cost).toBeCloseTo(6, 3);
   });
 
   it('returns 0 for an unknown model', () => {

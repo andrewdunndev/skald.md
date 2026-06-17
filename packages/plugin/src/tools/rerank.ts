@@ -75,7 +75,11 @@ export async function rerankCandidates(
           {
             type: 'text',
             text: RERANK_SYSTEM,
-            cache_control: { type: 'ephemeral' },
+            // 1-hour TTL: rerank fires sporadically during a session
+            // (only on noisy searches), often many minutes apart, so
+            // the 5-minute ephemeral default would almost never hit.
+            // 1h is GA (no beta header required). See pricing.ts.
+            cache_control: { type: 'ephemeral', ttl: '1h' },
           },
         ],
         messages: [{ role: 'user', content: userMessage }],

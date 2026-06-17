@@ -8,10 +8,17 @@
  * within $0.01 isn't the goal; surfacing the order of magnitude
  * on a premium-token mobile budget is.
  *
- * Pricing source (Anthropic, accurate as of 2026-05):
+ * Pricing source (Anthropic, accurate as of 2026-06):
  *   - claude-opus-4-7: $15 / $75 input/output, no documented cache yet
- *   - claude-sonnet-4-6: $3 / $15, cache_read $0.30, cache_write $3.75
- *   - claude-haiku-4-5: $1 / $5, cache_read $0.10, cache_write $1.25
+ *   - claude-sonnet-4-6: $3 / $15, cache_read $0.30, cache_write $6.00
+ *   - claude-haiku-4-5: $1 / $5, cache_read $0.10, cache_write $2.00
+ *
+ * cache_write rates above are the 1-HOUR-TTL write rate (2x base
+ * input), because scribian writes its system+tools prefix with a
+ * 1-hour TTL (see anthropic-caching.ts) to survive multi-minute
+ * mobile gaps. cache_read stays 0.1x base regardless of TTL. Per
+ * Anthropic prompt-caching docs: 5-min write = 1.25x, 1-hour write =
+ * 2x, read = 0.1x base input.
  *
  * OpenRouter rates vary per model; surfaced via their pricing API
  * but kept as a rough Sonnet baseline here for non-Anthropic routes
@@ -29,8 +36,9 @@ export interface ModelPricing {
   /** Cache-hit reads, $/M (lower than input). Defaults to input
    * rate if absent. */
   cacheRead?: number;
-  /** Cache writes / creation, $/M (slightly higher than input).
-   * Defaults to input rate if absent. */
+  /** Cache writes / creation, $/M. For scribian this is the
+   * 1-hour-TTL write rate (2x base input). Defaults to input rate if
+   * absent. */
   cacheWrite?: number;
 }
 
@@ -42,13 +50,15 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     input: 3,
     output: 15,
     cacheRead: 0.3,
-    cacheWrite: 3.75,
+    // 1-hour-TTL write = 2x base input ($3 → $6).
+    cacheWrite: 6,
   },
   'claude-haiku-4-5': {
     input: 1,
     output: 5,
     cacheRead: 0.1,
-    cacheWrite: 1.25,
+    // 1-hour-TTL write = 2x base input ($1 → $2).
+    cacheWrite: 2,
   },
 };
 

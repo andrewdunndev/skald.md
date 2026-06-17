@@ -20,6 +20,22 @@ describe('rerankCandidates', () => {
     vi.restoreAllMocks();
   });
 
+  it('sends a 1-hour cache_control TTL on the rerank system block', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue({
+      status: 200,
+      json: { content: [{ type: 'text', text: '[0]' }] },
+      text: '',
+    } as ReturnType<typeof obsidian.requestUrl> extends Promise<infer R> ? R : never);
+
+    await rerankCandidates('query', CANDIDATES, API_KEY, { topK: 3 });
+    const call = vi.mocked(obsidian.requestUrl).mock.calls[0][0];
+    const body = JSON.parse((call as { body: string }).body);
+    expect(body.system[0].cache_control).toEqual({
+      type: 'ephemeral',
+      ttl: '1h',
+    });
+  });
+
   it('happy path: returns reranked topK candidates from Haiku response', async () => {
     vi.mocked(obsidian.requestUrl).mockResolvedValue({
       status: 200,
