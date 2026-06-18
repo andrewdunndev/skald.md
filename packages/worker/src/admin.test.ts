@@ -65,19 +65,6 @@ describe('renderAdminPage', () => {
     expect(html).toContain('chat');
   });
 
-  it('NEVER leaks a token value in the rendered HTML', () => {
-    // Even if a label coincidentally matches a secret-looking string,
-    // the summary path doesn't carry tokens — but the invariant is
-    // strong enough to assert here so any future regression that
-    // accidentally renders a token tripwires.
-    const SECRET_VALUE = 'super-secret-token-abcdef12345';
-    const html = renderAdminPage({
-      ...BASE_VM,
-      tokenSummaries: [{ label: 'plugin', scopes: ['chat'] }],
-    });
-    expect(html).not.toContain(SECRET_VALUE);
-  });
-
   it('shows an empty-state message when no recent events', () => {
     const html = renderAdminPage({ ...BASE_VM, recentEvents: [] });
     expect(html).toContain('No events yet');

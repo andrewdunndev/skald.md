@@ -131,10 +131,18 @@ describe('sumUsage', () => {
 });
 
 describe('MODEL_PRICING table', () => {
-  it('includes opus, sonnet, haiku', () => {
-    expect(MODEL_PRICING['claude-opus-4-7']).toBeDefined();
-    expect(MODEL_PRICING['claude-sonnet-4-6']).toBeDefined();
-    expect(MODEL_PRICING['claude-haiku-4-5']).toBeDefined();
+  it('encodes the per-million input/output rates that drive every cost figure', () => {
+    // These dollar values are the source of truth for the footer + saved
+    // estimated_cost_usd; a typo here silently mis-bills every chat.
+    expect(MODEL_PRICING['claude-sonnet-4-6']).toMatchObject({ input: 3, output: 15 });
+    // Opus is the premium tier; haiku the cheap one — ordering is a sanity
+    // guard against a copy/paste swap between rows.
+    expect(MODEL_PRICING['claude-opus-4-7'].input).toBeGreaterThan(
+      MODEL_PRICING['claude-sonnet-4-6'].input,
+    );
+    expect(MODEL_PRICING['claude-haiku-4-5'].input).toBeLessThan(
+      MODEL_PRICING['claude-sonnet-4-6'].input,
+    );
   });
 });
 

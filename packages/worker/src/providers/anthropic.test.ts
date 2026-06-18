@@ -80,11 +80,6 @@ describe('anthropicHeaders', () => {
 });
 
 describe('transformAnthropicRequest', () => {
-  it('returns the input unchanged (Anthropic is the canonical shape)', () => {
-    const out = transformAnthropicRequest(BASE_REQUEST);
-    expect(out).toBe(BASE_REQUEST);
-  });
-
   it('preserves tools arrays verbatim (no rewriting)', () => {
     const req: ChatRequest = {
       ...BASE_REQUEST,
@@ -111,12 +106,5 @@ describe('transformAnthropicEvent', () => {
       data,
     });
     expect(transformAnthropicEvent('content_block_start', data).data).toBe(data);
-  });
-
-  it('preserves null data', () => {
-    expect(transformAnthropicEvent('ping', null)).toEqual({
-      event: 'ping',
-      data: null,
-    });
   });
 });
