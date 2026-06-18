@@ -37,20 +37,20 @@ export interface EmptyStateHooks {
 export const DEFAULT_STARTER_CHIPS: StarterChip[] = [
   {
     icon: 'camera',
-    label: 'Identify + file',
+    label: 'What is this?',
     prompt:
-      "Identify what's in this image, then find the most relevant note in my vault and propose an append (use find_related first if you're not sure which note fits). If no good fit exists, propose a new note.",
+      "Identify what's in this image, then find the most relevant note in my vault and propose an append. If no good fit exists, propose a new note.",
     attachImage: true,
   },
   {
     icon: 'pencil-line',
-    label: 'Capture this idea',
+    label: 'Save a thought',
     prompt:
-      "I have a thought to capture. After I describe it, propose where it should land in my vault (existing note + append, or a new note with a sensible path). Use find_related to check first. I'll approve via the diff card.",
+      "I have a thought to capture. After I describe it, propose where it should land in my vault (existing note + append, or a new note with a sensible path). I'll approve the write.",
   },
   {
     icon: 'list-checks',
-    label: "What's loose?",
+    label: 'Catch up on TODOs',
     prompt:
       "Scan my vault for unresolved items, dangling questions, and TODOs I haven't followed up on. List them grouped by note, newest first.",
   },
@@ -58,13 +58,13 @@ export const DEFAULT_STARTER_CHIPS: StarterChip[] = [
     icon: 'brain',
     label: 'Remember this',
     prompt:
-      "I'm going to tell you something I want you to remember long-term. Use remember_fact to add it to my memory note — I'll approve via the diff card.",
+      "I'm going to tell you something I want you to remember long-term. Add it to my memory note — I'll approve the change.",
   },
   {
     icon: 'split',
-    label: 'Talk it out',
+    label: 'Think it through',
     prompt:
-      "I'm thinking through a decision. Ask me what I'm weighing, pull related notes from my vault as context, and help me reason about it. Offer to capture the conclusion to a note when we land.",
+      "I'm thinking through a decision. Ask me what I'm weighing, pull related notes from my vault as context, and help me reason about it. Offer to save the conclusion when we land.",
   },
 ];
 
