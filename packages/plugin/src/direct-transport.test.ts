@@ -244,41 +244,10 @@ describe('DirectTransport: HTTP error mapping', () => {
     }
   });
 
-  it('emits a friendly non-retryable error for HTTP 403', async () => {
-    fetchMock.mockResolvedValue(errResponse(403, '{"type":"error","error":{"type":"permission_error"}}'));
-    const { transport, handlers } = makeTransport();
-    transport.connect();
-    transport.send({
-      type: 'chat',
-      id: 't',
-      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
-    });
-    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
-    const err = handlers.messages.find((m) => m.type === 'error');
-    if (err?.type === 'error') {
-      expect(err.error).toMatch(/api key/i);
-      expect(err.error).not.toContain('permission_error');
-      expect(err.retryable).toBe(false);
-    }
-  });
-
-  it('emits a friendly non-retryable error for HTTP 400 — no body dump', async () => {
-    fetchMock.mockResolvedValue(errResponse(400, '{"type":"error","error":{"message":"max_tokens exceeds limit"}}'));
-    const { transport, handlers } = makeTransport();
-    transport.connect();
-    transport.send({
-      type: 'chat',
-      id: 't',
-      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
-    });
-    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
-    const err = handlers.messages.find((m) => m.type === 'error');
-    if (err?.type === 'error') {
-      expect(err.error).toMatch(/couldn't process/i);
-      expect(err.error).not.toContain('max_tokens');
-      expect(err.retryable).toBe(false);
-    }
-  });
+  // 403 / 400 / 5xx message+retryable mapping is unit-tested directly
+  // against httpErrorMessage in direct-transport-errors.test.ts. The
+  // integration tests here prove the transport surfaces the friendly
+  // copy and strips the raw body (401) and threads retry-after (429).
 
   it('emits a friendly, retryable 429 message with retry-after, no raw JSON', async () => {
     fetchMock.mockResolvedValue(
@@ -303,26 +272,6 @@ describe('DirectTransport: HTTP error mapping', () => {
       expect(err.error).not.toContain('rate_limit_error'); // no raw JSON
     }
   });
-  it('marks 5xx retryable with a clean human message (no raw body dump, no status code)', async () => {
-    fetchMock.mockResolvedValue(errResponse(503, 'big wall of upstream html'));
-    const { transport, handlers } = makeTransport();
-    transport.connect();
-    transport.send({
-      type: 'chat',
-      id: 't',
-      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
-    });
-    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
-    const err = handlers.messages.find((m) => m.type === 'error');
-    if (err?.type === 'error') {
-      expect(err.retryable).toBe(true);
-      // Human copy — mentions "try again", no raw status or body.
-      expect(err.error).toMatch(/try again/i);
-      expect(err.error).not.toContain('big wall');
-      expect(err.error).not.toContain('503');
-    }
-  });
-
   it('emits non-retryable error and does NOT call fetch when Anthropic key is empty', async () => {
     const { transport, handlers } = makeTransport({ anthropicKey: '' });
     transport.connect();

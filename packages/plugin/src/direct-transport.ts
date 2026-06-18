@@ -21,6 +21,7 @@ import type { ClientMessage, Provider, ServerMessage, Usage } from '@scribian/pr
 import type { ScribianTransport, TransportHandlers } from './transport-interface';
 import { SSEParser } from './sse-parser';
 import { applyAnthropicCaching } from './anthropic-caching';
+import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
 
 // ── Anthropic ─────────────────────────────────────────────────────────────
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
@@ -161,7 +162,7 @@ export class DirectTransport implements ScribianTransport {
         this.handlers.onMessage({
           type: 'error',
           id,
-          error: 'Lost the connection — check your network and resend.',
+          error: NETWORK_ERROR_MESSAGE,
           retryable: true,
         });
       }
@@ -170,54 +171,13 @@ export class DirectTransport implements ScribianTransport {
 
     if (!resp.ok) {
       this.activeChats.delete(id);
-      if (resp.status === 429) {
-        const retryAfter = resp.headers.get('retry-after');
-        const retryHint = retryAfter
-          ? ` (retry in ${retryAfter}s)`
-          : '';
-        this.handlers.onMessage({
-          type: 'error',
-          id,
-          error: `Rate limit reached — wait a moment and resend.${retryHint}`,
-          retryable: true,
-        });
-        return;
-      }
-      if (resp.status === 401 || resp.status === 403) {
-        this.handlers.onMessage({
-          type: 'error',
-          id,
-          error: 'Your API key was rejected — check it in Settings → Scribian.',
-          retryable: false,
-        });
-        return;
-      }
-      if (resp.status === 400) {
-        this.handlers.onMessage({
-          type: 'error',
-          id,
-          error: "Claude couldn't process that request. If it keeps happening, try a new chat.",
-          retryable: false,
-        });
-        return;
-      }
-      if (resp.status >= 500) {
-        this.handlers.onMessage({
-          type: 'error',
-          id,
-          error: "Claude's having a moment on its end — try again in a sec.",
-          retryable: true,
-        });
-        return;
-      }
-      // Catch-all for any other unexpected status — log for debug, show clean copy.
-      console.warn(`[scribian] unexpected HTTP ${resp.status} from ${provider}`);
-      this.handlers.onMessage({
-        type: 'error',
-        id,
-        error: `Something went wrong (error ${resp.status}) — try again or check your settings.`,
-        retryable: false,
-      });
+      // Log raw status for debugging; surface only a human sentence.
+      console.warn(`[scribian] HTTP ${resp.status} from ${provider}`);
+      const { error, retryable } = httpErrorMessage(
+        resp.status,
+        resp.headers.get('retry-after'),
+      );
+      this.handlers.onMessage({ type: 'error', id, error, retryable });
       return;
     }
 
