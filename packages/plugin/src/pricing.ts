@@ -187,9 +187,6 @@ export function formatSessionFooter(
  */
 export function formatTurnStatus(input: {
   usage: Usage;
-  /** @deprecated — kept for call-site compatibility; cost is now
-   * shown only in the usage footer, not the status line. */
-  total?: Usage;
   model: string;
   provider?: string;
   stopReason: string;

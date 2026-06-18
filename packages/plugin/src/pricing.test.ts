@@ -214,7 +214,6 @@ describe('formatTurnStatus', () => {
   it('formats a basic turn with token counts only (no dollars)', () => {
     const out = formatTurnStatus({
       usage: { input_tokens: 100, output_tokens: 200 },
-      total: { input_tokens: 100, output_tokens: 200 },
       model: 'unknown',
       stopReason: 'end_turn',
     });
@@ -225,7 +224,6 @@ describe('formatTurnStatus', () => {
   it('does NOT include dollar amounts even for known models', () => {
     const out = formatTurnStatus({
       usage: { input_tokens: 500, output_tokens: 1500 },
-      total: { input_tokens: 500, output_tokens: 1500 },
       model: 'claude-sonnet-4-6',
       stopReason: 'end_turn',
     });
@@ -236,7 +234,6 @@ describe('formatTurnStatus', () => {
   it('annotates a non-end_turn stop reason', () => {
     const out = formatTurnStatus({
       usage: { input_tokens: 10, output_tokens: 20 },
-      total: { input_tokens: 10, output_tokens: 20 },
       model: 'unknown',
       stopReason: 'cancelled',
     });
@@ -246,7 +243,6 @@ describe('formatTurnStatus', () => {
   it('annotates openrouter routes', () => {
     const out = formatTurnStatus({
       usage: { input_tokens: 10, output_tokens: 20 },
-      total: { input_tokens: 10, output_tokens: 20 },
       model: 'unknown',
       stopReason: 'end_turn',
       provider: 'openrouter',
@@ -261,7 +257,6 @@ describe('formatTurnStatus', () => {
         output_tokens: 20,
         cache_read_input_tokens: 5000,
       },
-      total: { input_tokens: 10, output_tokens: 20 },
       model: 'unknown',
       stopReason: 'end_turn',
     });

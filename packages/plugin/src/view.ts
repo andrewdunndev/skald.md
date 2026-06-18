@@ -282,7 +282,6 @@ export class ScribianView extends ItemView {
     this.setStatus(
       formatTurnStatus({
         usage,
-        total,
         model: this.modelSelect.value,
         provider,
         stopReason,
