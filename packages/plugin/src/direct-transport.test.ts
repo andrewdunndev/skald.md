@@ -188,9 +188,9 @@ describe('DirectTransport: happy path streaming', () => {
     await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
 
-    // The caching beta header reaches the wire.
+    // Prompt caching is GA — the stale beta header must NOT be sent (Fix 5).
     const headers = init.headers as Record<string, string>;
-    expect(headers['anthropic-beta']).toBe('prompt-caching-2024-07-31');
+    expect(headers['anthropic-beta']).toBeUndefined();
 
     // system is restructured into a text-block array with an ephemeral
     // breakpoint, and the LAST tool carries one too.
@@ -232,10 +232,9 @@ describe('DirectTransport: HTTP error mapping', () => {
     }
   });
 
-  // 403 / 400 / 5xx message+retryable mapping is unit-tested directly
-  // against httpErrorMessage in direct-transport-errors.test.ts. The
-  // integration tests here prove the transport surfaces the friendly
-  // copy and strips the raw body (401) and threads retry-after (429).
+  // 403/400/5xx mapping is unit-tested in direct-transport-errors.test.ts;
+  // these prove the transport surfaces friendly copy, strips the raw body
+  // (401), and threads retry-after (429).
 
   it('emits a friendly, retryable 429 message with retry-after, no raw JSON', async () => {
     fetchMock.mockResolvedValue(
@@ -373,23 +372,25 @@ describe('DirectTransport: extended thinking (deep mode)', () => {
     });
     transport.connect();
     transport.send({
-      type: 'chat',
-      id: 'th',
-      provider: opts.provider,
+      type: 'chat', id: 'th', provider: opts.provider,
       payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1024 },
     });
     await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
     return JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
   }
 
-  it('sends thinking param when thinkingEnabled=true on Anthropic', async () => {
+  it('sends thinking + bumps max_tokens above the budget on Anthropic (Fix 1)', async () => {
+    // 4096 default < 8192 budget → 400 unless max_tokens > budget (budget+4096).
     const body = await sendChat({ thinkingEnabled: true });
     expect(body.thinking).toEqual({ type: 'enabled', budget_tokens: 8192 });
+    expect(body.max_tokens).toBeGreaterThan(body.thinking.budget_tokens);
+    expect(body.max_tokens).toBe(8192 + 4096);
   });
 
-  it('does NOT send thinking param when thinkingEnabled=false', async () => {
+  it('omits thinking and leaves max_tokens (1024) unchanged when off (Fix 1)', async () => {
     const body = await sendChat({ thinkingEnabled: false });
     expect(body.thinking).toBeUndefined();
+    expect(body.max_tokens).toBe(1024);
   });
 
   it('does NOT send thinking param to OpenRouter even when thinkingEnabled=true', async () => {

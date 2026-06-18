@@ -34,9 +34,8 @@ export interface DirectTransportConfig {
   getAnthropicKey: () => string;
   /** Returns the current OpenRouter API key from settings. */
   getOpenRouterKey: () => string;
-  /** Optional — defaults to false. Extended thinking ("deep mode") setting.
-   * TODO(wiring): add `getThinkingEnabled: () => plugin.settings.thinkingEnabled`
-   * to the DirectTransport constructor call in view/connect-session.ts ~line 92. */
+  /** Optional — defaults to false. Extended thinking ("deep mode"). TODO(wiring):
+   * pass `() => plugin.settings.thinkingEnabled` from view/connect-session.ts ~L92. */
   getThinkingEnabled?: () => boolean;
 }
 
@@ -296,12 +295,15 @@ function buildDispatch(
   const caps = providerCapabilities(provider);
   const cachedReq = caps.promptCaching ? applyAnthropicCaching(req) : req;
 
-  // Attach extended thinking when setting is on + capability supported.
-  // OpenRouter is guarded above; thinking tokens covered by output pricing.
+  // Attach extended thinking when on + supported (OpenRouter guarded above).
+  // Anthropic requires max_tokens > budget_tokens (budget is carved OUT of
+  // max_tokens); the 4096 dispatch default < the 8192 budget → 400. Bump
+  // max_tokens here (single attach point), keeping 4096 output headroom.
   const requestBody =
     thinkingEnabled && caps.extendedThinking
       ? {
           ...cachedReq,
+          max_tokens: Math.max(cachedReq.max_tokens ?? 4096, THINKING_BUDGET_TOKENS + 4096),
           thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET_TOKENS },
         }
       : cachedReq;
@@ -309,9 +311,9 @@ function buildDispatch(
   return {
     url: ANTHROPIC_URL,
     headers: {
+      // Prompt caching (incl. 1h TTL) is GA — no beta header (docs, 2026-06).
       'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
-      'anthropic-beta': 'prompt-caching-2024-07-31',
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
