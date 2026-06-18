@@ -60,13 +60,13 @@ export function buildScribianBaseline(input: BaselineInput): string {
   // Discovery directives differ by mode.
   const discoveryBullets = semanticSearch
     ? [
-        '- When the user asks a question that produces a fact, an answer, a list, or a decision, **propose where it should land in their vault** as your closing move. Use `find_related` first to check if a relevant note already exists. Use `write_note` to create new or `append_to_note` to add to existing. The user approves the write via a diff card — proposing is free; over-proposing is fine because a reject is one tap.',
+        '- When the user asks a question that produces a fact, an answer, a list, or a decision, **propose where it should land in their vault** when it clearly helps — use `find_related` first to check if a relevant note already exists, then `write_note` (new) or `append_to_note` (existing). If the question just needs an answer, answer it; don\'t pressure the user to save something they didn\'t ask to save. Only propose a write when it\'s obviously useful. The user approves every write via a diff card.',
         `- When the user tells you something to remember long-term about themselves, their projects, their people, their preferences — call \`remember_fact\` to append to \`${memoryRef}\`. When something they remembered changes, call \`update_memory\`. When a remembered fact is no longer true, call \`forget_fact\`.`,
         '- When the user attaches an image, your first move is usually identification + routing: figure out what it is, then `find_related` to pick where it belongs, then propose a write.',
         '- When the user asks something that the vault has direct context for (a person, a project, a recurring topic), call `find_related` FIRST before answering. The user pays per token; running on stale general-purpose knowledge when the vault has fresh ground truth is wasted money.',
       ]
     : [
-        '- When the user asks a question that produces a fact, an answer, a list, or a decision, **propose where it should land in their vault** as your closing move. First consult the vault structure (included below) and use the graph tools (`find_by_tag` / `find_by_link` / `recent_notes`) and folder routing to check if a relevant note already exists; fall back to `search_vault` for content matches. Use `write_note` to create new or `append_to_note` to add to existing. The user approves the write via a diff card — proposing is free; over-proposing is fine because a reject is one tap.',
+        '- When the user asks a question that produces a fact, an answer, a list, or a decision, **propose where it should land in their vault** when it clearly helps — consult the vault structure (included below) and use the graph tools (`find_by_tag` / `find_by_link` / `recent_notes`) and folder routing to find a relevant note; fall back to `search_vault` for content matches. Use `write_note` (new) or `append_to_note` (existing). If the question just needs an answer, answer it; don\'t pressure the user to save something they didn\'t ask to save. Only propose a write when it\'s obviously useful. The user approves every write via a diff card.',
         `- When the user tells you something to remember long-term about themselves, their projects, their people, their preferences — call \`remember_fact\` to append to \`${memoryRef}\`. When something they remembered changes, call \`update_memory\`. When a remembered fact is no longer true, call \`forget_fact\`.`,
         '- When the user attaches an image, your first move is usually identification + routing: figure out what it is, then use the graph tools (`find_by_tag` / `find_by_link` / `recent_notes`) and folder routing to pick where it belongs, then propose a write.',
         '- When the user asks something that the vault has direct context for (a person, a project, a recurring topic), check the vault structure and the graph tools (or `search_vault`) FIRST before answering. The user pays per token; running on stale general-purpose knowledge when the vault has fresh ground truth is wasted money.',
@@ -86,12 +86,13 @@ export function buildScribianBaseline(input: BaselineInput): string {
     'Default behavior:',
     ...discoveryBullets,
     '',
-    "Exceptions to the vault-action default:",
+    "Exceptions — answer without proposing a write:",
     "- Conversational follow-ups inside an ongoing exchange (clarifying questions, intermediate steps).",
     "- The user explicitly says they just want to talk through something or think out loud.",
     "- The output genuinely doesn't belong in the vault (a one-off lookup, a passing curiosity).",
+    "- Any question that just needs an answer — a simple factual reply is fine on its own.",
     "",
-    "When in doubt, propose the write. The diff card is the user's veto.",
+    "When in doubt, propose the write only if it clearly helps; answering is always fine. The diff card is the user's veto.",
     "",
     "## Graph-first tool discipline",
     "",
