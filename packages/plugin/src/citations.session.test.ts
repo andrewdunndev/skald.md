@@ -145,13 +145,26 @@ async function driveToolTurn(
   tx: RecordingTransport,
   toolId: string,
   path: string,
+  legIndex = 0,
 ): Promise<void> {
-  const mid = chatId(tx, 0);
-  session.handleServer(chunk(mid, 'content_block_start',
-    { index: 0, content_block: { type: 'tool_use', id: toolId, name: 'read_note', input: {} } }));
-  session.handleServer(chunk(mid, 'content_block_delta',
-    { index: 0, delta: { type: 'input_json_delta', partial_json: `{"path":"${path}"}` } }));
-  session.handleServer(chunk(mid, 'content_block_stop', { index: 0 }));
+  return driveToolTurnMulti(session, tx, [[toolId, path]], legIndex);
+}
+
+/** Drive a single assistant leg that issues N read_note tool_use blocks. */
+async function driveToolTurnMulti(
+  session: ReturnType<typeof makeHarness>['session'],
+  tx: RecordingTransport,
+  reads: [toolId: string, path: string][],
+  legIndex = 0,
+): Promise<void> {
+  const mid = chatId(tx, legIndex);
+  reads.forEach(([toolId, path], i) => {
+    session.handleServer(chunk(mid, 'content_block_start',
+      { index: i, content_block: { type: 'tool_use', id: toolId, name: 'read_note', input: {} } }));
+    session.handleServer(chunk(mid, 'content_block_delta',
+      { index: i, delta: { type: 'input_json_delta', partial_json: `{"path":"${path}"}` } }));
+    session.handleServer(chunk(mid, 'content_block_stop', { index: i }));
+  });
   await session.handleServer({
     type: 'done', id: mid, stop_reason: 'tool_use',
     usage: { input_tokens: 5, output_tokens: 5 },
@@ -180,6 +193,46 @@ describe('document blocks injected on citations=true path', () => {
     expect(docBlock?.title).toBe('notes/foo.md');
     expect((docBlock?.citations as Record<string, unknown>)?.enabled).toBe(true);
     expect((docBlock?.source as Record<string, unknown>)?.data).toBe('The grass is green.');
+  });
+
+  it('sends the note body ONCE: in the doc block, not the tool_result (Fix 2)', async () => {
+    const body = 'The grass is green.';
+    const toolExecutor = vi.fn().mockResolvedValue({ content: body });
+    const { tx, session } = makeHarness({
+      tools: [readNoteTool], toolExecutor, citationsEnabled: true,
+    });
+
+    await session.sendUserText('What is in my note?');
+    await driveToolTurn(session, tx, 'tu-dup', 'notes/foo.md');
+
+    const payload = (tx.sent[1] as Extract<ClientMessage, { type: 'chat' }>).payload;
+    const content = payload.messages[payload.messages.length - 1]
+      .content as Record<string, unknown>[];
+    const toolResult = content.find((b) => b.type === 'tool_result')!;
+    const docBlock = content.find((b) => b.type === 'document')!;
+
+    // Body lives in the document block...
+    expect((docBlock.source as Record<string, unknown>).data).toBe(body);
+    // ...and NOT in the tool_result, which is collapsed to just the path.
+    expect(toolResult.content).toBe('[notes/foo.md]');
+    expect(toolResult.content).not.toBe(body);
+  });
+
+  it('keeps the body in tool_result when citations are off (Fix 2 non-citation path)', async () => {
+    const body = 'plain note body';
+    const toolExecutor = vi.fn().mockResolvedValue({ content: body });
+    const { tx, session } = makeHarness({
+      tools: [readNoteTool], toolExecutor, citationsEnabled: false,
+    });
+
+    await session.sendUserText('hi');
+    await driveToolTurn(session, tx, 'tu-off', 'notes/foo.md');
+
+    const payload = (tx.sent[1] as Extract<ClientMessage, { type: 'chat' }>).payload;
+    const content = payload.messages[payload.messages.length - 1]
+      .content as Record<string, unknown>[];
+    const toolResult = content.find((b) => b.type === 'tool_result')!;
+    expect(toolResult.content).toBe(body);
   });
 
   it('does NOT inject document blocks when citationsEnabled=false (OpenRouter)', async () => {
@@ -222,6 +275,33 @@ describe('document blocks injected on citations=true path', () => {
     await driveToolTurn(session, tx, 'tu-4', 'notes/doc.md');
 
     expect(session.documentRegistry.get(0)).toBe('notes/doc.md');
+  });
+
+  it('registry reflects the SECOND leg, not a stale leg-1 entry (Fix 3)', async () => {
+    // Leg 1 reads TWO notes (indices 0,1); leg 2 reads ONE (index 0). The
+    // per-leg document_index restarts at 0, so after leg 2 the registry must
+    // hold exactly leg-2's single doc. If cleared only per user turn, leg-1's
+    // index 1 would survive → size 2, and index 0 → leg2.md but index 1 still
+    // resolves a leg-2 citation to leg-1's note.
+    const toolExecutor = vi.fn().mockResolvedValue({ content: 'body' });
+    const { tx, session } = makeHarness({
+      tools: [readNoteTool], toolExecutor, citationsEnabled: true,
+    });
+
+    await session.sendUserText('read all');
+    // Leg 1 (dispatch tx.sent[0]) → continuation tx.sent[1].
+    await driveToolTurnMulti(session, tx,
+      [['tu-l1a', 'notes/leg1a.md'], ['tu-l1b', 'notes/leg1b.md']], 0);
+    expect(session.documentRegistry.size).toBe(2);
+    expect(session.documentRegistry.get(1)).toBe('notes/leg1b.md');
+
+    // Leg 2 (continuation tx.sent[1]) → tx.sent[2].
+    await driveToolTurnMulti(session, tx, [['tu-l2', 'notes/leg2.md']], 1);
+
+    // Only leg-2's single doc remains; the stale index 1 is gone.
+    expect(session.documentRegistry.size).toBe(1);
+    expect(session.documentRegistry.get(0)).toBe('notes/leg2.md');
+    expect(session.documentRegistry.get(1)).toBeUndefined();
   });
 });
 

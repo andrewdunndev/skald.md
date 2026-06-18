@@ -296,6 +296,13 @@ export class ChatSession {
   }
 
   private async executeToolsAndContinue(blocks: ContentBlock[]): Promise<void> {
+    // Fix 3: clear the registry per continuation leg. document_index below is
+    // per-request (0-based within THIS dispatch), so the registry must match
+    // THIS request, not accumulate across legs (a per-turn-only clear left
+    // leg-1 at index 0 for a leg-2 citation to mis-resolve; sendUserMessage
+    // keeps its clear as defense).
+    this.documentRegistry.clear();
+
     const toolUses = blocks.filter(
       (b) => (b as Record<string, unknown>).type === 'tool_use',
     );
@@ -362,30 +369,26 @@ export class ChatSession {
       return resultMap.get(id)!;
     });
 
-    // Citations path (Anthropic only): for every successful read_note
-    // result, append a document block to the same user turn so
-    // Anthropic's Citations API can ground the response to exact
-    // character spans. The document block carries the note body; the
-    // tool_result still carries the short path echo for tool bookkeeping.
-    // document_index is 0-based across ALL document blocks in the turn.
-    const citationsEnabled = this.citationsEnabledProvider?.() ?? false;
-    if (citationsEnabled) {
+    // Citations path (Anthropic): append a document block per successful
+    // read_note so the Citations API can ground to exact char spans
+    // (document_index 0-based across the turn). Fix 2: the body travels ONCE
+    // (in source.data); collapse the matching tool_result.content to the path
+    // so it isn't sent twice (~2x input tokens/read). Errors don't collapse.
+    if (this.citationsEnabledProvider?.() ?? false) {
       let docIdx = 0;
       for (const block of toolUses) {
         const b = block as Record<string, any>;
-        if (b.name === 'read_note') {
-          const path = typeof b.input?.path === 'string' ? b.input.path : null;
-          const res = resultMap.get(b.id as string);
-          const body = res && !(res as Record<string, unknown>).is_error
-            ? (res as Record<string, unknown>).content as string
-            : null;
-          if (path && body) {
-            const docBlock = buildDocumentBlock(path, body) as unknown as ContentBlock;
-            results.push(docBlock);
-            this.documentRegistry.set(docIdx, path);
-            docIdx++;
-          }
-        }
+        if (b.name !== 'read_note') continue;
+        const path = typeof b.input?.path === 'string' ? b.input.path : null;
+        const res = resultMap.get(b.id as string) as Record<string, unknown> | undefined;
+        const body = res && !res.is_error ? (res.content as string) : null;
+        if (!path || !body || !res) continue;
+        results.push(buildDocumentBlock(path, body) as unknown as ContentBlock);
+        // Collapse the body out of the tool_result (same obj in `results`);
+        // it now lives once in the doc block.
+        res.content = `[${path}]`;
+        this.documentRegistry.set(docIdx, path);
+        docIdx++;
       }
     }
 
