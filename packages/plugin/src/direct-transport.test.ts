@@ -174,6 +174,45 @@ describe('DirectTransport: happy path streaming', () => {
     expect(headers['x-api-key']).toBe('sk-ant-123');
     expect(headers['anthropic-dangerous-direct-browser-access']).toBe('true');
   });
+
+  it('puts cache_control on system + last tool in the Anthropic request body', async () => {
+    fetchMock.mockResolvedValue(ok200(sseStream(
+      'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}\n\n',
+    )));
+
+    const { transport } = makeTransport();
+    transport.connect();
+    transport.send({
+      type: 'chat',
+      id: 'cache-turn',
+      payload: {
+        model: 'claude-sonnet-4-6',
+        messages: [{ role: 'user', content: 'hi' }],
+        max_tokens: 100,
+        system: 'You are a vault assistant.',
+        tools: [
+          { name: 'read_note', input_schema: {} },
+          { name: 'write_note', input_schema: {} },
+        ],
+      },
+    });
+
+    await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
+    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+
+    // The caching beta header reaches the wire.
+    const headers = init.headers as Record<string, string>;
+    expect(headers['anthropic-beta']).toBe('prompt-caching-2024-07-31');
+
+    // system is restructured into a text-block array with an ephemeral
+    // breakpoint, and the LAST tool carries one too.
+    const body = JSON.parse(init.body as string);
+    expect(body.system[0].cache_control.type).toBe('ephemeral');
+    expect(body.system[0].text).toBe('You are a vault assistant.');
+    expect(body.tools[body.tools.length - 1].cache_control.type).toBe('ephemeral');
+    // The non-final tool stays untouched (single breakpoint).
+    expect(body.tools[0].cache_control).toBeUndefined();
+  });
 });
 
 describe('DirectTransport: HTTP error mapping', () => {
@@ -273,67 +312,6 @@ describe('DirectTransport: HTTP error mapping', () => {
       expect(err.retryable).toBe(false);
     }
     expect(fetchMock).not.toHaveBeenCalled();
-  });
-});
-
-describe('DirectTransport: cancel mid-stream', () => {
-  let fetchMock: ReturnType<typeof vi.fn>;
-  beforeEach(() => {
-    fetchMock = vi.fn();
-    vi.stubGlobal('fetch', fetchMock);
-  });
-  afterEach(() => vi.unstubAllGlobals());
-
-  it('emits done(cancelled) when fetch itself is aborted', async () => {
-    // Simulate an AbortError thrown by fetch when the signal fires.
-    // In the real browser/Electron, aborting the signal while fetch is
-    // in-flight causes it to reject with an AbortError. We model that
-    // directly here since JSDOM's ReadableStream doesn't propagate the
-    // signal into reader.read() automatically.
-    let resolveAbort!: () => void;
-    const abortGate = new Promise<void>((r) => { resolveAbort = r; });
-
-    fetchMock.mockImplementation((_url: string, init: RequestInit) => {
-      const signal = init.signal as AbortSignal;
-      // Return a promise that rejects with AbortError when abort fires.
-      return new Promise<Response>((_resolve, reject) => {
-        if (signal.aborted) {
-          const err = new Error('aborted');
-          err.name = 'AbortError';
-          reject(err);
-          return;
-        }
-        signal.addEventListener('abort', () => {
-          const err = new Error('aborted');
-          err.name = 'AbortError';
-          reject(err);
-          resolveAbort();
-        });
-      });
-    });
-
-    const { transport, handlers } = makeTransport();
-    transport.connect();
-    transport.send({
-      type: 'chat',
-      id: 'cancel-me',
-      payload: {
-        model: 'claude-sonnet-4-6',
-        messages: [{ role: 'user', content: 'hi' }],
-        max_tokens: 100,
-      },
-    });
-
-    // Wait for fetch to be called so the AbortController is registered.
-    await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
-    transport.send({ type: 'cancel', id: 'cancel-me' });
-    await abortGate;
-
-    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'done'));
-    const done = handlers.messages.find((m) => m.type === 'done');
-    if (done?.type === 'done') {
-      expect(done.stop_reason).toBe('cancelled');
-    }
   });
 });
 

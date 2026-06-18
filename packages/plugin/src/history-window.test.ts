@@ -143,6 +143,32 @@ describe('windowHistory: tool_use / tool_result pair atomicity', () => {
     expect(result).toContain(finalUser);
   });
 
+  it('never starts on an orphan tool_result whose tool_use was dropped', () => {
+    // The matching tool_use assistant is large enough to be dropped by the
+    // budget loop alone, landing `start` directly on the tool_result user
+    // message (invariant 3, not invariant 2 — the tool_use is GONE, not at
+    // the boundary). Without the guard, the window would begin with an orphan
+    // tool_result and Anthropic 400s.
+    const bigToolUse = assistantBlocks([
+      { type: 'text', text: chars(4000) }, // ~1000 tokens — dropped on its own
+      { type: 'tool_use', id: 'orphan', name: 'read_note', input: { path: 'x.md' } },
+    ]);
+    const orphanResult = toolResultUser('orphan'); // ~50 tokens, would be start
+    const finalUser = user('continue'); // tiny
+
+    // Budget 200: dropping bigToolUse (~1000) gets us well under budget, so the
+    // drop loop stops with start on orphanResult. The guard must advance past it.
+    const result = windowHistory([bigToolUse, orphanResult, finalUser], 200);
+
+    expect(result).not.toContain(orphanResult);
+    expect(result[0]).not.toBe(orphanResult);
+    if (Array.isArray(result[0].content)) {
+      const firstBlock = result[0].content[0] as Record<string, unknown>;
+      expect(firstBlock.type).not.toBe('tool_result');
+    }
+    expect(result).toContain(finalUser);
+  });
+
   it('skips an orphaned tool_use at the start of the window', () => {
     // Window lands exactly on a tool_use assistant message (its paired user
     // message was dropped). The invariant-2 guard must skip it too.
