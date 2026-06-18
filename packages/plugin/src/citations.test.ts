@@ -3,7 +3,7 @@
  * Chat-session integration tests live in citations.session.test.ts.
  *
  * Covers:
- *   1. buildDocumentBlock shape and cache_control flag
+ *   1. buildDocumentBlock shape (no cache_control — Fix 4)
  *   2. parseCitationLocation — all three types + malformed inputs
  *   3. citationLabel — 1-indexed display
  *   4. citationPath — known and unknown indices
@@ -35,14 +35,12 @@ describe('buildDocumentBlock', () => {
     expect(block.source.data).toBe('The grass is green.');
   });
 
-  it('omits cache_control when cache=false (default)', () => {
-    const block = buildDocumentBlock('a.md', 'body');
+  it('never emits cache_control (Fix 4: capability removed)', () => {
+    // Document blocks are per-request grounding, not cross-turn cache
+    // candidates. A cache_control here risks a 4th+ breakpoint → 400.
+    const block = buildDocumentBlock('a.md', 'body') as unknown as Record<string, unknown>;
+    expect('cache_control' in block).toBe(false);
     expect(block.cache_control).toBeUndefined();
-  });
-
-  it('sets cache_control when cache=true', () => {
-    const block = buildDocumentBlock('a.md', 'body', true);
-    expect(block.cache_control).toEqual({ type: 'ephemeral' });
   });
 });
 

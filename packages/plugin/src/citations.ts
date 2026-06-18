@@ -49,6 +49,12 @@ export interface CitationLocation {
  * Placed in the user turn alongside the corresponding tool_result.
  * The `title` is the vault-relative path so the rendered citation
  * marker can link back to the source note.
+ *
+ * Deliberately carries NO cache_control: document blocks are per-request
+ * grounding context, not cross-turn cache candidates. The cache breakpoint
+ * budget (system + last-tool + moving-history = 3 of Anthropic's 4) is
+ * already spoken for in anthropic-caching.ts; adding cache_control here
+ * could push a multi-document turn past 4 breakpoints → 400.
  */
 export interface DocumentBlock {
   type: 'document';
@@ -59,10 +65,6 @@ export interface DocumentBlock {
   };
   title: string;
   citations: { enabled: true };
-  /** Optional — pass cache_control to the document block so Anthropic
-   * can cache the note body across turns. Only set when prompt caching
-   * is available on the active provider. */
-  cache_control?: { type: 'ephemeral' };
 }
 
 /**
@@ -71,16 +73,9 @@ export interface DocumentBlock {
  * @param path    - Vault-relative path; becomes the block's title so
  *                  citation markers can link back to it.
  * @param body    - Full note body (the content field from read_note).
- * @param cache   - When true, attach cache_control so the document is
- *                  cached at the Anthropic tier. Pass only when
- *                  providerCapabilities(provider).promptCaching is true.
  */
-export function buildDocumentBlock(
-  path: string,
-  body: string,
-  cache = false,
-): DocumentBlock {
-  const block: DocumentBlock = {
+export function buildDocumentBlock(path: string, body: string): DocumentBlock {
+  return {
     type: 'document',
     source: {
       type: 'text',
@@ -90,10 +85,6 @@ export function buildDocumentBlock(
     title: path,
     citations: { enabled: true },
   };
-  if (cache) {
-    block.cache_control = { type: 'ephemeral' };
-  }
-  return block;
 }
 
 /**
