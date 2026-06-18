@@ -26,6 +26,16 @@ const CHARS_PER_TOKEN = 4;
 /** Default headroom in tokens. */
 const DEFAULT_MAX_TOKENS = 150_000;
 
+/**
+ * Hard ceiling (estimated tokens) past which we warn. The windowing budget
+ * is generous and Invariant 1 keeps the last user turn even if it alone
+ * exceeds the budget — so a single giant turn can still blow past the model's
+ * context limit and 400. This is a sanity log, not an enforcement: it never
+ * drops the kept turn (that would break Invariant 1), it just surfaces the
+ * likely cause in the console. 200k ≈ the current Claude context window.
+ */
+const CONTEXT_CEILING_TOKENS = 200_000;
+
 /** Estimate the token cost of a single message. */
 function estimateMessage(msg: Message): number {
   if (typeof msg.content === 'string') {
@@ -81,7 +91,10 @@ export function windowHistory(
   const total = costs.reduce((a, b) => a + b, 0);
 
   // Fast path: already within budget.
-  if (total <= maxTokens) return messages.slice();
+  if (total <= maxTokens) {
+    warnIfOverCeiling(total);
+    return messages.slice();
+  }
 
   // Drop from the front until we are within budget.
   // We always keep at least the last message (the user's current turn).
@@ -121,7 +134,25 @@ export function windowHistory(
     }
   }
 
+  // After trimming, the running estimate is the windowed payload size. If it
+  // still exceeds the model context ceiling (a single oversized kept turn),
+  // log a warning — Invariant 1 forbids dropping it, so this is the only
+  // honest signal we can give before the request 400s.
+  warnIfOverCeiling(running);
+
   return messages.slice(start);
+}
+
+/** Console-warn (once per call) when the estimated payload exceeds the
+ * model context ceiling. Pure side-effect; never throws. */
+function warnIfOverCeiling(estimatedTokens: number): void {
+  if (estimatedTokens > CONTEXT_CEILING_TOKENS) {
+    console.warn(
+      `[scribian] windowed payload ≈${estimatedTokens} tokens exceeds the ` +
+        `~${CONTEXT_CEILING_TOKENS}-token context ceiling; the request may be ` +
+        `rejected. A single large note or turn is the likely cause.`,
+    );
+  }
 }
 
 // ---------------------------------------------------------------------------

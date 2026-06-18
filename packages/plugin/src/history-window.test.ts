@@ -5,7 +5,7 @@
  * tool-pair atomicity, orphan-tool_result prevention, and
  * the single-huge-message edge case.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, afterEach } from 'vitest';
 import type { Message } from '@scribian/protocol';
 import { windowHistory, compactStaleToolResults, COMPACTION_STUB } from './history-window';
 
@@ -63,6 +63,20 @@ describe('windowHistory: under-budget passthrough', () => {
     const msgs = [user('short'), assistant('reply'), user('question')];
     const result = windowHistory(msgs);
     expect(result).toEqual(msgs);
+  });
+});
+
+describe('windowHistory: context-ceiling warning (Fix 6)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  it('warns over the ~200k-token ceiling, silent under it', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    windowHistory([user('hello'), assistant('hi')], 150_000); // under: silent
+    expect(warn).not.toHaveBeenCalled();
+    // 900k chars ≈ 225k tokens — over the ceiling; Invariant 1 keeps it.
+    windowHistory([user(chars(900_000))], 150_000);
+    expect(warn).toHaveBeenCalledOnce();
+    expect(warn.mock.calls[0][0]).toMatch(/context ceiling/i);
   });
 });
 
