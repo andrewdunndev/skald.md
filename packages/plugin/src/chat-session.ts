@@ -9,7 +9,8 @@ import type {
   Usage,
 } from '@scribian/protocol';
 import { sumUsage } from './pricing';
-import { windowHistory } from './history-window';
+import { windowHistory, compactStaleToolResults } from './history-window';
+import { isReadOnlyTool } from './tools';
 import type { ScribianTransport } from './transport-interface';
 
 export interface InFlight {
@@ -175,7 +176,7 @@ export class ChatSession {
 
     const payload: ChatRequest = {
       model: this.modelProvider(),
-      messages: windowHistory(this.messages),
+      messages: compactStaleToolResults(windowHistory(this.messages)),
       max_tokens: 4096,
     };
     if (system) payload.system = system;
@@ -276,20 +277,66 @@ export class ChatSession {
     );
     if (toolUses.length === 0) return;
 
-    const results: ContentBlock[] = [];
+    // Partition into read-only (parallelisable) and write (sequential).
+    const readUses: typeof toolUses = [];
+    const writeUses: typeof toolUses = [];
     for (const block of toolUses) {
-      const b = block as Record<string, any>;
-      const result = await this.toolExecutor(b.name, b.input, b.id);
-      const resultBlock: ContentBlock = {
-        type: 'tool_result',
-        tool_use_id: b.id,
-        content: result.content,
-      };
-      if (result.is_error) {
-        (resultBlock as Record<string, unknown>).is_error = true;
+      const name = (block as Record<string, unknown>).name as string;
+      if (isReadOnlyTool(name)) {
+        readUses.push(block);
+      } else {
+        writeUses.push(block);
       }
-      results.push(resultBlock);
     }
+
+    // Map from tool_use_id → result block for reassembly in original order.
+    const resultMap = new Map<string, ContentBlock>();
+
+    const toResultBlock = (
+      id: string,
+      res: { content: string; is_error?: boolean },
+    ): ContentBlock => {
+      const rb: ContentBlock = {
+        type: 'tool_result',
+        tool_use_id: id,
+        content: res.content,
+      };
+      if (res.is_error) (rb as Record<string, unknown>).is_error = true;
+      return rb;
+    };
+
+    // Execute read-only tools concurrently. A thrown read → error
+    // tool_result (never a missing block, so no tool_use is orphaned).
+    await Promise.all(
+      readUses.map(async (block) => {
+        const b = block as Record<string, any>;
+        try {
+          const res = await this.toolExecutor(b.name, b.input, b.id);
+          resultMap.set(b.id, toResultBlock(b.id, res));
+        } catch (err) {
+          resultMap.set(
+            b.id,
+            toResultBlock(b.id, {
+              content: err instanceof Error ? err.message : 'tool execution failed',
+              is_error: true,
+            }),
+          );
+        }
+      }),
+    );
+
+    // Execute write tools strictly sequentially (approval UIs must not overlap).
+    for (const block of writeUses) {
+      const b = block as Record<string, any>;
+      const res = await this.toolExecutor(b.name, b.input, b.id);
+      resultMap.set(b.id, toResultBlock(b.id, res));
+    }
+
+    // Reassemble in original tool_use order for determinism.
+    const results: ContentBlock[] = toolUses.map((block) => {
+      const id = (block as Record<string, unknown>).id as string;
+      return resultMap.get(id)!;
+    });
 
     this.messages.push({ role: 'user', content: results });
     this.handlers.onUpdate();

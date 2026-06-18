@@ -43,6 +43,23 @@ export type {
 } from './context';
 export { READ_ONLY_TOOLS, GRAPH_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS, serverToolsForModel };
 
+/** Set of tool names safe to execute concurrently (read-only vault
+ * operations — no write, no approval flow). Built once at module load. */
+const READ_ONLY_NAMES: ReadonlySet<string> = new Set([
+  ...READ_ONLY_TOOLS.map((t) => (t as Record<string, unknown>).name as string),
+  ...GRAPH_TOOLS.map((t) => (t as Record<string, unknown>).name as string),
+]);
+
+/**
+ * Returns true when the named tool is read-only (safe to parallelise).
+ * Write tools (write_note, edit_note, append_to_note) and memory tools
+ * (remember_fact, update_memory, forget_fact) return false — those carry
+ * an approval flow and must run strictly one at a time.
+ */
+export function isReadOnlyTool(name: string): boolean {
+  return READ_ONLY_NAMES.has(name);
+}
+
 /**
  * Every tool definition shipped on a chat request. Plugin dispatches
  * READ_ONLY_TOOLS + WRITE_TOOLS + MEMORY_TOOLS through executeTool;
