@@ -1,21 +1,14 @@
 /**
  * DirectTransport: call Anthropic / OpenRouter directly from the plugin,
- * bypassing the Cloudflare Worker entirely.
+ * bypassing the Cloudflare Worker entirely. Uses native fetch with the
+ * `anthropic-dangerous-direct-browser-access: true` header. Never uses
+ * Obsidian's requestUrl — that path doesn't set the required Origin header.
  *
- * Uses native fetch with the `anthropic-dangerous-direct-browser-access:
- * true` header (required by Anthropic to permit browser-origin requests).
- * Never uses Obsidian's requestUrl — that goes through Electron's server-
- * side fetch path which does NOT set the Origin header that the header
- * above guards against. Native fetch is correct here.
+ * Provider dispatch: Anthropic is the default; OpenRouter is the opt-in
+ * fallback. Translation helpers are intentionally duplicated (not shared)
+ * to keep the worker package out of the plugin bundle.
  *
- * Provider dispatch mirrors the Worker's packages/worker/src/providers/
- * logic: Anthropic is the default; OpenRouter is the opt-in fallback.
- * The translation helpers are intentionally duplicated rather than shared
- * to keep the worker package out of the plugin bundle — the protocol
- * package is the only shared dependency.
- *
- * echo/ping: handled synchronously (echoed/pong) — no network round-trip.
- * cancel: aborts the in-flight fetch via AbortController.
+ * echo/ping: synchronous. cancel: aborts via AbortController.
  */
 import type { ClientMessage, Provider, ServerMessage, Usage } from '@scribian/protocol';
 import type { ScribianTransport, TransportHandlers } from './transport-interface';
@@ -24,23 +17,16 @@ import { applyAnthropicCaching } from './anthropic-caching';
 import { providerCapabilities } from './provider-capabilities';
 import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
 
-// ── Anthropic ─────────────────────────────────────────────────────────────
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-
-// Anthropic-native server tool type identifiers (same set as the worker).
 const ANTHROPIC_WEB_SEARCH_TYPES = ['web_search_20260209', 'web_search_20250305'];
 const ANTHROPIC_WEB_FETCH_TYPES = ['web_fetch_20260209', 'web_fetch_20250910'];
 
-// ── OpenRouter ────────────────────────────────────────────────────────────
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/messages';
 const OPENROUTER_REFERER = 'https://github.com/scribian/scribian';
 const OPENROUTER_TITLE = 'scribian';
-
 const OR_WEB_SEARCH = 'openrouter:web_search';
 const OR_WEB_FETCH = 'openrouter:web_fetch';
-
-// ── ProviderKey resolver ──────────────────────────────────────────────────
 
 /** Config threaded in by view.ts at construction time. */
 export interface DirectTransportConfig {
@@ -48,6 +34,10 @@ export interface DirectTransportConfig {
   getAnthropicKey: () => string;
   /** Returns the current OpenRouter API key from settings. */
   getOpenRouterKey: () => string;
+  /** Optional — defaults to false. Extended thinking ("deep mode") setting.
+   * TODO(wiring): add `getThinkingEnabled: () => plugin.settings.thinkingEnabled`
+   * to the DirectTransport constructor call in view/connect-session.ts ~line 92. */
+  getThinkingEnabled?: () => boolean;
 }
 
 // ── DirectTransport ───────────────────────────────────────────────────────
@@ -129,10 +119,12 @@ export class DirectTransport implements ScribianTransport {
       return;
     }
 
+    const thinkingEnabled = this.config.getThinkingEnabled?.() ?? false;
     const { url, headers, requestBody, translateEvent } = buildDispatch(
       provider,
       apiKey,
       payload,
+      thinkingEnabled,
     );
 
     const ac = new AbortController();
@@ -277,10 +269,15 @@ interface DispatchContext {
   translateEvent: TranslateEvent;
 }
 
+/** Budget for extended thinking. Anthropic includes thinking tokens in
+ * output_tokens, so pricing.ts output accounting already covers them. */
+const THINKING_BUDGET_TOKENS = 8192;
+
 function buildDispatch(
   provider: Provider,
   apiKey: string,
   req: import('@scribian/protocol').ChatRequest,
+  thinkingEnabled: boolean,
 ): DispatchContext {
   if (provider === 'openrouter') {
     return {
@@ -297,6 +294,18 @@ function buildDispatch(
   }
   // Anthropic (default)
   const caps = providerCapabilities(provider);
+  const cachedReq = caps.promptCaching ? applyAnthropicCaching(req) : req;
+
+  // Attach extended thinking when setting is on + capability supported.
+  // OpenRouter is guarded above; thinking tokens covered by output pricing.
+  const requestBody =
+    thinkingEnabled && caps.extendedThinking
+      ? {
+          ...cachedReq,
+          thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET_TOKENS },
+        }
+      : cachedReq;
+
   return {
     url: ANTHROPIC_URL,
     headers: {
@@ -306,11 +315,10 @@ function buildDispatch(
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
-    requestBody: caps.promptCaching ? applyAnthropicCaching(req) : req,
+    requestBody: requestBody as import('@scribian/protocol').ChatRequest,
     translateEvent: identityEvent,
   };
 }
-
 
 function identityEvent(
   event: string,

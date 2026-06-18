@@ -118,6 +118,14 @@ export interface ScribianSettings {
    *   markdown list with optional `:icon-name:` prefix per line.
    */
   startersPath: string;
+  /**
+   * Extended thinking ("deep mode"). When true AND the active provider
+   * supports extended thinking (providerCapabilities.extendedThinking),
+   * the Anthropic request includes thinking: { type: 'enabled',
+   * budget_tokens: 8192 }. Off by default — slower and costs more
+   * (thinking tokens count against output). Never sent to OpenRouter.
+   */
+  thinkingEnabled: boolean;
 }
 
 /** Re-export for backwards-compatible imports. */
@@ -147,6 +155,7 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   capturePromptPath: '',
   captureMode: 'auto-route',
   startersPath: 'Scribian/Starters.md',
+  thinkingEnabled: false,
 };
 
 export class ScribianSettingTab extends PluginSettingTab {
@@ -190,6 +199,19 @@ export class ScribianSettingTab extends PluginSettingTab {
       renderPersonasSection(containerEl, this.plugin);
       renderCommandsSection(containerEl, this.plugin);
       renderCaptureSection(containerEl, this.plugin);
+      // Deep thinking toggle — capability-gated (Anthropic only).
+      new Setting(containerEl)
+        .setName('Deep thinking mode (slower, costs more)')
+        .setDesc(
+          'When on, Claude reasons step-by-step before responding (Anthropic only). ' +
+          'Thinking tokens count as output — budget is 8 192 tokens per turn.',
+        )
+        .addToggle((t) => {
+          t.setValue(this.plugin.settings.thinkingEnabled).onChange(async (v) => {
+            this.plugin.settings.thinkingEnabled = v;
+            await this.plugin.saveSettings();
+          });
+        });
     }
   }
 }

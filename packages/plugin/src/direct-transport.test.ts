@@ -1,13 +1,6 @@
-/**
- * DirectTransport behavior tests. Uses mocked fetch returning ReadableStream
- * to exercise the happy path, cancel mid-stream, HTTP 401 error mapping,
- * and OpenRouter dispatch without real network I/O.
- */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { ServerMessage } from '@scribian/protocol';
 import { DirectTransport } from './direct-transport';
-
-// ── helpers ───────────────────────────────────────────────────────────────
 
 function makeHandlers() {
   const messages: ServerMessage[] = [];
@@ -20,7 +13,6 @@ function makeHandlers() {
   };
 }
 
-/** Build a ReadableStream that emits the given SSE chunks sequentially. */
 function sseStream(...chunks: string[]): ReadableStream<Uint8Array> {
   const encoder = new TextEncoder();
   return new ReadableStream({
@@ -33,34 +25,30 @@ function sseStream(...chunks: string[]): ReadableStream<Uint8Array> {
   });
 }
 
-/** A minimal Response object that looks like a streaming 200. */
 function ok200(stream: ReadableStream<Uint8Array>): Response {
   return new Response(stream, { status: 200 });
 }
-
-/** A 4xx response with a plain-text body. */
 function errResponse(status: number, body: string): Response {
   return new Response(body, { status });
 }
 
 const ANTHROPIC_KEY = 'sk-ant-test';
-
 function makeTransport(opts?: {
   anthropicKey?: string;
   openrouterKey?: string;
+  thinkingEnabled?: boolean;
 }) {
   const handlers = makeHandlers();
   const transport = new DirectTransport(
     {
       getAnthropicKey: () => opts?.anthropicKey ?? ANTHROPIC_KEY,
       getOpenRouterKey: () => opts?.openrouterKey ?? '',
+      getThinkingEnabled: () => opts?.thinkingEnabled ?? false,
     },
     handlers,
   );
   return { transport, handlers };
 }
-
-// ── tests ─────────────────────────────────────────────────────────────────
 
 describe('DirectTransport.connect / isOpen / close', () => {
   it('fires onOpen synchronously on connect()', () => {
@@ -364,5 +352,48 @@ describe('DirectTransport: OpenRouter dispatch', () => {
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
     expect(body.tools).toEqual([{ type: 'openrouter:web_search' }]);
+  });
+});
+
+describe('DirectTransport: extended thinking (deep mode)', () => {
+  const MINIMAL_SSE =
+    'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}\n\n';
+
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => { fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock); });
+  afterEach(() => vi.unstubAllGlobals());
+
+  async function sendChat(
+    opts: { thinkingEnabled?: boolean; provider?: 'openrouter'; openrouterKey?: string },
+  ) {
+    fetchMock.mockResolvedValue(ok200(sseStream(MINIMAL_SSE)));
+    const { transport } = makeTransport({
+      thinkingEnabled: opts.thinkingEnabled ?? false,
+      openrouterKey: opts.openrouterKey,
+    });
+    transport.connect();
+    transport.send({
+      type: 'chat',
+      id: 'th',
+      provider: opts.provider,
+      payload: { model: 'claude-sonnet-4-6', messages: [{ role: 'user', content: 'hi' }], max_tokens: 1024 },
+    });
+    await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
+    return JSON.parse((fetchMock.mock.calls[0] as [string, RequestInit])[1].body as string);
+  }
+
+  it('sends thinking param when thinkingEnabled=true on Anthropic', async () => {
+    const body = await sendChat({ thinkingEnabled: true });
+    expect(body.thinking).toEqual({ type: 'enabled', budget_tokens: 8192 });
+  });
+
+  it('does NOT send thinking param when thinkingEnabled=false', async () => {
+    const body = await sendChat({ thinkingEnabled: false });
+    expect(body.thinking).toBeUndefined();
+  });
+
+  it('does NOT send thinking param to OpenRouter even when thinkingEnabled=true', async () => {
+    const body = await sendChat({ thinkingEnabled: true, provider: 'openrouter', openrouterKey: 'or-key' });
+    expect(body.thinking).toBeUndefined();
   });
 });
