@@ -237,6 +237,11 @@ function toolTurn(id: string, resultContent = 'note body here'): Message[] {
   ];
 }
 
+// These unit tests exercise the stubbing logic in isolation, so they
+// pass tokenThreshold:0 to force compaction regardless of history size.
+// (Size-gating itself is covered in anthropic-caching.test.ts.)
+const FORCE = { tokenThreshold: 0 } as const;
+
 describe('compactStaleToolResults: stub fires for old results', () => {
   it('stubs tool_results older than keepRecentTurns', () => {
     // 4 real user turns; keepRecentTurns=3 → turn 1 is stale.
@@ -249,7 +254,7 @@ describe('compactStaleToolResults: stub fires for old results', () => {
       user('query 3'), // real turn 3
       user('what do you think?'), // real turn 4
     ];
-    const result = compactStaleToolResults(messages, { keepRecentTurns: 3 });
+    const result = compactStaleToolResults(messages, { keepRecentTurns: 3, ...FORCE });
 
     const t1ResultMsg = result.find(
       (m) =>
@@ -274,7 +279,7 @@ describe('compactStaleToolResults: stub fires for old results', () => {
       ...toolTurn('t2', 'recent verbatim'),
       user('latest question'), // real turn 2 — within keepRecentTurns=1
     ];
-    const result = compactStaleToolResults(messages, { keepRecentTurns: 1 });
+    const result = compactStaleToolResults(messages, { keepRecentTurns: 1, ...FORCE });
 
     const t2ResultMsg = result.find(
       (m) =>
@@ -303,7 +308,7 @@ describe('compactStaleToolResults: pairing invariant', () => {
       ...toolTurn('c', 'fresh note'),
       user('current question'),
     ];
-    const result = compactStaleToolResults(msgs, { keepRecentTurns: 2 });
+    const result = compactStaleToolResults(msgs, { keepRecentTurns: 2, ...FORCE });
 
     const toolUseIds = new Set<string>();
     for (const m of result) {
@@ -337,8 +342,8 @@ describe('compactStaleToolResults: idempotency', () => {
       ...toolTurn('y', 'more text'),
       user('q2'),
     ];
-    const once = compactStaleToolResults(msgs, { keepRecentTurns: 1 });
-    const twice = compactStaleToolResults(once, { keepRecentTurns: 1 });
+    const once = compactStaleToolResults(msgs, { keepRecentTurns: 1, ...FORCE });
+    const twice = compactStaleToolResults(once, { keepRecentTurns: 1, ...FORCE });
     expect(twice).toEqual(once);
   });
 });
@@ -350,7 +355,7 @@ describe('compactStaleToolResults: no-op paths', () => {
       assistant('hi'),
       user('follow up'),
     ];
-    const result = compactStaleToolResults(msgs, { keepRecentTurns: 3 });
+    const result = compactStaleToolResults(msgs, { keepRecentTurns: 3, ...FORCE });
     expect(result).toEqual(msgs);
   });
 
@@ -363,7 +368,7 @@ describe('compactStaleToolResults: no-op paths', () => {
       user('q3'),
       user('q4'),
     ];
-    compactStaleToolResults(msgs, { keepRecentTurns: 2 });
+    compactStaleToolResults(msgs, { keepRecentTurns: 2, ...FORCE });
     const resultMsg = msgs.find(
       (m) =>
         m.role === 'user' &&

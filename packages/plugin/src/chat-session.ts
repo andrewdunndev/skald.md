@@ -186,6 +186,10 @@ export class ChatSession {
 
     const payload: ChatRequest = {
       model: this.modelProvider(),
+      // Compaction is size-triggered (see COMPACTION_TOKEN_THRESHOLD):
+      // below the threshold it returns history verbatim so the
+      // incremental prompt-cache prefix stays stable; it only stubs
+      // stale tool_results once history is genuinely large.
       messages: compactStaleToolResults(windowHistory(this.messages)),
       max_tokens: 4096,
     };

@@ -135,10 +135,42 @@ export const COMPACTION_STUB = '[earlier tool output omitted to save context]';
 const DEFAULT_KEEP_RECENT_TURNS = 3;
 
 /**
+ * Size threshold (estimated tokens) below which compaction is a no-op.
+ *
+ * Why size-trigger compaction: incremental prompt-caching
+ * (anthropic-caching.ts) places a moving breakpoint on the prior-turn
+ * message, caching the whole prefix up to it. If compaction stubs a
+ * newly-aged tool_result on EVERY turn, the cached prefix changes
+ * nearly every turn → cache-CREATION is re-paid constantly and the two
+ * features fight each other. Below this threshold the full history fits
+ * comfortably, so we leave content verbatim → stable prefix → caching
+ * works. Only once history is genuinely large does the token saving
+ * from stubbing outweigh the lost cache reuse, and at that point the
+ * old turns are stale anyway.
+ *
+ * 40 000 tokens (~160 KB at 4 chars/token) is well under the 150 000
+ * windowing budget — compaction kicks in long before truncation does.
+ */
+export const COMPACTION_TOKEN_THRESHOLD = 40_000;
+
+/** Estimated token cost of an entire message list (4-chars/token proxy,
+ * matching windowHistory's estimator). */
+function estimateTotal(messages: Message[]): number {
+  let total = 0;
+  for (const m of messages) total += estimateMessage(m);
+  return total;
+}
+
+/**
  * Replace the `content` of tool_result blocks in older turns with a
  * short stub, reducing the token cost of stale tool output that is
  * no longer needed verbatim but whose block must remain to keep the
  * tool_use / tool_result pairing intact.
+ *
+ * Size-triggered: when the estimated token cost of `messages` is below
+ * `opts.tokenThreshold` (default COMPACTION_TOKEN_THRESHOLD), the input
+ * is returned UNCHANGED so the cached prefix stays stable for
+ * incremental prompt-caching. Stubbing only fires once history is large.
  *
  * Invariants preserved:
  *   - Every tool_use block retains its matching tool_result (now stubbed).
@@ -153,13 +185,21 @@ const DEFAULT_KEEP_RECENT_TURNS = 3;
  * @param messages  Full (or windowed) message history.
  * @param opts.keepRecentTurns  Number of recent real-user-turns
  *   whose tool_results are kept verbatim (default 3).
- * @returns A new array with stale tool_result content replaced.
+ * @param opts.tokenThreshold  Estimated-token floor below which
+ *   compaction is skipped entirely (default COMPACTION_TOKEN_THRESHOLD).
+ * @returns A new array with stale tool_result content replaced, or a
+ *   verbatim copy when below the threshold.
  */
 export function compactStaleToolResults(
   messages: Message[],
-  opts?: { keepRecentTurns?: number },
+  opts?: { keepRecentTurns?: number; tokenThreshold?: number },
 ): Message[] {
   const keepTurns = opts?.keepRecentTurns ?? DEFAULT_KEEP_RECENT_TURNS;
+  const threshold = opts?.tokenThreshold ?? COMPACTION_TOKEN_THRESHOLD;
+
+  // Below the threshold: leave content verbatim so the prompt-cache
+  // prefix stays stable turn-to-turn (see COMPACTION_TOKEN_THRESHOLD).
+  if (estimateTotal(messages) < threshold) return messages.slice();
 
   // Walk backwards to find the start index of the "keep" window.
   // Each real-user-turn consumed while walking back counts as one turn.

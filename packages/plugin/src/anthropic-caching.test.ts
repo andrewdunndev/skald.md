@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { applyAnthropicCaching } from './anthropic-caching';
-import type { ChatRequest } from '@scribian/protocol';
+import {
+  compactStaleToolResults,
+  COMPACTION_STUB,
+  COMPACTION_TOKEN_THRESHOLD,
+} from './history-window';
+import type { ChatRequest, Message } from '@scribian/protocol';
 
 function baseReq(over: Partial<ChatRequest> = {}): ChatRequest {
   return {
@@ -140,5 +145,117 @@ describe('applyAnthropicCaching', () => {
       }
     }
     expect(count).toBeLessThanOrEqual(4);
+  });
+});
+
+// ── compaction × caching cooperation (size-triggered) ───────────────────────
+//
+// The dispatch path runs compactStaleToolResults(...) and then (on the
+// Anthropic path) applyAnthropicCaching(...). These tests assert the two
+// features cooperate: below the threshold compaction is a no-op so the
+// cached prefix lands on REAL content; above it, stubbing fires.
+
+/** assistant tool_use turn + matching user tool_result message. */
+function toolTurn(id: string, body: string): Message[] {
+  return [
+    {
+      role: 'assistant',
+      content: [
+        { type: 'tool_use', id, name: 'read_note', input: { path: 'x.md' } },
+      ] as unknown as Message['content'],
+    },
+    {
+      role: 'user',
+      content: [
+        { type: 'tool_result', tool_use_id: id, content: body },
+      ] as unknown as Message['content'],
+    },
+  ];
+}
+
+/** True when any tool_result block in the list carries the stub text. */
+function hasStub(messages: Message[]): boolean {
+  return messages.some(
+    (m) =>
+      Array.isArray(m.content) &&
+      (m.content as Record<string, unknown>[]).some(
+        (b) => b.type === 'tool_result' && b.content === COMPACTION_STUB,
+      ),
+  );
+}
+
+describe('compaction × caching: short history (under threshold)', () => {
+  it('leaves tool_results verbatim so the cache breakpoint lands on real content', () => {
+    // Small tool turns, but with MORE than the default keepRecentTurns (3)
+    // real-user-turns so that t1's result is "stale" by turn count. The
+    // ONLY reason it isn't stubbed is the size gate — total chars are well
+    // under COMPACTION_TOKEN_THRESHOLD. This is what makes the mutation
+    // (gate removed) observable: without the gate, t1 would be stubbed.
+    const history: Message[] = [
+      ...toolTurn('t1', 'small note one'),
+      { role: 'user', content: 'q1' },
+      ...toolTurn('t2', 'small note two'),
+      { role: 'user', content: 'q2' },
+      { role: 'user', content: 'q3' },
+      { role: 'user', content: 'q4' },
+      { role: 'user', content: 'newest question' },
+    ];
+    const compacted = compactStaleToolResults(history);
+
+    // No stub anywhere — full content preserved → stable cached prefix.
+    // Passes on correct code; FAILS under mutation "compaction always-on"
+    // (drop the threshold gate) because t1's result would be stubbed and
+    // land inside the cached prefix, churning the cache every turn.
+    expect(hasStub(compacted)).toBe(false);
+
+    const out = applyAnthropicCaching({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 1024,
+      messages: compacted,
+    } as ChatRequest);
+
+    // The breakpoint sits on the prior turn (second-to-last message). With
+    // no compaction that message holds its real content, not a stub.
+    const msgs = out.messages as unknown as Array<Record<string, unknown>>;
+    const prior = msgs[msgs.length - 2];
+    const priorContent = prior.content as Array<Record<string, unknown>> | string;
+    if (Array.isArray(priorContent)) {
+      const last = priorContent[priorContent.length - 1];
+      expect(last.cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
+      expect(last.content).not.toBe(COMPACTION_STUB);
+    }
+  });
+});
+
+describe('compaction × caching: large history (over threshold)', () => {
+  it('stubs stale tool_results once history exceeds the threshold', () => {
+    // One oversized stale tool_result pushes the estimate past the
+    // threshold; default keepRecentTurns=3 keeps the tail verbatim.
+    const big = 'x'.repeat(COMPACTION_TOKEN_THRESHOLD * 4 + 8); // > threshold in tokens
+    const history: Message[] = [
+      ...toolTurn('stale', big),
+      { role: 'user', content: 'q1' },
+      ...toolTurn('r1', 'recent one'),
+      { role: 'user', content: 'q2' },
+      ...toolTurn('r2', 'recent two'),
+      { role: 'user', content: 'q3' },
+      { role: 'user', content: 'newest' },
+    ];
+    const compacted = compactStaleToolResults(history);
+
+    // Stubbing fires for the stale turn. Passes on correct code; would
+    // FAIL under mutation "never compact" (always return verbatim).
+    expect(hasStub(compacted)).toBe(true);
+    const staleMsg = compacted.find(
+      (m) =>
+        Array.isArray(m.content) &&
+        (m.content as Record<string, unknown>[]).some(
+          (b) => b.type === 'tool_result' && b.tool_use_id === 'stale',
+        ),
+    )!;
+    const block = (staleMsg.content as Record<string, unknown>[]).find(
+      (b) => b.type === 'tool_result',
+    )!;
+    expect(block.content).toBe(COMPACTION_STUB);
   });
 });
