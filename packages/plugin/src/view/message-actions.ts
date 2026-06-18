@@ -27,6 +27,7 @@ import {
   extractMentionedPaths,
   unwrittenMentions,
 } from './mention-extraction';
+import { notesReadInTurn } from './inflight-reads';
 
 export interface MessageActionsConfig {
   app: App;
@@ -43,6 +44,7 @@ export function renderMessageActions(
   cfg: MessageActionsConfig,
 ): void {
   renderVaultActionBadge(row, msg);
+  renderSourcesFooter(row, msg, cfg.app);
   renderWriteNudges(row, msg, cfg);
   const actions = row.createDiv({ cls: 'scribian-msg-actions' });
   const text = messageText(msg);
@@ -154,6 +156,51 @@ function renderWriteNudges(
       text: `Propose write to ${path}`,
     });
     chip.addEventListener('click', () => cfg.onSuggestWrite?.(path));
+  }
+}
+
+/**
+ * Sources footer — compact "Sources: [[A.md]], [[B.md]]" line
+ * rendered under assistant messages that read vault notes. Each
+ * path is an Obsidian internal-link anchor so the user can tap
+ * through to the note. Capped at 5 shown; "+N more" appended as
+ * plain text when the turn read more. Renders nothing when no
+ * note paths were collected.
+ */
+function renderSourcesFooter(
+  row: HTMLElement,
+  msg: Message,
+  app: App,
+): void {
+  const content = typeof msg.content === 'string' ? [] : msg.content;
+  const paths = notesReadInTurn(content);
+  if (paths.length === 0) return;
+
+  const CAP = 5;
+  const shown = paths.slice(0, CAP);
+  const overflow = paths.length - CAP;
+
+  const footer = row.createDiv({ cls: 'scribian-sources-footer' });
+  footer.createSpan({ text: 'Sources: ' });
+
+  shown.forEach((path, i) => {
+    if (i > 0) footer.createSpan({ text: ', ' });
+    const a = footer.createEl('a', {
+      cls: 'internal-link',
+      text: `[[${path}]]`,
+      attr: {
+        'data-href': path,
+        href: path,
+      },
+    });
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      void app.workspace.openLinkText(path, '', false);
+    });
+  });
+
+  if (overflow > 0) {
+    footer.createSpan({ text: ` +${overflow} more` });
   }
 }
 

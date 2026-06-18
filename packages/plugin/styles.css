@@ -1014,3 +1014,10 @@
   align-self: center;
   font-size: var(--font-ui-smaller);
 }
+
+/* ── Sources footer (per assistant turn) ─────────────────────────── */
+.scribian-sources-footer {
+  color: var(--text-faint);
+  font-size: var(--font-smaller);
+  margin-top: 4px;
+}

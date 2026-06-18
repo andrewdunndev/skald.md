@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ContentBlock } from '@scribian/protocol';
-import { readsBeforeToolUse } from './inflight-reads';
+import { notesReadInTurn, readsBeforeToolUse } from './inflight-reads';
 
 function tool(id: string, name: string, input: unknown): ContentBlock {
   return { type: 'tool_use', id, name, input } as ContentBlock;
@@ -85,5 +85,88 @@ describe('readsBeforeToolUse', () => {
       tool('w1', 'write_note', { path: 'A.md', content: '' }),
     ];
     expect(readsBeforeToolUse(blocks, 'w1')).toEqual([]);
+  });
+});
+
+describe('notesReadInTurn', () => {
+  it('returns [] when no tool_use blocks', () => {
+    const blocks = [
+      { type: 'text', text: 'hello' } as ContentBlock,
+    ];
+    expect(notesReadInTurn(blocks)).toEqual([]);
+  });
+
+  it('returns [] when only write tools are present', () => {
+    const blocks = [
+      tool('w1', 'write_note', { path: 'A.md', content: '' }),
+      tool('w2', 'edit_note', { path: 'B.md' }),
+      tool('w3', 'append_to_note', { path: 'C.md', content: '' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual([]);
+  });
+
+  it('collects read_note paths', () => {
+    const blocks = [
+      tool('r1', 'read_note', { path: 'A.md' }),
+      tool('r2', 'read_note', { path: 'B.md' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual(['A.md', 'B.md']);
+  });
+
+  it('collects metadata paths', () => {
+    const blocks = [
+      tool('m1', 'metadata', { path: 'A.md' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual(['A.md']);
+  });
+
+  it('collects both read_note and metadata paths together', () => {
+    const blocks = [
+      tool('r1', 'read_note', { path: 'A.md' }),
+      tool('m1', 'metadata', { path: 'B.md' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual(['A.md', 'B.md']);
+  });
+
+  it('dedupes when the same path appears multiple times, preserving order', () => {
+    const blocks = [
+      tool('r1', 'read_note', { path: 'A.md' }),
+      tool('r2', 'read_note', { path: 'B.md' }),
+      tool('m1', 'metadata', { path: 'A.md' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual(['A.md', 'B.md']);
+  });
+
+  it('excludes search tools (find_related, search_vault)', () => {
+    const blocks = [
+      tool('s1', 'search_vault', { query: 'foo' }),
+      tool('s2', 'find_related', { query: 'bar' }),
+      tool('r1', 'read_note', { path: 'A.md' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual(['A.md']);
+  });
+
+  it('excludes current_note (no real path to link)', () => {
+    const blocks = [
+      tool('cn1', 'current_note', {}),
+      tool('r1', 'read_note', { path: 'A.md' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual(['A.md']);
+  });
+
+  it('returns [] when only current_note fired', () => {
+    const blocks = [
+      tool('cn1', 'current_note', {}),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual([]);
+  });
+
+  it('scans all blocks (not stopped by write tools)', () => {
+    const blocks = [
+      tool('r1', 'read_note', { path: 'A.md' }),
+      tool('w1', 'write_note', { path: 'X.md', content: '' }),
+      tool('r2', 'read_note', { path: 'B.md' }),
+    ];
+    expect(notesReadInTurn(blocks)).toEqual(['A.md', 'B.md']);
   });
 });
