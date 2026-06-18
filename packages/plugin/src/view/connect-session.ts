@@ -92,6 +92,7 @@ export function connectSession(
         {
           getAnthropicKey: () => plugin.settings.anthropicApiKey,
           getOpenRouterKey: () => plugin.settings.openrouterApiKey,
+          getThinkingEnabled: () => plugin.settings.thinkingEnabled,
         },
         handlers,
       );
