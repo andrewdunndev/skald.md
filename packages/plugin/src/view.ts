@@ -19,6 +19,8 @@ import { saveConversation } from './conversation-store';
 import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
 import { ConversationSearchModal } from './conversation-search';
 import type { ContentBlock } from '@scribian/protocol';
+import { isUpkeepDue } from './memory-upkeep';
+import { runMemoryUpkeepView } from './view/memory-upkeep-view';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
 
@@ -32,6 +34,9 @@ export class ScribianView extends ItemView {
   private messageList!: MessageList;
   private activeNote: ActiveNoteIndicator | null = null;
   private usageFooterEl!: HTMLDivElement;
+  /** Turns since the last memory-upkeep pass. Resets to 0 after
+   * each successful upkeep trigger; also resets on new chat. */
+  private turnsSinceUpkeep = 0;
   private readonly approvals = new ApprovalManager({
     onPendingChange: () => this.flushRender(),
     onResolve: (proposal, approved) => {
@@ -169,6 +174,7 @@ export class ScribianView extends ItemView {
     this.session?.reset();
     this.messageList.tearDown();
     this.dropSessionState();
+    this.turnsSinceUpkeep = 0;
     if (this.usageFooterEl) this.usageFooterEl.style.display = 'none';
     this.requestRender();
   }
@@ -289,9 +295,6 @@ export class ScribianView extends ItemView {
       }),
       'connected',
     );
-    // Update the live cost footer below the message list. Includes the
-    // app-session cumulative (prior cleared chats + this chat) so users
-    // can see the running total isn't unbounded.
     const footerText = formatSessionFooter(
       total,
       this.modelSelect.value,
@@ -299,11 +302,25 @@ export class ScribianView extends ItemView {
     );
     this.usageFooterEl.setText(footerText);
     this.usageFooterEl.style.display = '';
-    // Force a final render to lock the finalized message rendering.
     void this.flushRender();
-    // Persist the conversation to the configured chats folder. Errors are
-    // swallowed inside saveConversation; users see the file in their vault.
     void this.persistConversation();
+    // Memory upkeep: fire after the turn is shown (off the hot path).
+    // Never blocks rendering — errors soft-fail silently.
+    this.turnsSinceUpkeep++;
+    if (isUpkeepDue(this.turnsSinceUpkeep)) {
+      this.turnsSinceUpkeep = 0;
+      void this.runMemoryUpkeep(provider);
+    }
+  }
+
+  private runMemoryUpkeep(provider: 'anthropic' | 'openrouter' | undefined): Promise<void> {
+    return runMemoryUpkeepView({
+      app: this.app,
+      settings: this.plugin.settings,
+      session: this.session,
+      approvals: this.approvals,
+      provider,
+    });
   }
 
   private async persistConversation(): Promise<void> {
