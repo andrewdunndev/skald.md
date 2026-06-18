@@ -135,14 +135,26 @@ describe('MODEL_PRICING table', () => {
     // These dollar values are the source of truth for the footer + saved
     // estimated_cost_usd; a typo here silently mis-bills every chat.
     expect(MODEL_PRICING['claude-sonnet-4-6']).toMatchObject({ input: 3, output: 15 });
-    // Opus is the premium tier; haiku the cheap one — ordering is a sanity
-    // guard against a copy/paste swap between rows.
-    expect(MODEL_PRICING['claude-opus-4-7'].input).toBeGreaterThan(
+    // Opus 4.8 and 4.7 are both $5/$25 per Anthropic pricing page
+    // (verified 2026-06-17). Opus is still more expensive than Sonnet —
+    // ordering is a sanity guard against a copy/paste swap between rows.
+    expect(MODEL_PRICING['claude-opus-4-8'].input).toBeGreaterThan(
       MODEL_PRICING['claude-sonnet-4-6'].input,
     );
     expect(MODEL_PRICING['claude-haiku-4-5'].input).toBeLessThan(
       MODEL_PRICING['claude-sonnet-4-6'].input,
     );
+  });
+
+  it('opus-4-8 is priced (input > 0) so the cost footer is never $0', () => {
+    // An unpriced model silently shows $0; this guards the default model.
+    const p = MODEL_PRICING['claude-opus-4-8'];
+    expect(p).toBeDefined();
+    expect(p.input).toBeGreaterThan(0);
+    expect(p.output).toBeGreaterThan(0);
+    // Verified: $5/M input, $25/M output (Anthropic models page, 2026-06-17).
+    expect(p.input).toBe(5);
+    expect(p.output).toBe(25);
   });
 });
 

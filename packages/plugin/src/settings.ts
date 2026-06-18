@@ -125,7 +125,7 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   provider: 'anthropic',
   anthropicApiKey: '',
   openrouterApiKey: '',
-  defaultModel: 'claude-sonnet-4-6',
+  defaultModel: 'claude-opus-4-8',
   openrouterModel: 'anthropic/claude-sonnet-4-6',
   harnessFolder: '.claude',
   savedNotesFolder: 'Scribian/Saved',

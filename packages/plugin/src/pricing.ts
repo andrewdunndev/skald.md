@@ -8,8 +8,10 @@
  * within $0.01 isn't the goal; surfacing the order of magnitude
  * on a premium-token mobile budget is.
  *
- * Pricing source (Anthropic, accurate as of 2026-06):
- *   - claude-opus-4-7: $15 / $75 input/output, no documented cache yet
+ * Pricing source (Anthropic docs, verified 2026-06-17):
+ *   https://platform.claude.com/docs/en/docs/about-claude/models/overview
+ *   - claude-opus-4-8: $5 / $25 input/output
+ *   - claude-opus-4-7: $5 / $25 input/output
  *   - claude-sonnet-4-6: $3 / $15, cache_read $0.30, cache_write $6.00
  *   - claude-haiku-4-5: $1 / $5, cache_read $0.10, cache_write $2.00
  *
@@ -45,7 +47,24 @@ export interface ModelPricing {
 /** Pricing table keyed by canonical model id (Anthropic names) and
  * by an OpenRouter-style namespaced fallback. */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
-  'claude-opus-4-7': { input: 15, output: 75 },
+  // Opus 4.8: $5/M input, $25/M output. Cache rates follow the
+  // standard pattern: cache_read = 0.1x input ($0.50), cache_write
+  // (1-hour TTL) = 2x input ($10). Source: Anthropic models page,
+  // verified 2026-06-17.
+  'claude-opus-4-8': {
+    input: 5,
+    output: 25,
+    cacheRead: 0.5,
+    cacheWrite: 10,
+  },
+  // Opus 4.7: same tier pricing as Opus 4.8 ($5/$25). Retaining for
+  // users on the older model.
+  'claude-opus-4-7': {
+    input: 5,
+    output: 25,
+    cacheRead: 0.5,
+    cacheWrite: 10,
+  },
   'claude-sonnet-4-6': {
     input: 3,
     output: 15,
