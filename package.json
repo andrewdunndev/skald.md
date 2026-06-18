@@ -1,6 +1,6 @@
 {
   "name": "scribian",
-  "version": "0.0.9",
+  "version": "0.0.10",
   "private": true,
   "type": "module",
   "description": "Vault-native Claude client for Obsidian.",
