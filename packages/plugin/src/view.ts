@@ -20,7 +20,7 @@ import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './prici
 import { ConversationSearchModal } from './conversation-search';
 import type { ContentBlock } from '@scribian/protocol';
 import { isUpkeepDue } from './memory-upkeep';
-import { runMemoryUpkeepView } from './view/memory-upkeep-view';
+import { runMemoryUpkeepView, UpkeepInFlightGate } from './view/memory-upkeep-view';
 
 export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
 
@@ -37,6 +37,9 @@ export class ScribianView extends ItemView {
   /** Turns since the last memory-upkeep pass. Resets to 0 after
    * each successful upkeep trigger; also resets on new chat. */
   private turnsSinceUpkeep = 0;
+  /** In-flight gate (see UpkeepInFlightGate): held while an upkeep pass runs
+   * or awaits approval, so overlapping passes can't clobber the note. */
+  private readonly upkeepGate = new UpkeepInFlightGate();
   private readonly approvals = new ApprovalManager({
     onPendingChange: () => this.flushRender(),
     onResolve: (proposal, approved) => {
@@ -314,12 +317,15 @@ export class ScribianView extends ItemView {
   }
 
   private runMemoryUpkeep(provider: 'anthropic' | 'openrouter' | undefined): Promise<void> {
+    // In-flight gate + conversationId race guard both live in runMemoryUpkeepView.
     return runMemoryUpkeepView({
       app: this.app,
       settings: this.plugin.settings,
       session: this.session,
       approvals: this.approvals,
       provider,
+      getActiveConversationId: () => this.session?.conversationId,
+      inFlight: this.upkeepGate,
     });
   }
 

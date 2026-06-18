@@ -22,6 +22,7 @@ import {
   proposeMemoryUpkeep,
   isUpkeepDue,
   UPKEEP_EVERY_N_TURNS,
+  UPKEEP_MAX_DELETION_FRACTION,
 } from './memory-upkeep';
 import type { Message } from '@scribian/protocol';
 
@@ -218,6 +219,142 @@ describe('proposeMemoryUpkeep: OpenRouter path', () => {
       apiKey: 'or-test-key',
     });
     expect(result).toBeNull();
+  });
+});
+
+// ── Fix 1: data-loss via truncation + whole-note overwrite ─────────────────────
+
+describe('proposeMemoryUpkeep: max_tokens never truncates a long note', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('sends a max_tokens far above the old 512 cap so long notes are not truncated', async () => {
+    // A realistic memory note longer than the old 512-token cap (~2000+ words).
+    // The whole proposed body is later written as an overwrite, so the request
+    // must allow enough output to never truncate it.
+    // Passes on correct code; FAILS under mutation "set max_tokens back to 512".
+    const longNote = Array.from({ length: 400 }, (_, i) => `Fact ${i}: durable detail about the user.`).join('\n');
+    mockAnthropicOk(longNote + '\nFact 400: a newly learned fact.');
+
+    const result = await proposeMemoryUpkeep({
+      memoryBody: longNote,
+      messages: makeMessages('blue'),
+      model: 'claude-haiku-4-5',
+      provider: 'anthropic',
+      apiKey: 'sk-ant-test',
+    });
+
+    // The proposal is returned in full (a new fact was added, deletion guard not tripped).
+    expect(result).toContain('Fact 400: a newly learned fact.');
+
+    const call = vi.mocked(obsidian.requestUrl).mock.calls[0][0];
+    const body = JSON.parse((call as { body: string }).body);
+    // The cap must be high enough that the full note fits. 512 would truncate.
+    expect(body.max_tokens).toBeGreaterThanOrEqual(8192);
+  });
+});
+
+describe('proposeMemoryUpkeep: deletion guard', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('rejects a proposal that drops more than the threshold of the note (no overwrite proposed)', async () => {
+    // Existing note has 5 facts; the model returns just 1 — a ~80% wipe.
+    // Passes on correct code; FAILS under mutation "remove the deletion guard".
+    const existing = [
+      'Name: Jane Doe',
+      'Lives in: Grand Rapids',
+      'Has two kids: Alice and Bob',
+      'Prefers tea over coffee',
+      'Allergic to peanuts',
+    ].join('\n');
+    const suspectShrink = 'Name: Jane Doe'; // drops 4 of 5 facts
+    mockAnthropicOk(suspectShrink);
+
+    const result = await proposeMemoryUpkeep({
+      memoryBody: existing,
+      messages: makeMessages('green'),
+      model: 'claude-haiku-4-5',
+      provider: 'anthropic',
+      apiKey: 'sk-ant-test',
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('allows a proposal that prunes less than the threshold', async () => {
+    // Removing one short stale line from a large note stays well under the cap.
+    const existing = Array.from({ length: 20 }, (_, i) => `Fact ${i}: a durable detail.`).join('\n');
+    const lightPrune = Array.from({ length: 19 }, (_, i) => `Fact ${i}: a durable detail.`).join('\n');
+    mockAnthropicOk(lightPrune);
+
+    const result = await proposeMemoryUpkeep({
+      memoryBody: existing,
+      messages: makeMessages('red'),
+      model: 'claude-haiku-4-5',
+      provider: 'anthropic',
+      apiKey: 'sk-ant-test',
+    });
+
+    expect(result).toBe(lightPrune);
+  });
+
+  it('always allows first-population (empty existing note → content)', async () => {
+    mockAnthropicOk('Favourite colour: blue');
+    const result = await proposeMemoryUpkeep({
+      memoryBody: '',
+      messages: makeMessages('blue'),
+      model: 'claude-haiku-4-5',
+      provider: 'anthropic',
+      apiKey: 'sk-ant-test',
+    });
+    expect(result).toBe('Favourite colour: blue');
+  });
+
+  it('threshold constant is the conservative 40%', () => {
+    expect(UPKEEP_MAX_DELETION_FRACTION).toBe(0.4);
+  });
+});
+
+// ── Fix 2: cosmetic-diff spurious cards ────────────────────────────────────────
+
+describe('proposeMemoryUpkeep: cosmetic-only changes are not proposed', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('returns null when the proposal differs ONLY by whitespace/blank-lines/line-trim', async () => {
+    // Same facts, reformatted: extra blank lines, trailing spaces, indentation.
+    // Passes on correct code; FAILS under mutation "compare with plain trim()
+    // instead of normalizeNoteBody" — these would register as a change.
+    const original = 'Name: Jane\nLikes: tea\nCity: Grand Rapids';
+    const cosmetic = '\n  Name: Jane  \n\n\tLikes: tea\n\nCity: Grand Rapids   \n';
+    mockAnthropicOk(cosmetic);
+
+    const result = await proposeMemoryUpkeep({
+      memoryBody: original,
+      messages: makeMessages('orange'),
+      model: 'claude-haiku-4-5',
+      provider: 'anthropic',
+      apiKey: 'sk-ant-test',
+    });
+
+    expect(result).toBeNull();
+  });
+
+  it('DOES propose when a real new fact is added (not cosmetic)', async () => {
+    const original = 'Name: Jane\nLikes: tea';
+    const withNewFact = 'Name: Jane\nLikes: tea\nCity: Grand Rapids';
+    mockAnthropicOk(withNewFact);
+
+    const result = await proposeMemoryUpkeep({
+      memoryBody: original,
+      messages: makeMessages('teal'),
+      model: 'claude-haiku-4-5',
+      provider: 'anthropic',
+      apiKey: 'sk-ant-test',
+    });
+
+    expect(result).toBe(withNewFact);
   });
 });
 

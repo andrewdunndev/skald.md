@@ -45,6 +45,54 @@ Return ONLY the updated note body — no explanation, no markdown fences, no pre
 const MAX_EXCHANGE_MESSAGES = 6;
 
 /**
+ * Hard output cap for the upkeep call. The model is asked to return the
+ * FULL updated note, which then becomes a whole-note overwrite — so this
+ * must be high enough to never truncate a realistic memory note. The old
+ * 512 cap silently truncated any note longer than ~512 tokens and wrote
+ * the truncated body back, permanently losing facts on approval. 8192 is
+ * far above any plausible single memory note (Haiku tier supports 64K)
+ * and leaves generous headroom over the input we send. We never want a
+ * proposed body that is a truncated version of a longer note.
+ */
+const UPKEEP_MAX_TOKENS = 8192;
+
+/**
+ * Deletion guard. If the proposed body drops more than this fraction of
+ * the existing note's non-whitespace length, the proposal is treated as
+ * suspect (a hallucinated wipe, a truncated response, a model that
+ * misunderstood the task) and is NOT surfaced — a non-technical user
+ * must never be shown a destructive whole-note overwrite to rubber-stamp.
+ * Conservative behavior: skip the proposal entirely and log a warning.
+ * Expressed as the maximum allowed drop fraction (0.40 = up to 40% may be
+ * pruned; more than that is rejected).
+ */
+export const UPKEEP_MAX_DELETION_FRACTION = 0.4;
+
+/** Non-whitespace character count — the basis for the deletion guard so
+ * that reflowing/reformatting (which the no-op normalizer already filters)
+ * doesn't register as content loss. */
+function nonWhitespaceLength(s: string): number {
+  return s.replace(/\s+/g, '').length;
+}
+
+/**
+ * Normalize a note body for no-op comparison: trim each line, drop blank
+ * lines, and join with single newlines. A chatty utility model can return
+ * a cosmetically-different body (reordered blank lines, trailing spaces,
+ * re-wrapped indentation) that isn't equal-after-a-single-trim — surfacing
+ * that as a diff card nags the user about a change that carries no new
+ * facts. Comparing normalized forms suppresses cosmetic-only diffs while
+ * still surfacing any real content change.
+ */
+export function normalizeNoteBody(body: string): string {
+  return body
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0)
+    .join('\n');
+}
+
+/**
  * Options for a single upkeep pass.
  */
 export interface UpkeepOpts {
@@ -86,9 +134,36 @@ export async function proposeMemoryUpkeep(
   try {
     const proposed = await callUtilityModel(opts.provider, opts.apiKey, opts.model, userPrompt);
     if (!proposed) return null;
-    // If the model returned the same content, propose nothing.
-    if (proposed.trim() === opts.memoryBody.trim()) return null;
-    return proposed.trim();
+    const trimmed = proposed.trim();
+
+    // No-op detection: compare NORMALIZED bodies so a cosmetically-different
+    // response (reordered blank lines, whitespace, re-trimmed lines) that
+    // carries no new facts is not surfaced as a spurious diff card.
+    if (normalizeNoteBody(trimmed) === normalizeNoteBody(opts.memoryBody)) {
+      return null;
+    }
+
+    // Deletion guard: refuse to PROPOSE a destructive overwrite. If the
+    // proposal drops more than UPKEEP_MAX_DELETION_FRACTION of the existing
+    // note's non-whitespace content, treat it as suspect and skip silently
+    // (warn for the operator). A non-technical user must never be shown a
+    // mass-deletion overwrite to approve. Only guards against shrinkage of
+    // a non-empty note — growth and first-population (empty → content) are
+    // always allowed.
+    const existingLen = nonWhitespaceLength(opts.memoryBody);
+    if (existingLen > 0) {
+      const proposedLen = nonWhitespaceLength(trimmed);
+      const dropped = existingLen - proposedLen;
+      if (dropped > existingLen * UPKEEP_MAX_DELETION_FRACTION) {
+        console.warn(
+          `[memory-upkeep] proposal drops ${dropped}/${existingLen} non-whitespace chars ` +
+            `(> ${UPKEEP_MAX_DELETION_FRACTION * 100}% threshold) — skipping as suspect destructive overwrite`,
+        );
+        return null;
+      }
+    }
+
+    return trimmed;
   } catch (err) {
     console.warn('[memory-upkeep] error —', err);
     return null;
@@ -150,7 +225,7 @@ async function callAnthropic(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 512,
+      max_tokens: UPKEEP_MAX_TOKENS,
       system: UPKEEP_SYSTEM,
       messages: [{ role: 'user', content: userPrompt }],
     }),
@@ -179,7 +254,7 @@ async function callOpenRouter(
     },
     body: JSON.stringify({
       model,
-      max_tokens: 512,
+      max_tokens: UPKEEP_MAX_TOKENS,
       messages: [
         { role: 'system', content: UPKEEP_SYSTEM },
         { role: 'user', content: userPrompt },

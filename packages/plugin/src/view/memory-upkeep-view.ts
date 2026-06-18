@@ -29,40 +29,91 @@ export async function runMemoryUpkeepView(opts: {
   session: ChatSession | null;
   approvals: ApprovalManager;
   provider: Provider | undefined;
+  /** Returns the conversationId of the session that is CURRENTLY active.
+   * Snapshotted at trigger time and re-checked before the vault write so a
+   * new chat / resume mid-flight aborts the write (it would otherwise
+   * clobber the memory note with a proposal built from a different
+   * conversation's messages). */
+  getActiveConversationId?: () => string | undefined;
+  /** Shared in-flight gate owned by the caller (the view). Only one upkeep
+   * pass may run / await approval at a time; a second trigger while one is
+   * pending must skip, otherwise two overlapping overwrite proposals can
+   * race against the same note and the last-approved silently clobbers. */
+  inFlight?: UpkeepInFlightGate;
 }): Promise<void> {
-  const { app, settings, session, approvals, provider } = opts;
+  const { app, settings, session, approvals, provider, getActiveConversationId, inFlight } = opts;
   if (!settings.memoryEnabled || !settings.memoryPath?.trim()) return;
 
-  const resolvedProvider = provider ?? settings.provider ?? 'anthropic';
-  const apiKey = resolvedProvider === 'openrouter'
-    ? settings.openrouterApiKey
-    : settings.anthropicApiKey;
-  if (!apiKey) return;
+  // In-flight guard: bail immediately if a pass is already running/awaiting
+  // approval. Claim the gate before any await; release in `finally`.
+  if (inFlight?.isActive()) return;
+  inFlight?.acquire();
+  try {
+    const resolvedProvider = provider ?? settings.provider ?? 'anthropic';
+    const apiKey = resolvedProvider === 'openrouter'
+      ? settings.openrouterApiKey
+      : settings.anthropicApiKey;
+    if (!apiKey) return;
 
-  const memoryBody = await readVaultNote(app, settings.memoryPath);
-  const messages = session?.getMessages() ?? [];
-  if (messages.length === 0) return;
+    // Snapshot the conversation identity at trigger time. The model call and
+    // approval dialog are async; if the user starts a new chat or resumes a
+    // different conversation while this is in flight, the snapshot will no
+    // longer match the active conversationId and we bail before writing.
+    const conversationIdAtTrigger = session?.conversationId;
 
-  const proposed = await proposeMemoryUpkeep({
-    memoryBody,
-    messages,
-    model: utilityModel(settings),
-    provider: resolvedProvider,
-    apiKey,
-  });
-  if (!proposed) return;
+    const memoryBody = await readVaultNote(app, settings.memoryPath);
+    const messages = session?.getMessages() ?? [];
+    if (messages.length === 0) return;
 
-  const toolUseId = crypto.randomUUID();
-  const approved = await approvals.request({
-    toolUseId,
-    kind: 'overwrite',
-    path: settings.memoryPath,
-    before: memoryBody || null,
-    after: proposed,
-  });
-  if (!approved) return;
+    const proposed = await proposeMemoryUpkeep({
+      memoryBody,
+      messages,
+      model: utilityModel(settings),
+      provider: resolvedProvider,
+      apiKey,
+    });
+    if (!proposed) return;
 
-  await writeVaultNote(app, settings.memoryPath, proposed);
+    const toolUseId = crypto.randomUUID();
+    const approved = await approvals.request({
+      toolUseId,
+      kind: 'overwrite',
+      path: settings.memoryPath,
+      before: memoryBody || null,
+      after: proposed,
+    });
+    if (!approved) return;
+
+    // conversationId race guard: if the active conversation changed between
+    // trigger and write (new chat / resume happened during the model call or
+    // while the approval dialog was open), abort — this proposal was built
+    // against a conversation that is no longer current.
+    if (getActiveConversationId) {
+      const active = getActiveConversationId();
+      if (active !== conversationIdAtTrigger) {
+        console.warn(
+          '[memory-upkeep] conversation changed between trigger and write — skipping stale overwrite',
+        );
+        return;
+      }
+    }
+
+    await writeVaultNote(app, settings.memoryPath, proposed);
+  } finally {
+    inFlight?.release();
+  }
+}
+
+/**
+ * A single-slot in-flight gate. Owned by the view so its state persists
+ * across the `void`-fired upkeep calls. Kept as a tiny object (not a bare
+ * boolean) so the caller holds a stable reference the function can mutate.
+ */
+export class UpkeepInFlightGate {
+  private active = false;
+  isActive(): boolean { return this.active; }
+  acquire(): void { this.active = true; }
+  release(): void { this.active = false; }
 }
 
 /** Read a vault note by path, returning empty string if absent. */

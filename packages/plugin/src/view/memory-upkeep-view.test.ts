@@ -24,7 +24,7 @@ vi.mock('../provider-capabilities', () => ({
   utilityModel: (...args: unknown[]) => utilityModel(...args),
 }));
 
-import { runMemoryUpkeepView } from './memory-upkeep-view';
+import { runMemoryUpkeepView, UpkeepInFlightGate } from './memory-upkeep-view';
 import type { ScribianSettings } from '../settings';
 import type { ChatSession } from '../chat-session';
 import type { ApprovalManager } from '../approval-manager';
@@ -76,8 +76,11 @@ function makeSettings(over: Partial<ScribianSettings> = {}): ScribianSettings {
   } as ScribianSettings;
 }
 
-function makeSession(messages: { role: string; content: string }[]): ChatSession {
-  return { getMessages: () => messages } as unknown as ChatSession;
+function makeSession(
+  messages: { role: string; content: string }[],
+  conversationId = 'conv-1',
+): ChatSession {
+  return { getMessages: () => messages, conversationId } as unknown as ChatSession;
 }
 
 beforeEach(() => {
@@ -158,6 +161,94 @@ describe('runMemoryUpkeepView: write requires approval', () => {
       session: makeSession([{ role: 'user', content: 'remember X' }]),
       approvals,
       provider: 'anthropic',
+    });
+    expect(vault.modify).toHaveBeenCalledWith(existingFile, 'new memory body');
+  });
+});
+
+// ── Fix 3: in-flight guard + conversationId race ───────────────────────────────
+
+describe('runMemoryUpkeepView: in-flight guard', () => {
+  it('does NOT start a second proposal while one upkeep is in flight', async () => {
+    // First call: hold the proposal pending (never resolves) so the gate
+    // stays acquired across the second call. Second call shares the gate.
+    // Passes on correct code; FAILS under mutation "remove the in-flight
+    // guard" — proposeMemoryUpkeep would be called twice.
+    const gate = new UpkeepInFlightGate();
+    let resolveFirst!: (v: string | null) => void;
+    proposeMemoryUpkeep.mockReturnValueOnce(
+      new Promise((res) => { resolveFirst = res; }),
+    );
+
+    const { app } = makeApp();
+    const approvals = makeApprovals(true);
+    const common = {
+      app,
+      settings: makeSettings(),
+      session: makeSession([{ role: 'user', content: 'x' }]),
+      approvals,
+      provider: 'anthropic' as const,
+      inFlight: gate,
+    };
+
+    const first = runMemoryUpkeepView(common); // acquires gate, awaits proposal
+    await Promise.resolve(); // let the first call reach the gate acquire + await
+
+    // Second trigger while the first is pending:
+    await runMemoryUpkeepView(common);
+    expect(proposeMemoryUpkeep).toHaveBeenCalledTimes(1); // second was gated out
+
+    resolveFirst(null); // let the first finish and release the gate
+    await first;
+  });
+
+  it('allows a later upkeep once the prior one has released the gate', async () => {
+    const gate = new UpkeepInFlightGate();
+    proposeMemoryUpkeep.mockResolvedValue(null);
+    const { app } = makeApp();
+    const common = {
+      app,
+      settings: makeSettings(),
+      session: makeSession([{ role: 'user', content: 'x' }]),
+      approvals: makeApprovals(true),
+      provider: 'anthropic' as const,
+      inFlight: gate,
+    };
+    await runMemoryUpkeepView(common);
+    await runMemoryUpkeepView(common);
+    expect(proposeMemoryUpkeep).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('runMemoryUpkeepView: conversationId race guard', () => {
+  it('SKIPS the vault write when the conversation changed between trigger and write', async () => {
+    // Snapshot conv-1 at trigger; report conv-2 active at write time.
+    // Passes on correct code; FAILS under mutation "remove the
+    // conversationId guard" — the stale overwrite would be written.
+    proposeMemoryUpkeep.mockResolvedValue('new memory body');
+    const { app, vault } = makeApp();
+    await runMemoryUpkeepView({
+      app,
+      settings: makeSettings(),
+      session: makeSession([{ role: 'user', content: 'x' }], 'conv-1'),
+      approvals: makeApprovals(true),
+      provider: 'anthropic',
+      getActiveConversationId: () => 'conv-2', // changed mid-flight
+    });
+    expect(vault.modify).not.toHaveBeenCalled();
+    expect(vault.create).not.toHaveBeenCalled();
+  });
+
+  it('writes when the conversation is unchanged between trigger and write', async () => {
+    proposeMemoryUpkeep.mockResolvedValue('new memory body');
+    const { app, vault } = makeApp();
+    await runMemoryUpkeepView({
+      app,
+      settings: makeSettings(),
+      session: makeSession([{ role: 'user', content: 'x' }], 'conv-1'),
+      approvals: makeApprovals(true),
+      provider: 'anthropic',
+      getActiveConversationId: () => 'conv-1', // still the same conversation
     });
     expect(vault.modify).toHaveBeenCalledWith(existingFile, 'new memory body');
   });
