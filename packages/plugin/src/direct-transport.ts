@@ -21,6 +21,7 @@ import type { ClientMessage, Provider, ServerMessage, Usage } from '@scribian/pr
 import type { ScribianTransport, TransportHandlers } from './transport-interface';
 import { SSEParser } from './sse-parser';
 import { applyAnthropicCaching } from './anthropic-caching';
+import { providerCapabilities } from './provider-capabilities';
 import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
 
 // ── Anthropic ─────────────────────────────────────────────────────────────
@@ -295,6 +296,7 @@ function buildDispatch(
     };
   }
   // Anthropic (default)
+  const caps = providerCapabilities(provider);
   return {
     url: ANTHROPIC_URL,
     headers: {
@@ -304,7 +306,7 @@ function buildDispatch(
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
-    requestBody: applyAnthropicCaching(req),
+    requestBody: caps.promptCaching ? applyAnthropicCaching(req) : req,
     translateEvent: identityEvent,
   };
 }

@@ -62,6 +62,11 @@ export interface ScribianSettings {
    * Catalog ids are slash-namespaced: `anthropic/claude-...`,
    * `openai/...`, `meta-llama/...`, etc. */
   openrouterModel: string;
+  /**
+   * Utility model override for cheap tasks (rerank, future memory upkeep).
+   * // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
+   */
+  utilityModel?: string;
   harnessFolder: string;
   savedNotesFolder: string;
   chatsFolder: string;
@@ -127,6 +132,8 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   openrouterApiKey: '',
   defaultModel: 'claude-sonnet-4-6',
   openrouterModel: 'anthropic/claude-sonnet-4-6',
+  // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
+  utilityModel: '',
   harnessFolder: '.claude',
   savedNotesFolder: 'Scribian/Saved',
   chatsFolder: 'Scribian/Chats',

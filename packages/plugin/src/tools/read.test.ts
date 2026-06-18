@@ -305,7 +305,7 @@ describe('runSearchVault — Omnisearch', () => {
 // ---------------------------------------------------------------------------
 
 describe('runSearchVault — rerank integration', () => {
-  it('calls rerankCandidates and prepends "(reranked by haiku)" when >5 substring results', async () => {
+  it('calls rerankCandidates and prepends "(reranked by utility model)" when >5 substring results', async () => {
     // Build 8 files all containing the needle
     const files: Record<string, string> = {};
     for (let i = 0; i < 8; i++) {
@@ -325,7 +325,7 @@ describe('runSearchVault — rerank integration', () => {
     try {
       const result = await runSearchVault(app, { query: 'needle', limit: 8 }, 'sk-ant-test');
       expect(spy).toHaveBeenCalled();
-      expect(result.content).toContain('(reranked by haiku)');
+      expect(result.content).toContain('(reranked by utility model)');
       expect(result.content).toContain('note-7.md');
     } finally {
       spy.mockRestore();
@@ -343,7 +343,7 @@ describe('runSearchVault — rerank integration', () => {
 
     const result = await runSearchVault(app, { query: 'needle' }, 'sk-ant-test');
     expect(spy).not.toHaveBeenCalled();
-    expect(result.content).not.toContain('(reranked by haiku)');
+    expect(result.content).not.toContain('(reranked by utility model)');
 
     spy.mockRestore();
   });
@@ -366,7 +366,7 @@ describe('runSearchVault — rerank integration', () => {
       'openrouter',
     );
     expect(spy).not.toHaveBeenCalled();
-    expect(result.content).not.toContain('(reranked by haiku)');
+    expect(result.content).not.toContain('(reranked by utility model)');
 
     spy.mockRestore();
   });

@@ -27,13 +27,26 @@ describe('rerankCandidates', () => {
       text: '',
     } as ReturnType<typeof obsidian.requestUrl> extends Promise<infer R> ? R : never);
 
-    await rerankCandidates('query', CANDIDATES, API_KEY, { topK: 3 });
+    await rerankCandidates('query', CANDIDATES, API_KEY, { topK: 3 }, 'claude-haiku-4-5');
     const call = vi.mocked(obsidian.requestUrl).mock.calls[0][0];
     const body = JSON.parse((call as { body: string }).body);
     expect(body.system[0].cache_control).toEqual({
       type: 'ephemeral',
       ttl: '1h',
     });
+  });
+
+  it('uses the supplied model in the request body', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue({
+      status: 200,
+      json: { content: [{ type: 'text', text: '[0]' }] },
+      text: '',
+    } as ReturnType<typeof obsidian.requestUrl> extends Promise<infer R> ? R : never);
+
+    await rerankCandidates('query', CANDIDATES, API_KEY, { topK: 3 }, 'my-custom-model');
+    const call = vi.mocked(obsidian.requestUrl).mock.calls[0][0];
+    const body = JSON.parse((call as { body: string }).body);
+    expect(body.model).toBe('my-custom-model');
   });
 
   it('happy path: returns reranked topK candidates from Haiku response', async () => {

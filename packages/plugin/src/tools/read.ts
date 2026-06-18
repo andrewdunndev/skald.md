@@ -2,6 +2,8 @@ import { App, TFile } from 'obsidian';
 import type { ToolDefinition } from '@scribian/protocol';
 import { safePath, type ToolExecutionResult } from './context';
 import { rerankCandidates } from './rerank';
+import { providerCapabilities, utilityModel as resolveUtilityModel } from '../provider-capabilities';
+import type { ScribianSettings } from '../settings';
 
 // ---------------------------------------------------------------------------
 // Omnisearch interop — narrow types; no external @omnisearch package needed.
@@ -208,6 +210,7 @@ export async function runSearchVault(
   args: Record<string, unknown>,
   anthropicApiKey?: string,
   provider?: import('@scribian/protocol').Provider,
+  settings?: ScribianSettings,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
   if (!rawQuery) {
@@ -217,12 +220,18 @@ export async function runSearchVault(
     typeof args.limit === 'number' ? Math.floor(args.limit) : 8;
   const limit = Math.min(Math.max(requestedLimit, 1), 50);
 
-  // The Haiku reranker calls Anthropic directly. Only invoke it when
-  // the active provider IS Anthropic — an OpenRouter user shouldn't
-  // silently hit a second provider. Absent provider defaults to
-  // 'anthropic' (back-compat). The rerank also needs a key.
-  const canRerank =
-    (provider ?? 'anthropic') === 'anthropic' && !!anthropicApiKey;
+  // The reranker calls Anthropic directly via the utility model. Only
+  // invoke it when the active provider supports prompt caching (i.e. is
+  // Anthropic) — an OpenRouter user shouldn't silently hit a second
+  // provider. Absent provider defaults to 'anthropic' (back-compat).
+  // The rerank also needs a key.
+  const resolvedProvider = provider ?? 'anthropic';
+  const caps = providerCapabilities(resolvedProvider);
+  const canRerank = caps.promptCaching && !!anthropicApiKey;
+  // Model for the utility reranker — respects settings.utilityModel override.
+  const rerankModel = settings
+    ? resolveUtilityModel(settings)
+    : 'claude-haiku-4-5';
 
   // ---------------------------------------------------------------------------
   // Omnisearch fast path — BM25-ranked results when the plugin is present.
@@ -247,7 +256,7 @@ export async function runSearchVault(
         );
         let header = '(via omnisearch: ranked)';
         if (lines.length > 5 && canRerank) {
-          const reranked = await rerankCandidates(rawQuery, lines, anthropicApiKey!);
+          const reranked = await rerankCandidates(rawQuery, lines, anthropicApiKey!, {}, rerankModel);
           lines = reranked;
           header = '(reranked by haiku)';
         }
@@ -292,8 +301,8 @@ export async function runSearchVault(
   let finalResults = results;
   let scanHeader = '';
   if (results.length > 5 && canRerank) {
-    finalResults = await rerankCandidates(rawQuery, results, anthropicApiKey!);
-    scanHeader = '(reranked by haiku)\n';
+    finalResults = await rerankCandidates(rawQuery, results, anthropicApiKey!, {}, rerankModel);
+    scanHeader = '(reranked by utility model)\n';
   }
 
   const raw = scanHeader + finalResults.join('\n');
