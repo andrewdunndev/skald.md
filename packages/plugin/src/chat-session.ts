@@ -12,6 +12,7 @@ import { sumUsage } from './pricing';
 import { windowHistory, compactStaleToolResults } from './history-window';
 import { isReadOnlyTool } from './tools';
 import type { ScribianTransport } from './transport-interface';
+import { buildDocumentBlock, parseCitationLocation } from './citations';
 
 export interface InFlight {
   id: string;
@@ -50,6 +51,9 @@ export class ChatSession {
   private totalUsage: Usage = { input_tokens: 0, output_tokens: 0 };
   conversationId: string = crypto.randomUUID();
   conversationCreated: string = new Date().toISOString();
+  /** document_index → vault path. Populated by executeToolsAndContinue
+   * when citations are enabled; cleared on each new user turn. */
+  readonly documentRegistry = new Map<number, string>();
 
   constructor(
     private readonly transport: ScribianTransport,
@@ -63,6 +67,10 @@ export class ChatSession {
     private readonly toolDefinitionsProvider: () => ToolDefinition[],
     private readonly toolExecutor: ToolExecutor,
     private readonly handlers: ChatSessionHandlers,
+    /** Optional: when true, read_note results are additionally injected
+     * as document blocks in the tool-result turn (citations path).
+     * Gate: only set when providerCapabilities(provider).citations. */
+    private readonly citationsEnabledProvider?: () => boolean,
   ) {}
 
   async sendUserText(text: string): Promise<void> {
@@ -81,6 +89,7 @@ export class ChatSession {
       this.handlers.onError('A response is already in flight.');
       return;
     }
+    this.documentRegistry.clear();
     this.messages.push({ role: 'user', content });
     this.handlers.onUpdate();
     await this.dispatch();
@@ -129,6 +138,7 @@ export class ChatSession {
     this.messages.length = 0;
     this.inFlight = null;
     this.totalUsage = { input_tokens: 0, output_tokens: 0 };
+    this.documentRegistry.clear();
     this.conversationId = crypto.randomUUID();
     this.conversationCreated = new Date().toISOString();
     this.handlers.onUpdate();
@@ -214,6 +224,16 @@ export class ChatSession {
       const delta = d.delta as Record<string, any>;
       if (delta.type === 'text_delta') {
         block.text = (block.text ?? '') + delta.text;
+      } else if (delta.type === 'citations_delta') {
+        // Accumulate citation objects onto the current text block.
+        // Each citations_delta carries a single citation object;
+        // we push it onto the block's `citations` array so the
+        // finalized block matches the Citations API response shape.
+        const citation = parseCitationLocation(delta.citation);
+        if (citation) {
+          if (!Array.isArray(block.citations)) block.citations = [];
+          (block.citations as unknown[]).push(citation);
+        }
       } else if (delta.type === 'input_json_delta') {
         block.partial_json = (block.partial_json ?? '') + delta.partial_json;
       } else if (delta.type === 'thinking_delta') {
@@ -337,6 +357,33 @@ export class ChatSession {
       const id = (block as Record<string, unknown>).id as string;
       return resultMap.get(id)!;
     });
+
+    // Citations path (Anthropic only): for every successful read_note
+    // result, append a document block to the same user turn so
+    // Anthropic's Citations API can ground the response to exact
+    // character spans. The document block carries the note body; the
+    // tool_result still carries the short path echo for tool bookkeeping.
+    // document_index is 0-based across ALL document blocks in the turn.
+    const citationsEnabled = this.citationsEnabledProvider?.() ?? false;
+    if (citationsEnabled) {
+      let docIdx = 0;
+      for (const block of toolUses) {
+        const b = block as Record<string, any>;
+        if (b.name === 'read_note') {
+          const path = typeof b.input?.path === 'string' ? b.input.path : null;
+          const res = resultMap.get(b.id as string);
+          const body = res && !(res as Record<string, unknown>).is_error
+            ? (res as Record<string, unknown>).content as string
+            : null;
+          if (path && body) {
+            const docBlock = buildDocumentBlock(path, body) as unknown as ContentBlock;
+            results.push(docBlock);
+            this.documentRegistry.set(docIdx, path);
+            docIdx++;
+          }
+        }
+      }
+    }
 
     this.messages.push({ role: 'user', content: results });
     this.handlers.onUpdate();

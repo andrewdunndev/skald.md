@@ -23,6 +23,7 @@ import { MarkdownRenderer, type App, type Component } from 'obsidian';
 import type { ContentBlock } from '@scribian/protocol';
 import { renderDiffCard } from './diff-card';
 import type { WriteProposal } from '../tools';
+import { citationLabel, citationPath, type CitationLocation } from '../citations';
 
 export interface BlockContext {
   app: App;
@@ -32,6 +33,13 @@ export interface BlockContext {
   pendingApproval: (toolUseId: string) => WriteProposal | null;
   onApprove: (toolUseId: string) => void;
   onReject: (toolUseId: string) => void;
+  /**
+   * Optional: map from Anthropic document_index → vault path. When
+   * provided, text blocks with `citations` arrays render inline
+   * superscript markers (e.g. [1]) that link to the source note.
+   * Absent → citation markers are omitted (non-Anthropic path).
+   */
+  documentRegistry?: ReadonlyMap<number, string>;
 }
 
 export async function renderBlock(
@@ -47,6 +55,17 @@ export async function renderBlock(
     if (!text) return;
     const wrap = parent.createDiv({ cls: 'scribian-text' });
     await renderMarkdownInto(wrap, text, ctx);
+    // Citations path: if this text block carries citation objects (returned
+    // by the Anthropic Citations API) and we have a document registry,
+    // append inline superscript markers that link back to the source note.
+    const citations = b.citations as CitationLocation[] | undefined;
+    if (
+      Array.isArray(citations) &&
+      citations.length > 0 &&
+      ctx.documentRegistry
+    ) {
+      renderCitationMarkers(wrap, citations, ctx.documentRegistry, ctx.app);
+    }
     return;
   }
 
@@ -302,6 +321,56 @@ export function describeToolUse(name: string, input: unknown): string {
     default:
       return `🔧 ${name}`;
   }
+}
+
+/**
+ * Render inline citation superscripts for a text block that has
+ * Anthropic Citations API `citations` data. Each unique document_index
+ * in the citation list gets a compact `[N]` superscript that is
+ * clickable to open the source vault note.
+ *
+ * We dedupe by document_index within the block — multiple citations to
+ * the same document show only one marker — and sort by index so the
+ * order is deterministic.
+ */
+function renderCitationMarkers(
+  parent: HTMLElement,
+  citations: CitationLocation[],
+  registry: ReadonlyMap<number, string>,
+  app: App,
+): void {
+  // Dedupe by document_index within this block, preserving first occurrence.
+  const seen = new Set<number>();
+  const unique = citations.filter((c) => {
+    if (seen.has(c.document_index)) return false;
+    seen.add(c.document_index);
+    return true;
+  });
+  if (unique.length === 0) return;
+
+  const sup = parent.createEl('sup', { cls: 'scribian-citations' });
+  unique.forEach((citation, i) => {
+    if (i > 0) sup.createSpan({ text: ' ' }); // thin nbsp separator
+    const path = citationPath(registry, citation);
+    const label = citationLabel(citation.document_index);
+    if (path) {
+      const a = sup.createEl('a', {
+        cls: 'internal-link scribian-citation-link',
+        text: label,
+        attr: {
+          'data-href': path,
+          href: path,
+          title: `Source: ${path}`,
+        },
+      });
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        void app.workspace.openLinkText(path, '', false);
+      });
+    } else {
+      sup.createSpan({ text: label });
+    }
+  });
 }
 
 /**

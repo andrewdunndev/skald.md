@@ -107,6 +107,7 @@ export class ScribianView extends ItemView {
       onApprove: (id) => this.resolveApprovalUi(id, true),
       onReject: (id) => this.resolveApprovalUi(id, false),
       savedNotesFolder: this.plugin.settings.savedNotesFolder,
+      getDocumentRegistry: () => this.session?.documentRegistry ?? new Map(),
       onStarterPick: (chip) => {
         if (!this.composer) return;
         this.composer.fillText(chip.prompt);

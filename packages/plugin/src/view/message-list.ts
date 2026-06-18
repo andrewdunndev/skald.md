@@ -52,6 +52,14 @@ export interface MessageListContext {
    * finalized assistant turn. Host fills the composer with a
    * follow-up prompt asking Claude to actually emit the write. */
   onSuggestWrite?: (path: string) => void;
+  /**
+   * Optional: supplier for the live document registry (document_index
+   * → vault path) from the active ChatSession. When provided, assistant
+   * text blocks carrying Anthropic Citations API citation objects will
+   * render inline superscript markers linking to the source note.
+   * Absent → citation rendering is skipped (non-Anthropic path).
+   */
+  getDocumentRegistry?: () => ReadonlyMap<number, string>;
 }
 
 /**
@@ -256,6 +264,7 @@ export class MessageList {
       pendingApproval: (id) => this.ctx.pendingApproval(id),
       onApprove: (id) => this.ctx.onApprove(id),
       onReject: (id) => this.ctx.onReject(id),
+      documentRegistry: this.ctx.getDocumentRegistry?.(),
     };
 
     if (typeof msg.content === 'string') {

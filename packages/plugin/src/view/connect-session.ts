@@ -20,6 +20,7 @@ import { buildActiveTools, executeTool } from '../tools';
 import type { WriteProposal } from '../tools';
 import { modeCapabilities, assertNever } from '../mode-capabilities';
 import { loadSystemPrompt } from './system-prompt';
+import { providerCapabilities } from '../provider-capabilities';
 
 export interface ConnectResult {
   transport: ScribianTransport;
@@ -153,6 +154,9 @@ export function connectSession(
       onDone: (stopReason, usage, provider) =>
         cbs.onDone(stopReason, usage, provider),
     },
+    // Citations: gate on provider capability so only Anthropic turns inject
+    // document blocks. OpenRouter and future providers use the Sources footer.
+    () => providerCapabilities(plugin.settings.provider ?? 'anthropic').citations,
   );
 
   // Capture so drainIfInFlight can inspect session state on close/error.
