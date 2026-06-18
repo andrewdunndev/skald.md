@@ -23,7 +23,6 @@ import {
   isUpkeepDue,
   UPKEEP_EVERY_N_TURNS,
 } from './memory-upkeep';
-import { utilityModel } from './provider-capabilities';
 import type { Message } from '@scribian/protocol';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -222,18 +221,8 @@ describe('proposeMemoryUpkeep: OpenRouter path', () => {
   });
 });
 
-// ── utilityModel integration: no hardcoded model ──────────────────────────────
-
-describe('utilityModel: memory-upkeep uses resolveUtilityModel, not a hardcoded model', () => {
-  it('utilityModel for anthropic default is claude-haiku-4-5', () => {
-    const s = { provider: 'anthropic' as const, defaultModel: 'claude-sonnet-4-6',
-      openrouterModel: '', utilityModel: '' };
-    expect(utilityModel(s as never)).toBe('claude-haiku-4-5');
-  });
-
-  it('utilityModel override is respected', () => {
-    const s = { provider: 'anthropic' as const, defaultModel: 'claude-sonnet-4-6',
-      openrouterModel: '', utilityModel: 'my-local-model' };
-    expect(utilityModel(s as never)).toBe('my-local-model');
-  });
-});
+// utilityModel() resolution (provider defaults + override) is covered in
+// provider-capabilities.test.ts. The memory-upkeep guard that matters —
+// that the caller-supplied model flows into the request body rather than a
+// hardcoded one — is asserted above ("uses the model supplied by the
+// caller (resolveUtilityModel)").

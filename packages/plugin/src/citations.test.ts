@@ -3,15 +3,15 @@
  * Chat-session integration tests live in citations.session.test.ts.
  *
  * Covers:
- *   1. capability gate (providerCapabilities.citations)
- *   2. buildDocumentBlock shape and cache_control flag
- *   3. parseCitationLocation — all three types + malformed inputs
- *   4. citationLabel — 1-indexed display
- *   5. citationPath — known and unknown indices
+ *   1. buildDocumentBlock shape and cache_control flag
+ *   2. parseCitationLocation — all three types + malformed inputs
+ *   3. citationLabel — 1-indexed display
+ *   4. citationPath — known and unknown indices
+ * (The providerCapabilities.citations gate is covered in
+ *  provider-capabilities.test.ts.)
  */
 
 import { describe, expect, it } from 'vitest';
-import { providerCapabilities } from './provider-capabilities';
 import {
   buildDocumentBlock,
   parseCitationLocation,
@@ -19,17 +19,8 @@ import {
   citationPath,
 } from './citations';
 
-// ── capability gate ───────────────────────────────────────────────────────────
-
-describe('providerCapabilities: citations gate', () => {
-  it('citations is true for anthropic', () => {
-    expect(providerCapabilities('anthropic').citations).toBe(true);
-  });
-
-  it('citations is false for openrouter', () => {
-    expect(providerCapabilities('openrouter').citations).toBe(false);
-  });
-});
+// The citations capability gate (anthropic=true / openrouter=false) is
+// covered in provider-capabilities.test.ts — not restated here.
 
 // ── buildDocumentBlock ────────────────────────────────────────────────────────
 

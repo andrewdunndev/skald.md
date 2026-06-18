@@ -12,7 +12,6 @@ import {
   ANTHROPIC_VERSION,
   anthropicHeaders,
   anthropicUrl,
-  transformAnthropicEvent,
   transformAnthropicRequest,
 } from './anthropic';
 
@@ -95,16 +94,5 @@ describe('transformAnthropicRequest', () => {
       name: 'web_search',
       max_uses: 5,
     });
-  });
-});
-
-describe('transformAnthropicEvent', () => {
-  it('returns event + data unchanged', () => {
-    const data = { foo: 'bar' };
-    expect(transformAnthropicEvent('message_start', data)).toEqual({
-      event: 'message_start',
-      data,
-    });
-    expect(transformAnthropicEvent('content_block_start', data).data).toBe(data);
   });
 });

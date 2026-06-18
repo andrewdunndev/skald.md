@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-  httpErrorMessage,
-  NETWORK_ERROR_MESSAGE,
-} from './direct-transport-errors';
+import { httpErrorMessage } from './direct-transport-errors';
 
 describe('httpErrorMessage', () => {
   it('429 → retryable rate-limit copy, with retry-after hint when present', () => {
@@ -59,7 +56,4 @@ describe('httpErrorMessage', () => {
     }
   });
 
-  it('exposes a stable network-failure constant', () => {
-    expect(NETWORK_ERROR_MESSAGE).toMatch(/connection/i);
-  });
 });

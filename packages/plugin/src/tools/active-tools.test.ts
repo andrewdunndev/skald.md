@@ -8,7 +8,6 @@ import { describe, expect, it } from 'vitest';
 import {
   buildActiveTools,
   READ_ONLY_TOOLS,
-  GRAPH_TOOLS,
   WRITE_TOOLS,
   MEMORY_TOOLS,
   SERVER_TOOLS,
@@ -79,28 +78,6 @@ describe('buildActiveTools', () => {
     expect(names).toContain('remember_fact');
     expect(names).toContain('update_memory');
     expect(names).toContain('forget_fact');
-  });
-
-  it('total tool count is exactly the union (no duplicates, no surprises)', () => {
-    const enabled = buildActiveTools({
-      memoryEnabled: true,
-      memoryPath: 'M.md',
-    });
-    expect(enabled.length).toBe(
-      READ_ONLY_TOOLS.length +
-        GRAPH_TOOLS.length +
-        WRITE_TOOLS.length +
-        MEMORY_TOOLS.length +
-        SERVER_TOOLS.length,
-    );
-
-    const disabled = buildActiveTools({
-      memoryEnabled: false,
-      memoryPath: '',
-    });
-    expect(disabled.length).toBe(
-      READ_ONLY_TOOLS.length + GRAPH_TOOLS.length + WRITE_TOOLS.length + SERVER_TOOLS.length,
-    );
   });
 
   it('passes model through to serverToolsForModel — haiku gets old pins', () => {

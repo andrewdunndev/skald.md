@@ -37,31 +37,21 @@ function makeSettings(overrides: Partial<MinimalSettings> = {}): MinimalSettings
 
 // ── providerCapabilities ──────────────────────────────────────────────────
 
-describe('providerCapabilities: anthropic', () => {
-  it('has promptCaching = true', () => {
-    expect(providerCapabilities('anthropic').promptCaching).toBe(true);
+describe('providerCapabilities', () => {
+  it('anthropic enables caching, thinking, and citations', () => {
+    expect(providerCapabilities('anthropic')).toEqual({
+      promptCaching: true,
+      extendedThinking: true,
+      citations: true,
+    });
   });
 
-  it('has extendedThinking = true', () => {
-    expect(providerCapabilities('anthropic').extendedThinking).toBe(true);
-  });
-
-  it('has citations = true', () => {
-    expect(providerCapabilities('anthropic').citations).toBe(true);
-  });
-});
-
-describe('providerCapabilities: openrouter', () => {
-  it('has promptCaching = false', () => {
-    expect(providerCapabilities('openrouter').promptCaching).toBe(false);
-  });
-
-  it('has extendedThinking = false', () => {
-    expect(providerCapabilities('openrouter').extendedThinking).toBe(false);
-  });
-
-  it('has citations = false', () => {
-    expect(providerCapabilities('openrouter').citations).toBe(false);
+  it('openrouter disables caching, thinking, and citations', () => {
+    expect(providerCapabilities('openrouter')).toEqual({
+      promptCaching: false,
+      extendedThinking: false,
+      citations: false,
+    });
   });
 });
 
@@ -113,15 +103,5 @@ describe('reasoningModel: returns configured chat model', () => {
   it('openrouter → settings.openrouterModel', () => {
     const s = makeSettings({ provider: 'openrouter', openrouterModel: 'openai/gpt-5' });
     expect(reasoningModel(s as never)).toBe('openai/gpt-5');
-  });
-
-  it('anthropic: returns the configured defaultModel', () => {
-    const s = makeSettings({ provider: 'anthropic', defaultModel: 'claude-sonnet-4-6' });
-    expect(reasoningModel(s as never)).toBe('claude-sonnet-4-6');
-  });
-
-  it('openrouter: returns the configured openrouterModel', () => {
-    const s = makeSettings({ provider: 'openrouter', openrouterModel: 'anthropic/claude-sonnet-4-6' });
-    expect(reasoningModel(s as never)).toBe('anthropic/claude-sonnet-4-6');
   });
 });
