@@ -123,3 +123,83 @@ export function windowHistory(
 
   return messages.slice(start);
 }
+
+// ---------------------------------------------------------------------------
+// Context compaction
+// ---------------------------------------------------------------------------
+
+/** Stub text injected for tool_result blocks older than keepRecentTurns. */
+export const COMPACTION_STUB = '[earlier tool output omitted to save context]';
+
+/** Default number of recent turns whose tool_results are kept verbatim. */
+const DEFAULT_KEEP_RECENT_TURNS = 3;
+
+/**
+ * Replace the `content` of tool_result blocks in older turns with a
+ * short stub, reducing the token cost of stale tool output that is
+ * no longer needed verbatim but whose block must remain to keep the
+ * tool_use / tool_result pairing intact.
+ *
+ * Invariants preserved:
+ *   - Every tool_use block retains its matching tool_result (now stubbed).
+ *   - `tool_use_id` is never changed.
+ *   - No blocks are added or removed.
+ *   - Input `messages` is never mutated.
+ *
+ * A "turn" is a real-user-turn: a user message whose content is NOT
+ * purely tool_result blocks. Tool-result user messages count as part
+ * of the preceding assistant turn, not as independent turns.
+ *
+ * @param messages  Full (or windowed) message history.
+ * @param opts.keepRecentTurns  Number of recent real-user-turns
+ *   whose tool_results are kept verbatim (default 3).
+ * @returns A new array with stale tool_result content replaced.
+ */
+export function compactStaleToolResults(
+  messages: Message[],
+  opts?: { keepRecentTurns?: number },
+): Message[] {
+  const keepTurns = opts?.keepRecentTurns ?? DEFAULT_KEEP_RECENT_TURNS;
+
+  // Walk backwards to find the start index of the "keep" window.
+  // Each real-user-turn consumed while walking back counts as one turn.
+  // Stop when we've counted keepTurns turns — everything from that point
+  // forward is in the window; everything before is "stale".
+  let turnsRemaining = keepTurns;
+  let keepFromIndex = 0;
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i];
+    if (m.role === 'user' && !startsWithToolResult(m)) {
+      turnsRemaining--;
+      if (turnsRemaining < 0) {
+        // We've passed keepTurns real-user turns going back; this turn
+        // is beyond the keep window so the window starts just after it.
+        keepFromIndex = i + 1;
+        break;
+      }
+    }
+  }
+
+  return messages.map((msg, idx) => {
+    if (idx >= keepFromIndex) return msg;
+
+    // Only compact user messages containing tool_result blocks.
+    if (msg.role !== 'user') return msg;
+    if (typeof msg.content === 'string') return msg;
+    const blocks = msg.content as ContentBlock[];
+    if (!blocks.some((b) => (b as Record<string, unknown>).type === 'tool_result')) {
+      return msg;
+    }
+
+    // Replace tool_result content with the stub; preserve type, tool_use_id,
+    // and is_error so the tool_use/tool_result pairing remains intact.
+    const compacted = blocks.map((b) => {
+      const block = b as Record<string, unknown>;
+      if (block.type !== 'tool_result') return b;
+      return { ...block, content: COMPACTION_STUB } as ContentBlock;
+    });
+
+    return { ...msg, content: compacted };
+  });
+}

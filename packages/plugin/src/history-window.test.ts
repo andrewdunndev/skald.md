@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import type { Message } from '@scribian/protocol';
-import { windowHistory } from './history-window';
+import { windowHistory, compactStaleToolResults, COMPACTION_STUB } from './history-window';
 
 // ── helpers ────────────────────────────────────────────────────────────────
 
@@ -224,5 +224,157 @@ describe('windowHistory: content-block cost estimation', () => {
     // chars. Just verify we don't throw.
     const msg = assistantBlocks([{ type: 'thinking', thinking: chars(100) }]);
     expect(() => windowHistory([msg], 10_000)).not.toThrow();
+  });
+});
+
+// ── compactStaleToolResults ────────────────────────────────────────────────
+
+/** Build an assistant tool_use turn + a matching user tool_result message. */
+function toolTurn(id: string, resultContent = 'note body here'): Message[] {
+  return [
+    toolUseAssistant(id),
+    userBlocks([{ type: 'tool_result', tool_use_id: id, content: resultContent }]),
+  ];
+}
+
+describe('compactStaleToolResults: stub fires for old results', () => {
+  it('stubs tool_results older than keepRecentTurns', () => {
+    // 4 real user turns; keepRecentTurns=3 → turn 1 is stale.
+    const messages = [
+      ...toolTurn('t1', 'stale content'),
+      user('query 1'), // real turn 1
+      ...toolTurn('t2', 'content 2'),
+      user('query 2'), // real turn 2
+      ...toolTurn('t3', 'content 3'),
+      user('query 3'), // real turn 3
+      user('what do you think?'), // real turn 4
+    ];
+    const result = compactStaleToolResults(messages, { keepRecentTurns: 3 });
+
+    const t1ResultMsg = result.find(
+      (m) =>
+        m.role === 'user' &&
+        Array.isArray(m.content) &&
+        (m.content as Record<string, unknown>[]).some(
+          (b) => b.type === 'tool_result' && b.tool_use_id === 't1',
+        ),
+    );
+    expect(t1ResultMsg).toBeDefined();
+    const block = (t1ResultMsg!.content as Record<string, unknown>[]).find(
+      (b) => b.type === 'tool_result',
+    )! as Record<string, unknown>;
+    expect(block.content).toBe(COMPACTION_STUB);
+  });
+
+  it('keeps recent tool_results verbatim', () => {
+    // keepRecentTurns=1: only t2's result is in the recent window.
+    const messages = [
+      ...toolTurn('t1', 'stale'),
+      user('old question'), // real turn 1 — makes t1 stale
+      ...toolTurn('t2', 'recent verbatim'),
+      user('latest question'), // real turn 2 — within keepRecentTurns=1
+    ];
+    const result = compactStaleToolResults(messages, { keepRecentTurns: 1 });
+
+    const t2ResultMsg = result.find(
+      (m) =>
+        m.role === 'user' &&
+        Array.isArray(m.content) &&
+        (m.content as Record<string, unknown>[]).some(
+          (b) => b.type === 'tool_result' && b.tool_use_id === 't2',
+        ),
+    );
+    expect(t2ResultMsg).toBeDefined();
+    const block = (t2ResultMsg!.content as Record<string, unknown>[]).find(
+      (b) => b.type === 'tool_result',
+    )! as Record<string, unknown>;
+    expect(block.content).toBe('recent verbatim');
+  });
+});
+
+describe('compactStaleToolResults: pairing invariant', () => {
+  it('every tool_use still has a matching tool_result after compaction', () => {
+    // This test would fail if compaction deleted (rather than stubbed) a result block.
+    const msgs: Message[] = [
+      ...toolTurn('a', 'big old note content'),
+      user('turn 2 user'),
+      ...toolTurn('b', 'another note'),
+      user('turn 3 user'),
+      ...toolTurn('c', 'fresh note'),
+      user('current question'),
+    ];
+    const result = compactStaleToolResults(msgs, { keepRecentTurns: 2 });
+
+    const toolUseIds = new Set<string>();
+    for (const m of result) {
+      if (m.role === 'assistant' && Array.isArray(m.content)) {
+        for (const b of m.content as Record<string, unknown>[]) {
+          if (b.type === 'tool_use') toolUseIds.add(b.id as string);
+        }
+      }
+    }
+
+    const toolResultIds = new Set<string>();
+    for (const m of result) {
+      if (m.role === 'user' && Array.isArray(m.content)) {
+        for (const b of m.content as Record<string, unknown>[]) {
+          if (b.type === 'tool_result') toolResultIds.add(b.tool_use_id as string);
+        }
+      }
+    }
+
+    for (const id of toolUseIds) {
+      expect(toolResultIds.has(id)).toBe(true);
+    }
+  });
+});
+
+describe('compactStaleToolResults: idempotency', () => {
+  it('compacting twice yields the same result as compacting once', () => {
+    const msgs: Message[] = [
+      ...toolTurn('x', 'lots of text here'),
+      user('q1'),
+      ...toolTurn('y', 'more text'),
+      user('q2'),
+    ];
+    const once = compactStaleToolResults(msgs, { keepRecentTurns: 1 });
+    const twice = compactStaleToolResults(once, { keepRecentTurns: 1 });
+    expect(twice).toEqual(once);
+  });
+});
+
+describe('compactStaleToolResults: no-op paths', () => {
+  it('messages with no tool_results are returned unchanged', () => {
+    const msgs: Message[] = [
+      user('hello'),
+      assistant('hi'),
+      user('follow up'),
+    ];
+    const result = compactStaleToolResults(msgs, { keepRecentTurns: 3 });
+    expect(result).toEqual(msgs);
+  });
+
+  it('does not mutate the input array', () => {
+    const original = 'big content';
+    const msgs: Message[] = [
+      ...toolTurn('z', original),
+      user('q1'),
+      user('q2'),
+      user('q3'),
+      user('q4'),
+    ];
+    compactStaleToolResults(msgs, { keepRecentTurns: 2 });
+    const resultMsg = msgs.find(
+      (m) =>
+        m.role === 'user' &&
+        Array.isArray(m.content) &&
+        (m.content as Record<string, unknown>[]).some(
+          (b) => b.type === 'tool_result',
+        ),
+    )!;
+    const block = (resultMsg.content as Record<string, unknown>[]).find(
+      (b) => b.type === 'tool_result',
+    )! as Record<string, unknown>;
+    expect(block.content).toBe(original);
   });
 });
