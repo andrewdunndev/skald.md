@@ -156,10 +156,12 @@ export class DirectTransport implements ScribianTransport {
           provider,
         });
       } else {
+        // Log the raw error for debugging; surface only a human sentence.
+        console.warn('[scribian] network error:', err);
         this.handlers.onMessage({
           type: 'error',
           id,
-          error: err instanceof Error ? err.message : 'fetch failed',
+          error: 'Lost the connection — check your network and resend.',
           retryable: true,
         });
       }
@@ -181,13 +183,40 @@ export class DirectTransport implements ScribianTransport {
         });
         return;
       }
-      // Other non-ok statuses: a short message + status is enough —
-      // don't dump a wall of raw provider JSON at the user.
+      if (resp.status === 401 || resp.status === 403) {
+        this.handlers.onMessage({
+          type: 'error',
+          id,
+          error: 'Your API key was rejected — check it in Settings → Scribian.',
+          retryable: false,
+        });
+        return;
+      }
+      if (resp.status === 400) {
+        this.handlers.onMessage({
+          type: 'error',
+          id,
+          error: "Claude couldn't process that request. If it keeps happening, try a new chat.",
+          retryable: false,
+        });
+        return;
+      }
+      if (resp.status >= 500) {
+        this.handlers.onMessage({
+          type: 'error',
+          id,
+          error: "Claude's having a moment on its end — try again in a sec.",
+          retryable: true,
+        });
+        return;
+      }
+      // Catch-all for any other unexpected status — log for debug, show clean copy.
+      console.warn(`[scribian] unexpected HTTP ${resp.status} from ${provider}`);
       this.handlers.onMessage({
         type: 'error',
         id,
-        error: `Request failed — ${provider} returned ${resp.status}. Try again or check your settings.`,
-        retryable: resp.status >= 500,
+        error: `Something went wrong (error ${resp.status}) — try again or check your settings.`,
+        retryable: false,
       });
       return;
     }
@@ -257,10 +286,12 @@ export class DirectTransport implements ScribianTransport {
         });
         return;
       }
+      // Log raw error for debugging; surface only a human sentence.
+      console.warn('[scribian] stream error:', err);
       this.handlers.onMessage({
         type: 'error',
         id,
-        error: err instanceof Error ? err.message : 'stream error',
+        error: 'Lost the connection mid-response — check your network and resend.',
         retryable: true,
       });
       return;
