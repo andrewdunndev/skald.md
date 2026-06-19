@@ -1,20 +1,12 @@
 import { App, Notice, setIcon } from 'obsidian';
 import type { Provider } from '@skald/protocol';
-import type { ConnectionMode } from '../settings';
-import { modeCapabilities } from '../mode-capabilities';
 
 export interface SetupBannerInput {
-  /** Current connection mode — resolved by resolveConnectionMode before
-   * reaching here. Capability lookup determines whether a banner is needed;
-   * no inline mode-string comparisons. */
-  connectionMode: ConnectionMode;
-  workerUrl: string;
-  workerToken: string;
-  /** Active provider (direct mode only — ignored in worker mode). */
+  /** Active provider — determines which API key the banner asks for. */
   provider: Provider;
-  /** Trimmed Anthropic API key from settings (direct mode). */
+  /** Trimmed Anthropic API key from settings. */
   anthropicApiKey: string;
-  /** Trimmed OpenRouter API key from settings (direct mode). */
+  /** Trimmed OpenRouter API key from settings. */
   openrouterApiKey: string;
 }
 
@@ -31,20 +23,6 @@ export interface BannerSpec {
 }
 
 export function resolveBannerSpec(input: SetupBannerInput): BannerSpec | null {
-  const caps = modeCapabilities(input.connectionMode);
-
-  if (caps.banner === 'worker') {
-    if (input.workerUrl && input.workerToken) return null;
-    const missing: string[] = [];
-    if (!input.workerUrl) missing.push('Worker URL');
-    if (!input.workerToken) missing.push('Worker token');
-    return {
-      title: 'Connect skald to your Worker',
-      detail: `Missing: ${missing.join(' + ')}. See docs/deploying-the-worker.md, or paste an obsidian://skald-setup link from your desktop.`,
-    };
-  }
-
-  // direct mode
   const activeKey =
     input.provider === 'openrouter'
       ? input.openrouterApiKey.trim()
@@ -65,10 +43,8 @@ export function resolveBannerSpec(input: SetupBannerInput): BannerSpec | null {
 }
 
 /**
- * First-run setup banner. In worker mode: shown when workerUrl OR
- * workerToken is empty — names the missing piece and opens settings.
- * In direct mode: shown when the active provider's API key is empty —
- * guides the user to add it before they hit a 401.
+ * First-run setup banner. Shown when the active provider's API key is
+ * empty — guides the user to add it before they hit a 401.
  *
  * Mounted at the top of the chat root so it's the first thing a
  * new user sees, above messages + composer.
@@ -119,7 +95,7 @@ function openSettingsForPlugin(app: App): void {
     return;
   }
   new Notice(
-    'skald: open Settings → Community plugins → Skald to add your Worker URL + token.',
+    'skald: open Settings → Community plugins → Skald to add your API key.',
     8000,
   );
 }

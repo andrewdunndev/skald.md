@@ -1,7 +1,5 @@
 import { App, normalizePath } from 'obsidian';
 import type { Provider } from '@skald/protocol';
-import type { MemoryClientConfig } from '../memory-client';
-import type { ConnectionMode } from '../settings';
 
 export interface ToolExecutionResult {
   content: string;
@@ -29,28 +27,17 @@ export type ApproveFn = (proposal: WriteProposal) => Promise<boolean>;
 /**
  * Context every tool executor receives. Required fields are the
  * foundation (Vault API + approval flow); optional fields gate
- * specific tools (memoryClient for find_related). This keeps the
- * executor a single dispatch point with no special-cases at the
- * call site.
+ * specific tools. This keeps the executor a single dispatch point
+ * with no special-cases at the call site.
  */
 export interface ToolContext {
   app: App;
   approve: ApproveFn;
-  /** Phase 6: enables find_related. Absent → tool returns a clear
-   * "not configured" error. */
-  memoryClient?: MemoryClientConfig;
   /** Vault-relative path to the memory note (e.g. `Skald/Memory.md`).
    * Used by the explicit memory tools (remember_fact / update_memory /
    * forget_fact) so the model doesn't have to know the path. Absent →
    * those tools return a "not configured" error. */
   memoryPath?: string;
-  /**
-   * Connection mode. Used by the find_related executor gate — if the
-   * tool somehow appears in a mode without semanticSearch, the executor
-   * returns a clear error rather than crashing. Absent → treated as
-   * 'worker' for backward compatibility.
-   */
-  connectionMode?: ConnectionMode;
   /**
    * Anthropic API key for ancillary in-plugin calls (e.g. rerank).
    * Absent → ancillary features that require it soft-fail gracefully.

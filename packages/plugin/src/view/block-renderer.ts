@@ -306,8 +306,6 @@ export function describeToolUse(name: string, input: unknown): string {
       return `📍 Reading the current note`;
     case 'metadata':
       return `ℹ️ Metadata for ${i.path ?? '?'}`;
-    case 'find_related':
-      return `🧭 Finding notes related to "${i.query ?? '?'}"`;
     case 'web_search':
       return `🌐 Web search: "${i.query ?? '?'}"`;
     case 'web_fetch':

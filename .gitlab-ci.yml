@@ -1,9 +1,9 @@
 # skald CI
 #
-# Two stages: test (typecheck across the workspace) and build (compile the
-# Obsidian plugin + dry-run the Cloudflare Worker bundle). No deployment
-# from CI — the Worker is BYO-deployed per user, and the plugin ships via
-# BRAT + the community plugins directory (manual release cuts for now).
+# Two stages: test (typecheck, unit tests, file-size, plugin-lint across the
+# workspace) and build (compile the Obsidian plugin). No deployment from CI —
+# the plugin ships via BRAT + the community plugins directory (manual release
+# cuts for now).
 #
 # Caches the pnpm store keyed on the lockfile so subsequent runs reuse
 # the resolution work.
@@ -55,16 +55,4 @@ build-plugin:
     name: 'skald-plugin-$CI_COMMIT_SHORT_SHA'
     paths:
       - packages/plugin/dist/
-    expire_in: 2 weeks
-
-build-worker:
-  stage: build
-  needs: ['typecheck']
-  script:
-    - cd packages/worker
-    - pnpm exec wrangler deploy --dry-run --outdir=dist
-  artifacts:
-    name: 'skald-worker-$CI_COMMIT_SHORT_SHA'
-    paths:
-      - packages/worker/dist/
     expire_in: 2 weeks

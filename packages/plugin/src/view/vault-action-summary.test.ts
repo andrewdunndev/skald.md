@@ -50,14 +50,13 @@ describe('summarizeVaultActions', () => {
     expect(out.reads).toBe(3);
   });
 
-  it('counts find_related + search_vault as searches', () => {
+  it('counts search_vault as a search', () => {
     const out = summarizeVaultActions(
       assistant([
-        { type: 'tool_use', id: 't1', name: 'find_related', input: { query: 'X' } },
         { type: 'tool_use', id: 't2', name: 'search_vault', input: { query: 'Y' } },
       ]),
     );
-    expect(out.searches).toBe(2);
+    expect(out.searches).toBe(1);
     expect(out.reads).toBe(0);
   });
 
@@ -119,7 +118,7 @@ describe('summarizeVaultActions', () => {
   it('handles a mixed turn (read + search + write)', () => {
     const out = summarizeVaultActions(
       assistant([
-        { type: 'tool_use', id: 'r1', name: 'find_related', input: { query: 'X' } },
+        { type: 'tool_use', id: 'r1', name: 'search_vault', input: { query: 'X' } },
         { type: 'tool_use', id: 'r2', name: 'read_note', input: { path: 'A.md' } },
         {
           type: 'tool_use',

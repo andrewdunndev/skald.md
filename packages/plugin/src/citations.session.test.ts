@@ -42,7 +42,7 @@ function makeHarness(opts: {
     onUpdate: vi.fn(), onError: vi.fn(), onDone: vi.fn(),
   };
   const session = new ChatSession(
-    tx as unknown as import('./transport').Transport,
+    tx as unknown as import('./transport-interface').SkaldTransport,
     () => 'claude-sonnet-4-6',
     async () => undefined,
     () => ({ provider: 'anthropic', apiKey: 'test' }),

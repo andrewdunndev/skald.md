@@ -23,54 +23,27 @@ export interface BaselineInput {
    * baseline so Claude knows the canonical path for
    * remember_fact / update_memory routing. */
   memoryPath: string;
-  /**
-   * Whether semantic search (`find_related`) is available in the
-   * active connection mode. Derived at the call site from
-   * `modeCapabilities(connectionMode).semanticSearch`. When false
-   * (direct mode, the v1 default) the baseline must NOT mention
-   * `find_related` — it isn't in the tool catalog, so instructing
-   * Claude to call it degrades routing. The discovery path becomes
-   * the graph tools + folder routing + `search_vault`.
-   */
-  semanticSearch?: boolean;
 }
 
 export function buildSkaldBaseline(input: BaselineInput): string {
   const memoryRef =
     input.memoryPath?.trim() || 'Skald/Memory.md';
-  // Default true preserves worker-mode wording for callers that
-  // don't yet thread the capability (back-compat with existing
-  // structural tests). Direct mode passes false explicitly.
-  const semanticSearch = input.semanticSearch ?? true;
 
   // The read-tool roster mentioned in prose + the prompt-injection
-  // DATA section differs by mode: find_related only exists when
-  // semantic search is available.
-  const readToolList = semanticSearch
-    ? '`read_note` / `list_notes` / `search_vault` / `find_related`'
-    : '`read_note` / `list_notes` / `search_vault`';
+  // DATA section. Discovery runs through the graph tools + folder
+  // routing + `search_vault`.
+  const readToolList = '`read_note` / `list_notes` / `search_vault`';
 
   // The DATA section enumerates the read tools whose results Claude
-  // must distrust as instructions. find_related only belongs here
-  // when it actually exists in the catalog.
-  const dataToolList = semanticSearch
-    ? '`read_note`, `list_notes`, `search_vault`, `find_related`'
-    : '`read_note`, `list_notes`, `search_vault`';
+  // must distrust as instructions.
+  const dataToolList = '`read_note`, `list_notes`, `search_vault`';
 
-  // Discovery directives differ by mode.
-  const discoveryBullets = semanticSearch
-    ? [
-        '- When the user asks a question that produces a fact, an answer, a list, or a decision, **propose where it should land in their vault** when it clearly helps — use `find_related` first to check if a relevant note already exists, then `write_note` (new) or `append_to_note` (existing). If the question just needs an answer, answer it; don\'t pressure the user to save something they didn\'t ask to save. Only propose a write when it\'s obviously useful. The user approves every write via a diff card.',
-        `- When the user tells you something to remember long-term about themselves, their projects, their people, their preferences — call \`remember_fact\` to append to \`${memoryRef}\`. When something they remembered changes, call \`update_memory\`. When a remembered fact is no longer true, call \`forget_fact\`.`,
-        '- When the user attaches an image, your first move is usually identification + routing: figure out what it is, then `find_related` to pick where it belongs, then propose a write.',
-        '- When the user asks something that the vault has direct context for (a person, a project, a recurring topic), call `find_related` FIRST before answering. The user pays per token; running on stale general-purpose knowledge when the vault has fresh ground truth is wasted money.',
-      ]
-    : [
-        '- When the user asks a question that produces a fact, an answer, a list, or a decision, **propose where it should land in their vault** when it clearly helps — consult the vault structure (included below) and use the graph tools (`find_by_tag` / `find_by_link` / `recent_notes`) and folder routing to find a relevant note; fall back to `search_vault` for content matches. Use `write_note` (new) or `append_to_note` (existing). If the question just needs an answer, answer it; don\'t pressure the user to save something they didn\'t ask to save. Only propose a write when it\'s obviously useful. The user approves every write via a diff card.',
-        `- When the user tells you something to remember long-term about themselves, their projects, their people, their preferences — call \`remember_fact\` to append to \`${memoryRef}\`. When something they remembered changes, call \`update_memory\`. When a remembered fact is no longer true, call \`forget_fact\`.`,
-        '- When the user attaches an image, your first move is usually identification + routing: figure out what it is, then use the graph tools (`find_by_tag` / `find_by_link` / `recent_notes`) and folder routing to pick where it belongs, then propose a write.',
-        '- When the user asks something that the vault has direct context for (a person, a project, a recurring topic), check the vault structure and the graph tools (or `search_vault`) FIRST before answering. The user pays per token; running on stale general-purpose knowledge when the vault has fresh ground truth is wasted money.',
-      ];
+  const discoveryBullets = [
+    '- When the user asks a question that produces a fact, an answer, a list, or a decision, **propose where it should land in their vault** when it clearly helps — consult the vault structure (included below) and use the graph tools (`find_by_tag` / `find_by_link` / `recent_notes`) and folder routing to find a relevant note; fall back to `search_vault` for content matches. Use `write_note` (new) or `append_to_note` (existing). If the question just needs an answer, answer it; don\'t pressure the user to save something they didn\'t ask to save. Only propose a write when it\'s obviously useful. The user approves every write via a diff card.',
+    `- When the user tells you something to remember long-term about themselves, their projects, their people, their preferences — call \`remember_fact\` to append to \`${memoryRef}\`. When something they remembered changes, call \`update_memory\`. When a remembered fact is no longer true, call \`forget_fact\`.`,
+    '- When the user attaches an image, your first move is usually identification + routing: figure out what it is, then use the graph tools (`find_by_tag` / `find_by_link` / `recent_notes`) and folder routing to pick where it belongs, then propose a write.',
+    '- When the user asks something that the vault has direct context for (a person, a project, a recurring topic), check the vault structure and the graph tools (or `search_vault`) FIRST before answering. The user pays per token; running on stale general-purpose knowledge when the vault has fresh ground truth is wasted money.',
+  ];
 
   return [
     '# Operating context: skald (iPad/iOS in Obsidian)',

@@ -22,8 +22,8 @@ note: |
   surface starters that match how YOU work.
 ---
 
-- :camera: Identify + file [image] — Identify what's in this image, then find the most relevant note in my vault and propose an append (use find_related first if you're not sure which note fits). If no good fit exists, propose a new note.
-- :pencil-line: Capture this idea — I have a thought to capture. After I describe it, propose where it should land in my vault (existing note + append, or a new note with a sensible path). Use find_related to check first. I'll approve via the diff card.
+- :camera: Identify + file [image] — Identify what's in this image, then search my vault for the most relevant note and propose an append (use search_vault if you're not sure which note fits). If no good fit exists, propose a new note.
+- :pencil-line: Capture this idea — I have a thought to capture. After I describe it, propose where it should land in my vault (existing note + append, or a new note with a sensible path). Search my vault to check first. I'll approve via the diff card.
 - :list-checks: What's loose? — Scan my vault for unresolved items, dangling questions, and TODOs I haven't followed up on. List them grouped by note, newest first.
 - :brain: Remember this — I'm going to tell you something I want you to remember long-term. Use remember_fact to add it to my memory note — I'll approve via the diff card.
 - :split: Talk it out — I'm thinking through a decision. Ask me what I'm weighing, pull related notes from my vault as context, and help me reason about it. Offer to capture the conclusion to a note when we land.

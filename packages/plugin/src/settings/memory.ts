@@ -1,9 +1,7 @@
 /**
  * Memory settings, split across the two disclosure tiers:
  * the enable toggle is a core (always-visible) item; the note path
- * and semantic-search reindex live in the Advanced section. Reindex
- * requires the Worker's Vectorize binding, so in direct mode it
- * renders disabled with an explanation rather than disappearing.
+ * lives in the Advanced section.
  */
 
 import { Setting } from 'obsidian';
@@ -27,11 +25,10 @@ export function renderMemoryToggle(
     );
 }
 
-/** Advanced tier: note path + reindex. */
+/** Advanced tier: note path. */
 export function renderMemoryAdvanced(
   containerEl: HTMLElement,
   plugin: SkaldPlugin,
-  usesWorker: boolean,
 ): void {
   new Setting(containerEl).setName('Memory').setHeading();
 
@@ -48,26 +45,4 @@ export function renderMemoryAdvanced(
           await plugin.saveSettings();
         });
     });
-
-  if (usesWorker) {
-    new Setting(containerEl)
-      .setName('Reindex vault for semantic search')
-      .setDesc(
-        "Walk markdown notes (excluding chats/logs/saved folders), embed each via Workers AI, upsert to the Worker's Vectorize index. Required before find_related works. Re-run after major vault changes. Cost: ~one cent per 1000 notes.",
-      )
-      .addButton((b) =>
-        b.setButtonText('Reindex').onClick(() => {
-          void plugin.reindexVault();
-        }),
-      );
-  } else {
-    new Setting(containerEl)
-      .setName('Reindex vault for semantic search')
-      .setDesc(
-        'Requires Worker mode — semantic search uses the Worker\'s Vectorize binding which is unavailable in direct mode. Switch to Worker mode to enable reindexing.',
-      )
-      .addButton((b) =>
-        b.setButtonText('Reindex').setDisabled(true),
-      );
-  }
 }

@@ -15,7 +15,14 @@
 
 import type { Provider } from '@skald/protocol';
 import type { SkaldSettings } from './settings';
-import { assertNever } from './mode-capabilities';
+
+/** Exhaustive-switch safety net. TypeScript enforces that every arm of a
+ * switch on Provider is handled; the default calls assertNever to get a
+ * compile-time error when a new variant is added without updating the
+ * switch. At runtime it throws so the missing case is loud. */
+function assertNever(x: never): never {
+  throw new Error(`Unhandled provider: ${String(x)}`);
+}
 
 export interface ProviderCapabilities {
   /** Whether Anthropic prompt-caching breakpoints should be applied. */

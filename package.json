@@ -22,9 +22,7 @@
   },
   "scripts": {
     "dev:plugin": "pnpm --filter @skald/plugin dev",
-    "dev:worker": "pnpm --filter @skald/worker dev",
     "build": "pnpm -r build",
-    "deploy:worker": "pnpm --filter @skald/worker deploy",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",

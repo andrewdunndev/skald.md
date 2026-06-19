@@ -1,4 +1,4 @@
-# Human testing checklist — pre-tag verification
+# Human testing checklist -- pre-tag verification
 
 Used before cutting the 0.1.0 tag + submitting to the Obsidian
 community plugins directory. Automated coverage (typecheck +
@@ -15,29 +15,18 @@ skip what you've already verified in earlier passes.
 
 The minimum-viable-baseline. If this breaks, nothing else matters.
 
-Run phase A in **direct mode** (the default for new installs). If you
-also have a Worker deployed, repeat with mode switched to worker to
-verify both paths.
-
-- [ ] Open Settings → Skald. **Connection mode** should read
-      "Direct". **Provider** set to Anthropic. **API key** populated.
-      Verify no error banner in the chat pane.
+- [ ] Open Settings -> Skald. **Provider** set to Anthropic.
+      **API key** populated. Verify no error banner in the chat pane.
 - [ ] Open the chat pane from the ribbon icon. Empty state renders:
       "Your vault, on call." + 5 starter chips + sparkles icon.
 - [ ] Tap "Capture this idea" chip. Composer pre-fills with the
       prompt text. Send a one-line idea. Verify streaming response
-      with typing dots → text → vault-action badge ("📖 read N · ..."
-      or "💭 no vault action").
+      with typing dots -> text -> vault-action badge ("read N /..."
+      or "no vault action").
 - [ ] Verify the assistant message renders Markdown (bold, lists,
       code).
-- [ ] Check `Skald/Chats/<date>-…-<id>.md` was saved with
+- [ ] Check `Skald/Chats/<date>-...-<id>.md` was saved with
       frontmatter (model, usage, cost).
-
-If you have the Worker deployed:
-
-- [ ] Switch **Connection mode** to "Worker". Set **Worker URL** +
-      **Worker token**. Tap **Test connection**. Expected: green Notice
-      "Worker OK (v...)". Send a message; verify streaming works.
 
 ## Phase B: iPad / iPhone (15 min)
 
@@ -47,24 +36,11 @@ The real target. If this breaks, skald breaks.
 - [ ] On a fresh device with Obsidian Sync, open the same vault.
       Verify skald plugin auto-syncs into the device's plugins
       folder (give it ~30s).
-- [ ] Enable skald in Settings → Community plugins.
-- [ ] Open chat pane. In direct mode: if the API key is already in
-      vault data (synced from desktop), no setup banner — chat is
-      ready immediately. If not, banner shows + tapping "Open
-      settings" lands in skald's tab.
-
-### Setup URI flow (worker mode "wife test")
-
-The setup URI applies to worker mode — it carries the Worker URL +
-token. In direct mode, the API key syncs automatically via plugin
-data.
-
-- [ ] On desktop, construct
-      `obsidian://skald-setup?endpoint=<URL>&token=<TOKEN>`.
-      AirDrop / Messages-to-self to the iPad.
-- [ ] Tap the URI on the iPad. Confirmation modal opens. Verify
-      endpoint shown verbatim + **token masked** (`abcd…wxyz`).
-- [ ] Tap **Apply setup**. Notice fires; chat connects.
+- [ ] Enable skald in Settings -> Community plugins.
+- [ ] Open chat pane. If the API key is already in vault data
+      (synced from desktop), no setup banner -- chat is ready
+      immediately. If not, banner shows + tapping "Open settings"
+      lands in skald's tab.
 
 ### Camera-first chip + image identification
 - [ ] In chat empty state, tap "Identify + file" chip. iOS opens
@@ -72,7 +48,7 @@ data.
 - [ ] Take/select a photo of an identifiable object (a plant, a
       receipt, a whiteboard).
 - [ ] Send. Verify Claude (1) identifies the subject, (2) calls
-      `find_related`, (3) proposes a `write_note` or
+      `search_vault`, (3) proposes a `write_note` or
       `append_to_note` with a path that makes sense, (4) the diff
       card surfaces "Informed by: search: '...'".
 - [ ] Approve via diff card OR swipe-right to approve. Verify the
@@ -91,11 +67,9 @@ data.
 ### Apple Shortcut share-sheet
 - [ ] In Safari, share an article via the Skald Capture
       Shortcut (see `docs/apple-shortcut-recipe.md`).
-- [ ] Verify: Obsidian foregrounds, "skald: capturing…" Notice
-      shows, then "skald: captured → …" (direct mode always
-      creates in the captures folder) OR "skald: routed to …"
-      (worker mode when find_related matched a target at ≥ 0.85
-      similarity).
+- [ ] Verify: Obsidian foregrounds, "skald: capturing..." Notice
+      shows, then "skald: captured -> ..." (captures always land
+      in the captures folder).
 - [ ] Open the resulting note. Verify the body is a clean
       skald-generated summary, not raw HTML.
 
@@ -109,10 +83,7 @@ data.
       cost surfaces in status row.
 - [ ] Ask Claude to "search the web for X." Verify
       `web_search_tool_result` renders correctly (the translator
-      converted `openrouter:web_search` → skald-canonical).
-- [ ] (Worker mode only) Send a turn that triggers `find_related`.
-      Verify semantic search results render correctly regardless
-      of which provider is active.
+      converted `openrouter:web_search` -> skald-canonical).
 
 ### Setup URI security
 - [ ] Craft a malicious URI:
@@ -133,7 +104,7 @@ premature.
       "What should I add to this?" (with the active-note chip
       attached via the paperclip).
 - [ ] Verify the response: Claude reads the active note, possibly
-      runs `find_related`, then PROPOSES a write via diff card.
+      runs `search_vault`, then PROPOSES a write via diff card.
       The diff card shows "Informed by: <Active>.md" in the trace.
 - [ ] Reject the write. Verify it doesn't land + the rejected
       count shows up in the vault-action badge.
@@ -145,11 +116,11 @@ premature.
       proposed append to your memory note. Approve.
 - [ ] Open `Skald/Memory.md`. Verify the fact is there.
 - [ ] Start a new chat. Ask: "What writing preference do I
-      have?" Verify Claude pulls from memory without `find_related`.
+      have?" Verify Claude pulls from memory without a search call.
 
 ### Mid-turn write nudge
 - [ ] Ask Claude a question where the answer "obviously" belongs
-      in a specific note ("I'm planning a trip to Italy — what
+      in a specific note ("I'm planning a trip to Italy -- what
       should I add to Travel/Italy.md?"). Sometimes Claude will
       answer in chat without proposing the write.
 - [ ] Verify: under the assistant message you see a "Propose
@@ -159,9 +130,9 @@ premature.
 ### Tag-aware auto-pull
 - [ ] Ask: "What do I have on #projects/skald?" (or any tag
       you actually use).
-- [ ] Verify the response references specific notes by path —
+- [ ] Verify the response references specific notes by path --
       the tag-context block surfaced the candidates without
-      Claude needing to `find_related` first.
+      a search call.
 
 ## Phase E: Polish + edge cases (10 min)
 
@@ -177,17 +148,17 @@ premature.
       Verify empty state returns + new chips render.
 
 ### Starters live-edit
-- [ ] In your vault, edit `Skald/Starters.md` — change a chip
+- [ ] In your vault, edit `Skald/Starters.md` -- change a chip
       label or add a new one. Save.
 - [ ] In the chat pane, tap "new chat." Verify the chip row now
       reflects the edit (no plugin restart needed).
 
 ### Conversation search
-- [ ] After several saved conversations, open command palette →
+- [ ] After several saved conversations, open command palette ->
       "Skald: Search conversations." Verify fuzzy search ranks
       by recency + match quality.
 - [ ] Pick a result. Verify the saved markdown opens (resume-
-      into-pane is a v2 follow-up — currently opens the file).
+      into-pane is a v2 follow-up -- currently opens the file).
 
 ### Diff card swipe (touch only)
 - [ ] Send a turn that produces a write proposal. **On the iPad**:
@@ -198,20 +169,20 @@ premature.
 - [ ] Trigger a third. Swipe right but release before crossing
       threshold. Verify card snaps back via the 180ms ease-out.
 
-## Bug discovery → triage
+## Bug discovery -> triage
 
 For each unexpected behavior:
 
 1. Note the scene + repro steps.
-2. Capture: console errors (View → Toggle Developer Tools on
+2. Capture: console errors (View -> Toggle Developer Tools on
    desktop; `?vault=<name>` query for mobile dev console).
 3. Capture: Logger output (`Skald/Logs/<date>.md` if logs
    folder is configured).
 4. Triage:
-   - Reproducible + clear scope → file as a TODO in
+   - Reproducible + clear scope -> file as a TODO in
      `campaigns/factory/notes/skald-followups.md`.
-   - Cosmetic + low-impact → ship anyway, fix post-tag.
-   - Functional regression → block ship until fixed.
+   - Cosmetic + low-impact -> ship anyway, fix post-tag.
+   - Functional regression -> block ship until fixed.
 
 ## Sign-off
 
@@ -219,7 +190,7 @@ When all five phases pass without functional regressions:
 
 - [ ] Cut the 0.1.0 tag in skald (`git tag -a 0.1.0 -m "..."`)
 - [ ] Bump versions in `package.json` (root + plugin) AND
-      `manifest.json` (must agree — pre-submission lint enforces)
+      `manifest.json` (must agree -- pre-submission lint enforces)
 - [ ] Build the release plugin (`pnpm --filter @skald/plugin
       build`) and verify `dist/main.js` + `dist/styles.css` +
       `dist/manifest.json` are present.

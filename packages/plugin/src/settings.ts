@@ -2,16 +2,13 @@
  * Settings tab — progressive-disclosure layout.
  *
  * Always-visible (top, no expander):
- *   1. Connection mode dropdown + mode-appropriate Test button
- *   2. Worker URL / token (when mode=worker — mandatory for that mode)
- *   3. Active provider dropdown
- *   4. API key for the active provider
- *   5. Default model for the active provider
- *   6. Memory toggle
+ *   1. Active provider dropdown
+ *   2. API key for the active provider
+ *   3. Default model for the active provider
+ *   4. Memory toggle
  *
  * Behind a single collapsed "Advanced" expander:
- *   Vault folders, Memory path + reindex (reindex hidden in direct mode),
- *   Personas, Slash commands, Capture section.
+ *   Vault folders, Memory path, Personas, Slash commands, Capture section.
  *
  * The SkaldSettings + DEFAULT_SETTINGS surface stays here as the
  * canonical interface every other module imports.
@@ -25,28 +22,14 @@ import { App, PluginSettingTab, Setting } from 'obsidian';
 import type { Provider } from '@skald/protocol';
 import type SkaldPlugin from './main';
 import { ANTHROPIC_MODELS, renderProviderSection } from './settings/provider';
-import { renderConnectionModeSection } from './settings/connection-mode';
-import { renderWorkerSection } from './settings/worker';
 import { renderVaultSection } from './settings/vault';
 
 import { renderPersonasSection } from './settings/personas';
 import { renderCommandsSection } from './settings/commands';
 import { renderCaptureSection } from './settings/capture';
 import { renderMemoryToggle, renderMemoryAdvanced } from './settings/memory';
-import { modeCapabilities } from './mode-capabilities';
-
-/** Connection mode. 'direct' calls Anthropic / OpenRouter from the plugin
- * without a Worker; 'worker' tunnels through the Cloudflare Worker.
- * Fresh installs default to 'direct'. Existing installs with a Worker URL
- * already configured stay on 'worker' so the upgrade is non-disruptive
- * (see migrateConnectionMode in settings/connection-mode.ts). */
-export type ConnectionMode = 'direct' | 'worker';
 
 export interface SkaldSettings {
-  /** Connection mode — whether to use the Worker or call APIs directly. */
-  connectionMode: ConnectionMode;
-  workerUrl: string;
-  workerToken: string;
   /**
    * Active provider. Anthropic-direct is the default (rich content
    * blocks, native server tools, prompt caching). OpenRouter is the
@@ -105,13 +88,6 @@ export interface SkaldSettings {
   capturesFolder: string;
   capturePromptPath: string;
   /**
-   * Capture routing.
-   * 'auto-route' runs find_related on the generated capture note and
-   * appends to a matching vault note when similarity is high.
-   * 'inbox' always creates in capturesFolder (legacy behavior).
-   */
-  captureMode: 'auto-route' | 'inbox';
-  /**
    * Polish sweep: configurable empty-state starter chips.
    * startersPath: vault note holding the list of starter chips.
    *   Empty → use the baked-in DEFAULT_STARTER_CHIPS. Format is a
@@ -132,9 +108,6 @@ export interface SkaldSettings {
 export const MODELS = ANTHROPIC_MODELS;
 
 export const DEFAULT_SETTINGS: SkaldSettings = {
-  connectionMode: 'direct',
-  workerUrl: '',
-  workerToken: '',
   provider: 'anthropic',
   anthropicApiKey: '',
   openrouterApiKey: '',
@@ -153,7 +126,6 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   commandsFolder: 'Skald/Commands',
   capturesFolder: 'Skald/Captures',
   capturePromptPath: '',
-  captureMode: 'auto-route',
   startersPath: 'Skald/Starters.md',
   thinkingEnabled: false,
 };
@@ -174,13 +146,7 @@ export class SkaldSettingTab extends PluginSettingTab {
     containerEl.empty();
     const redisplay = () => this.display();
 
-    const caps = modeCapabilities(this.plugin.settings.connectionMode);
-
     // ── Core settings (always visible) ──────────────────────────────
-    renderConnectionModeSection(containerEl, this.plugin, redisplay);
-    if (this.plugin.settings.connectionMode === 'worker') {
-      renderWorkerSection(containerEl, this.plugin);
-    }
     renderProviderSection(containerEl, this.plugin, redisplay);
 
     // Memory toggle lives in core so the most common toggle is
@@ -195,7 +161,7 @@ export class SkaldSettingTab extends PluginSettingTab {
 
     if (this._advancedExpanded) {
       renderVaultSection(containerEl, this.plugin);
-      renderMemoryAdvanced(containerEl, this.plugin, caps.usesWorker);
+      renderMemoryAdvanced(containerEl, this.plugin);
       renderPersonasSection(containerEl, this.plugin);
       renderCommandsSection(containerEl, this.plugin);
       renderCaptureSection(containerEl, this.plugin);

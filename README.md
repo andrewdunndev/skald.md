@@ -9,17 +9,26 @@
 API key, chat. No server to deploy, nothing to host.**
 
 skald is a Claude client that lives where you write. It streams
-responses from Anthropic (or OpenRouter) directly — no relay,
+responses from Anthropic (or OpenRouter) directly -- no relay,
 no shared backend, no account beyond your API key. Reads and writes
 your vault under explicit user approval. Searches the web inline.
 Conversations save back into your vault as markdown. iOS share-sheet
 capture turns anything you share from another app into a
 Claude-processed vault note.
 
-> **Status:** pre-release. Feature-complete for v1 — direct mode,
+> **Status:** pre-release. Feature-complete for v1 -- direct mode,
 > multi-provider (Anthropic + OpenRouter), vault tools with approval,
 > vault-as-memory, share-sheet capture. Awaiting the final on-device
 > test pass; BRAT + community plugins listing to follow.
+
+> **Project home:** Skald is developed on **GitLab**
+> ([dunn.dev/skald](https://gitlab.com/dunn.dev/skald)) -- CI, code review,
+> and the [roadmap](https://gitlab.com/dunn.dev/skald/-/boards) live there.
+> If you are reading this on GitHub, that is a mirror for discoverability:
+> issues and pull requests are welcome and get triaged onto GitLab. See
+> [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Architecture decisions are recorded in [`docs/adr/`](docs/adr/).
 
 ## Quick start
 
@@ -34,16 +43,14 @@ for the full path, including the upcoming BRAT route.
 
 ### 2. Add your API key
 
-Open Obsidian → Settings → Skald. The five core settings:
+Open Obsidian -> Settings -> Skald. The four core settings:
 
-1. **Connection mode** — leave on "Direct" (the default for new
-   installs)
-2. **Provider** — Anthropic (default) or OpenRouter
-3. **API key** — your `sk-ant-…` from
+1. **Provider** -- Anthropic (default) or OpenRouter
+2. **API key** -- your `sk-ant-...` from
    [console.anthropic.com](https://console.anthropic.com/) (or your
    OpenRouter key)
-4. **Default model** — `claude-sonnet-4-6` pre-filled
-5. **Memory** — toggle on to keep a long-term memory note across
+3. **Default model** -- `claude-sonnet-4-6` pre-filled
+4. **Memory** -- toggle on to keep a long-term memory note across
    sessions
 
 Everything else (vault folders, personas, slash commands, capture
@@ -57,91 +64,48 @@ stream in.
 
 ## What it is
 
-Two artifacts in one repo:
+Two packages in one repo:
 
-1. **`packages/plugin/`** — Obsidian community plugin. Chat pane,
+1. **`packages/plugin/`** -- the Obsidian community plugin. Chat pane,
    markdown-rendered messages (mermaid, tables, math, internal links),
    diff-card approval for vault edits, server-side web search,
    per-conversation Anthropic / OpenRouter provider switching,
    and a long-term memory note Claude can read and propose updates to.
-2. **`packages/worker/`** — Cloudflare Worker (optional). Durable
-   Object with Hibernation API. Provider-aware dispatch. Vectorize +
-   Workers AI bindings for vault embeddings. Optional AI Gateway
-   routing. BYO-deployed (you own it, you pay for it).
-
-Plus `packages/protocol/` — the TypeScript wire types shared between
-plugin and Worker.
+2. **`packages/protocol/`** -- the TypeScript wire types shared across
+   the project.
 
 ## Optional companions
 
-- Install **[Omnisearch](https://github.com/scambier/obsidian-omnisearch)** for ranked vault search — skald uses its BM25 results automatically when it's present, falling back to a substring scan otherwise.
-
-## Going further: the Worker (optional power tier)
-
-The Cloudflare Worker is not required to use skald. It adds:
-
-- **Semantic search** (`find_related`) — Claude can search your vault
-  by meaning, not just substring, backed by Cloudflare Vectorize +
-  Workers AI embeddings. This tool is not advertised to the model in
-  direct mode.
-- **Capture auto-routing** — when you share content via the iOS
-  share-sheet, auto-route can append to an existing matching note
-  (≥ 0.85 similarity score) rather than always filing to the inbox.
-  In direct mode, captures always go to the inbox.
-- **Key off-device** — set your Anthropic key as a Worker secret
-  instead of in plugin settings, so it doesn't travel in `data.json`
-  via Obsidian Sync.
-- **Multi-device token management** — issue per-client tokens with
-  independent revocation without touching your API key.
-
-See [`docs/deploying-the-worker.md`](docs/deploying-the-worker.md) for
-the deploy guide.
+- Install **[Omnisearch](https://github.com/scambier/obsidian-omnisearch)** for ranked vault search -- skald uses its BM25 results automatically when it's present, falling back to a substring scan otherwise. Omnisearch is load-bearing for vault search quality; install it.
 
 ## Architecture
 
-**Direct mode (default):**
-
 ```
 Obsidian plugin (iOS / iPad / desktop)
-    │  HTTPS streaming — anthropic-dangerous-direct-browser-access header
-    ▼
+    |  HTTPS streaming -- anthropic-dangerous-direct-browser-access header
+    v
 api.anthropic.com/v1/messages    (or openrouter.ai/api/v1/messages)
 ```
 
-**Worker mode (optional):**
+Plugin owns conversation history. Vault tools execute locally inside
+the plugin against Obsidian's Vault API. Write tools require explicit
+user approval via diff card. Server-side tools (`web_search`,
+`web_fetch`) run on Anthropic's infrastructure. One mode, no seams.
 
-```
-Obsidian plugin (iOS / iPad / desktop)
-    │  WebSocket — bearer token via Sec-WebSocket-Protocol subprotocol
-    ▼
-Cloudflare Worker (Durable Object, Hibernation API)
-    │  HTTPS streaming — x-api-key auth
-    ▼
-api.anthropic.com/v1/messages    (or AI Gateway if configured)
-```
-
-In both modes: plugin owns conversation history; vault tools execute
-locally inside the plugin against Obsidian's Vault API; write tools
-require explicit user approval via diff card; server-side tools
-(`web_search`, `web_fetch`) run on Anthropic's infrastructure.
-
-The mode seam is documented in
-[`docs/connection-modes.md`](docs/connection-modes.md).
+> **On the horizon:** the future heavy path is a self-hosted headless
+> agent-host (`claude -p` / Claude Agent SDK) the phone connects to.
+> Exploring, no dates. See [`docs/adr/0008-agent-host-tier.md`](docs/adr/0008-agent-host-tier.md).
 
 ## Trust model
 
-**Direct mode:** your Anthropic (or OpenRouter) API key lives in the
-plugin's `data.json` inside your vault. People who sync their vault via
-Obsidian Sync should be aware the key travels in the sync payload —
+Your Anthropic (or OpenRouter) API key lives in the plugin's
+`data.json` inside your vault. People who sync their vault via
+Obsidian Sync should be aware the key travels in the sync payload --
 Obsidian Sync is E2EE with your sync password, but the key is plaintext
 within the vault. Any other plugin you install can also read it from
 the filesystem.
 
-**Worker mode:** the key lives in Cloudflare Worker secrets. The plugin
-holds only a revocable bearer token. Obsidian Sync carries the token
-(not the key), so the exposure footprint is smaller.
-
-Mitigation either way: set a [spend limit](https://console.anthropic.com/settings/limits)
+Mitigation: set a [spend limit](https://console.anthropic.com/settings/limits)
 on the Anthropic console so a leaked key has bounded financial damage.
 
 Full framing in [`docs/security-model.md`](docs/security-model.md).
@@ -154,13 +118,9 @@ pnpm install
 # Plugin in watch mode, writes into your dev vault
 SKALD_OUT_DIR="$HOME/your-vault/.obsidian/plugins/skald" \
   pnpm dev:plugin
-
-# Deploy Worker (if you're working on the worker)
-cd packages/worker
-pnpm exec wrangler deploy
 ```
 
-The plugin requires Hot Reload to auto-pick up changes — install
+The plugin requires Hot Reload to auto-pick up changes -- install
 [pjeby/hot-reload](https://github.com/pjeby/hot-reload) in your dev
 vault and drop a `.hotreload` sentinel into the skald plugin folder.
 

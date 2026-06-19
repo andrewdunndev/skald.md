@@ -84,7 +84,7 @@ function buildSession(approve: ApproveFn, app: App, tx: RecordingTransport) {
     onUpdate: vi.fn(), onError: vi.fn(), onDone: vi.fn(),
   };
   return new ChatSession(
-    tx as unknown as import('./transport').Transport,
+    tx as unknown as import('./transport-interface').SkaldTransport,
     () => 'claude-sonnet-4-6',
     async () => undefined,
     () => ({ provider: 'anthropic' }),

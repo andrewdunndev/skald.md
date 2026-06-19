@@ -100,9 +100,6 @@ export class SkaldView extends ItemView {
     });
 
     maybeRenderSetupBanner(root, this.app, {
-      connectionMode: this.plugin.settings.connectionMode ?? 'direct',
-      workerUrl: this.plugin.settings.workerUrl,
-      workerToken: this.plugin.settings.workerToken,
       provider: this.plugin.settings.provider,
       anthropicApiKey: this.plugin.settings.anthropicApiKey,
       openrouterApiKey: this.plugin.settings.openrouterApiKey,

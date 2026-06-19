@@ -1,12 +1,12 @@
 /**
- * DirectTransport: call Anthropic / OpenRouter directly from the plugin,
- * bypassing the Cloudflare Worker entirely. Uses native fetch with the
+ * DirectTransport: call Anthropic / OpenRouter directly from the plugin.
+ * Uses native fetch with the
  * `anthropic-dangerous-direct-browser-access: true` header. Never uses
  * Obsidian's requestUrl — that path doesn't set the required Origin header.
  *
  * Provider dispatch: Anthropic is the default; OpenRouter is the opt-in
- * fallback. Translation helpers are intentionally duplicated (not shared)
- * to keep the worker package out of the plugin bundle.
+ * fallback, with its own tool-type translation helpers at the bottom of
+ * this file.
  *
  * echo/ping: synchronous. cancel: aborts via AbortController.
  */
@@ -329,7 +329,7 @@ function identityEvent(
   return { event, data };
 }
 
-// ── OpenRouter tool rewriting (mirrors worker/src/providers/openrouter.ts) ─
+// ── OpenRouter tool rewriting ──────────────────────────────────────────────
 
 function rewriteOpenRouterTools(
   req: import('@skald/protocol').ChatRequest,

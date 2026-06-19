@@ -4,12 +4,12 @@
  * string in the app — every chat turn ships it as the system block.
  *
  * Strategy: targeted assertions on the load-bearing contracts
- * (capability-aware baseline: find_related present in worker mode,
- * absent in direct mode; optional sections gate on their inputs),
- * plus ONE retained snapshot of the full-stack composition as a
- * structural drift tripwire. The targeted assertions name WHY each
- * fragment matters; the snapshot catches order/scaffold drift the
- * assertions don't enumerate.
+ * (baseline never advertises find_related — direct-mode only, no
+ * Vectorize; optional sections gate on their inputs), plus ONE
+ * retained snapshot of the full-stack composition as a structural
+ * drift tripwire. The targeted assertions name WHY each fragment
+ * matters; the snapshot catches order/scaffold drift the assertions
+ * don't enumerate.
  */
 
 import { describe, expect, it } from 'vitest';
@@ -37,8 +37,6 @@ function mockApp(files: MockFiles) {
 }
 
 const BASE_SETTINGS = {
-  workerUrl: '',
-  workerToken: '',
   provider: 'anthropic',
   anthropicApiKey: '',
   openrouterApiKey: '',
@@ -55,27 +53,21 @@ const BASE_SETTINGS = {
   commandsFolder: '',
   capturesFolder: '',
   capturePromptPath: '',
-  captureMode: 'auto-route',
   startersPath: '',
 } as unknown as import('../settings').SkaldSettings;
 
 const direct = (extra: Partial<Record<string, unknown>> = {}) =>
-  ({ ...BASE_SETTINGS, connectionMode: 'direct', ...extra }) as unknown as import('../settings').SkaldSettings;
-const worker = (extra: Partial<Record<string, unknown>> = {}) =>
-  ({ ...BASE_SETTINGS, connectionMode: 'worker', ...extra }) as unknown as import('../settings').SkaldSettings;
+  ({ ...BASE_SETTINGS, ...extra }) as unknown as import('../settings').SkaldSettings;
 
-describe('loadSystemPrompt: capability-aware baseline contract', () => {
-  it('worker mode advertises find_related; direct mode never mentions it', async () => {
+describe('loadSystemPrompt: baseline contract', () => {
+  it('never advertises find_related (direct-mode only — no Vectorize)', async () => {
     const app = mockApp({});
-    const w = (await loadSystemPrompt(app, worker())) ?? '';
     const d = (await loadSystemPrompt(app, direct())) ?? '';
 
-    // Worker mode has semantic search in the catalog → guidance present.
-    expect(w).toContain('find_related');
-    // Direct mode does NOT — naming a tool that isn't there degrades
-    // routing, so the baseline must omit it entirely.
+    // find_related isn't in the catalog — naming a tool that isn't there
+    // degrades routing, so the baseline must omit it entirely.
     expect(d).not.toContain('find_related');
-    // Direct mode steers to the graph tools instead of semantic search.
+    // Discovery steers to the graph tools.
     expect(d).toContain('find_by_tag');
   });
 
