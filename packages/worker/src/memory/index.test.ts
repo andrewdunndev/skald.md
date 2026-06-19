@@ -18,28 +18,19 @@ import {
 } from './index';
 
 describe('vectorId', () => {
-  it('composes a stable id from kind:path:chunkIx', () => {
-    expect(vectorId('Bailey.md', 'note-summary')).toBe(
-      'note-summary:Bailey.md:0',
-    );
-    expect(vectorId('Bailey.md', 'note-summary', 3)).toBe(
-      'note-summary:Bailey.md:3',
-    );
-    expect(vectorId('Projects/X.md', 'section', 1)).toBe(
-      'section:Projects/X.md:1',
-    );
-  });
-
-  it('produces distinct ids for different kinds at the same path', () => {
-    expect(vectorId('A.md', 'note-summary')).not.toBe(
-      vectorId('A.md', 'section'),
-    );
-  });
-
-  it('is idempotent for the same inputs (id collision = upsert overwrite)', () => {
-    const a = vectorId('A.md', 'section', 5);
-    const b = vectorId('A.md', 'section', 5);
-    expect(a).toBe(b);
+  // id = kind:path:chunkIx. Stable (idempotent) so an id collision is
+  // an upsert overwrite, and varying any component varies the id (kind
+  // separates note-summary from section at the same path).
+  // id = kind:path:chunkIx. chunkIx defaults to 0; kind varies the id
+  // (separates note-summary from section at the same path); same inputs
+  // are idempotent so an id collision is an upsert overwrite.
+  it.each([
+    { path: 'Bailey.md', kind: 'note-summary', ix: undefined, id: 'note-summary:Bailey.md:0' },
+    { path: 'Bailey.md', kind: 'note-summary', ix: 3, id: 'note-summary:Bailey.md:3' },
+    { path: 'A.md', kind: 'section', ix: undefined, id: 'section:A.md:0' },
+  ])('composes $id from kind/path/chunkIx', ({ path, kind, ix, id }) => {
+    expect(vectorId(path, kind as any, ix)).toBe(id);
+    expect(vectorId(path, kind as any, ix)).toBe(id); // idempotent
   });
 });
 
@@ -63,18 +54,16 @@ describe('embedDocument / embedQuery', () => {
     expect(ai.run).toHaveBeenCalledWith('@cf/baai/bge-m3', { text: ['x'] });
   });
 
-  it('throws a named error if the AI response has no data', async () => {
-    const ai = { run: vi.fn().mockResolvedValue({}) };
+  // Both "no usable vector" shapes throw the named empty-embedding
+  // error (downstream relies on the model name in the message).
+  it.each([
+    { name: 'response has no data', response: {} },
+    { name: 'data[0] is an empty vector', response: { data: [[]] } },
+  ])('throws empty-embedding when $name', async ({ response }) => {
+    const ai = { run: vi.fn().mockResolvedValue(response) };
     await expect(
       embedDocument({ AI: ai } as any, { text: 'x' }),
     ).rejects.toThrow(`empty embedding from ${DEFAULT_EMBEDDING_MODEL}`);
-  });
-
-  it('throws when data[0] is an empty vector', async () => {
-    const ai = { run: vi.fn().mockResolvedValue({ data: [[]] }) };
-    await expect(
-      embedDocument({ AI: ai } as any, { text: 'x' }),
-    ).rejects.toThrow(/empty embedding/);
   });
 
   it('embedQuery is identity-routed to embedDocument', async () => {
@@ -94,13 +83,22 @@ describe('upsertChunks', () => {
     expect(vec.upsert).not.toHaveBeenCalled();
   });
 
-  it('maps ScribianVectors to the Vectorize upsert shape (id/values/namespace/metadata)', async () => {
+  it('maps ScribianVectors to the Vectorize upsert shape, routing kind onto namespace', async () => {
+    // Two chunks of different kinds in one call: proves the full
+    // id/values/namespace/metadata mapping AND that namespace is driven
+    // by each chunk's kind (note-summary vs section not hardcoded).
     const vec = { upsert: vi.fn().mockResolvedValue(undefined) };
     await upsertChunks({ VECTORIZE: vec } as any, [
       {
         id: 'note-summary:A.md:0',
         kind: 'note-summary',
         vector: [0.1, 0.2],
+        metadata: { path: 'A.md', title: 'A', sha256: 'abc', mtime: 1 },
+      },
+      {
+        id: 'section:A.md:1',
+        kind: 'section',
+        vector: [0.3],
         metadata: { path: 'A.md', title: 'A', sha256: 'abc', mtime: 1 },
       },
     ]);
@@ -111,21 +109,13 @@ describe('upsertChunks', () => {
         namespace: 'note-summary',
         metadata: { path: 'A.md', title: 'A', sha256: 'abc', mtime: 1 },
       },
-    ]);
-  });
-
-  it('routes the kind onto the Vectorize namespace (separates note-summary vs section)', async () => {
-    const vec = { upsert: vi.fn().mockResolvedValue(undefined) };
-    await upsertChunks({ VECTORIZE: vec } as any, [
       {
         id: 'section:A.md:1',
-        kind: 'section',
-        vector: [0.3],
+        values: [0.3],
+        namespace: 'section',
         metadata: { path: 'A.md', title: 'A', sha256: 'abc', mtime: 1 },
       },
     ]);
-    const call = vec.upsert.mock.calls[0][0];
-    expect(call[0].namespace).toBe('section');
   });
 });
 
@@ -154,28 +144,18 @@ describe('querySimilar', () => {
     ]);
   });
 
-  it('defaults to namespace=note-summary when kind is omitted', async () => {
+  // Param defaulting/clamping passed to Vectorize.query: namespace
+  // defaults to note-summary when kind omitted; topK defaults to 8 and
+  // is capped at 20 (Vectorize guard). A regression in any default
+  // changes the exact query args asserted here.
+  it.each([
+    { name: 'defaults namespace + topK when both omitted', args: { query: 'x' }, namespace: 'note-summary', topK: 8 },
+    { name: 'caps topK at 20', args: { query: 'x', topK: 9999 }, namespace: 'note-summary', topK: 20 },
+  ])('$name', async ({ args, namespace, topK }) => {
     const ai = { run: vi.fn().mockResolvedValue({ data: [[0.5]] }) };
     const vec = { query: vi.fn().mockResolvedValue({ matches: [] }) };
-    await querySimilar({ AI: ai, VECTORIZE: vec } as any, { query: 'x' });
-    expect(vec.query.mock.calls[0][1].namespace).toBe('note-summary');
-  });
-
-  it('caps topK at 20 (Vectorize guard)', async () => {
-    const ai = { run: vi.fn().mockResolvedValue({ data: [[0.5]] }) };
-    const vec = { query: vi.fn().mockResolvedValue({ matches: [] }) };
-    await querySimilar({ AI: ai, VECTORIZE: vec } as any, {
-      query: 'x',
-      topK: 9999,
-    });
-    expect(vec.query.mock.calls[0][1].topK).toBe(20);
-  });
-
-  it('defaults topK to 8 when omitted', async () => {
-    const ai = { run: vi.fn().mockResolvedValue({ data: [[0.5]] }) };
-    const vec = { query: vi.fn().mockResolvedValue({ matches: [] }) };
-    await querySimilar({ AI: ai, VECTORIZE: vec } as any, { query: 'x' });
-    expect(vec.query.mock.calls[0][1].topK).toBe(8);
+    await querySimilar({ AI: ai, VECTORIZE: vec } as any, args);
+    expect(vec.query.mock.calls[0][1]).toMatchObject({ namespace, topK });
   });
 
   it('returns empty array when Vectorize returns no matches', async () => {
