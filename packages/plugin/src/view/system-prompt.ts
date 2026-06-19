@@ -20,7 +20,6 @@ import { buildMemorySection } from '../memory-prompt';
 import { buildPersonaSection } from '../persona-prompt';
 import { buildSkaldBaseline } from './skald-baseline';
 import { buildVaultMap } from './vault-map';
-import { modeCapabilities } from '../mode-capabilities';
 import type { SkaldSettings } from '../settings';
 
 export async function loadSystemPrompt(
@@ -29,12 +28,9 @@ export async function loadSystemPrompt(
 ): Promise<string | undefined> {
   const parts: string[] = [];
 
-  const caps = modeCapabilities(settings.connectionMode ?? 'direct');
-
   parts.push(
     buildSkaldBaseline({
       memoryPath: settings.memoryPath,
-      semanticSearch: caps.semanticSearch,
     }),
   );
 

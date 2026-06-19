@@ -28,12 +28,6 @@ describe('describeToolUse', () => {
     );
   });
 
-  it('renders find_related with the query (phase 6)', () => {
-    expect(describeToolUse('find_related', { query: 'memoir' })).toBe(
-      '🧭 Finding notes related to "memoir"',
-    );
-  });
-
   it('renders web_search / web_fetch with the relevant param', () => {
     expect(describeToolUse('web_search', { query: 'sf coffee' })).toBe(
       '🌐 Web search: "sf coffee"',

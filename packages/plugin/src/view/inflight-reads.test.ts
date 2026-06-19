@@ -40,9 +40,9 @@ describe('readsBeforeToolUse', () => {
     expect(readsBeforeToolUse(blocks, 'w1')).toEqual(['(active note)']);
   });
 
-  it('renders find_related as a truncated search: prefix', () => {
+  it('renders search_vault as a truncated search: prefix', () => {
     const blocks = [
-      tool('fr1', 'find_related', {
+      tool('fr1', 'search_vault', {
         query: 'notes about photography workflows in my vault that I have written',
       }),
       tool('w1', 'append_to_note', { path: 'A.md', content: '' }),
@@ -125,10 +125,9 @@ describe('notesReadInTurn', () => {
       ['A.md', 'B.md'],
     ],
     [
-      'excludes search tools (find_related, search_vault)',
+      'excludes search tools (search_vault)',
       [
         tool('s1', 'search_vault', { query: 'foo' }),
-        tool('s2', 'find_related', { query: 'bar' }),
         tool('r1', 'read_note', { path: 'A.md' }),
       ],
       ['A.md'],

@@ -8,23 +8,8 @@ import { describe, expect, it } from 'vitest';
 import { resolveBannerSpec } from './setup-banner';
 import type { SetupBannerInput } from './setup-banner';
 
-function workerInput(overrides: Partial<SetupBannerInput> = {}): SetupBannerInput {
-  return {
-    connectionMode: 'worker',
-    workerUrl: 'https://worker.example.com',
-    workerToken: 'tok-123',
-    provider: 'anthropic',
-    anthropicApiKey: '',
-    openrouterApiKey: '',
-    ...overrides,
-  };
-}
-
 function directInput(overrides: Partial<SetupBannerInput> = {}): SetupBannerInput {
   return {
-    connectionMode: 'direct',
-    workerUrl: '',
-    workerToken: '',
     provider: 'anthropic',
     anthropicApiKey: 'sk-ant-live',
     openrouterApiKey: '',
@@ -32,37 +17,9 @@ function directInput(overrides: Partial<SetupBannerInput> = {}): SetupBannerInpu
   };
 }
 
-// ── Worker mode ────────────────────────────────────────────────────────────
+// ── Anthropic provider ─────────────────────────────────────────────────────
 
-describe('resolveBannerSpec: worker mode', () => {
-  it('returns null when both workerUrl and workerToken are set', () => {
-    expect(resolveBannerSpec(workerInput())).toBeNull();
-  });
-
-  it('returns a banner (title names Worker) when workerUrl is missing', () => {
-    const spec = resolveBannerSpec(workerInput({ workerUrl: '' }));
-    expect(spec).not.toBeNull();
-    expect(spec?.detail).toContain('Worker URL');
-    expect(spec?.title).toMatch(/worker/i);
-  });
-
-  it('returns a banner when workerToken is missing', () => {
-    const spec = resolveBannerSpec(workerInput({ workerToken: '' }));
-    expect(spec).not.toBeNull();
-    expect(spec?.detail).toContain('Worker token');
-  });
-
-  it('names both missing pieces when both are absent', () => {
-    const spec = resolveBannerSpec(workerInput({ workerUrl: '', workerToken: '' }));
-    expect(spec).not.toBeNull();
-    expect(spec?.detail).toContain('Worker URL');
-    expect(spec?.detail).toContain('Worker token');
-  });
-});
-
-// ── Direct mode: Anthropic ─────────────────────────────────────────────────
-
-describe('resolveBannerSpec: direct mode, anthropic provider', () => {
+describe('resolveBannerSpec: anthropic provider', () => {
   it('returns null when Anthropic key is present', () => {
     expect(resolveBannerSpec(directInput())).toBeNull();
   });
@@ -90,9 +47,9 @@ describe('resolveBannerSpec: direct mode, anthropic provider', () => {
   });
 });
 
-// ── Direct mode: OpenRouter ────────────────────────────────────────────────
+// ── OpenRouter provider ────────────────────────────────────────────────────
 
-describe('resolveBannerSpec: direct mode, openrouter provider', () => {
+describe('resolveBannerSpec: openrouter provider', () => {
   it('returns null when OpenRouter key is present', () => {
     expect(
       resolveBannerSpec(directInput({ provider: 'openrouter', openrouterApiKey: 'sk-or-live' })),

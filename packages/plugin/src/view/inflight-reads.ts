@@ -64,7 +64,7 @@ export function readsBeforeToolUse(
       if (typeof input.path === 'string') out.push(input.path);
     } else if (name === 'current_note') {
       out.push('(active note)');
-    } else if (name === 'find_related' || name === 'search_vault') {
+    } else if (name === 'search_vault') {
       if (typeof input.query === 'string') {
         out.push(`search: "${input.query.slice(0, 40)}"`);
       }

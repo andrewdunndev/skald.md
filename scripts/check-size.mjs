@@ -35,7 +35,6 @@ const ROOT = path.resolve(path.dirname(__filename), '..');
 const CAP = 400;
 const SOURCE_ROOTS = [
   'packages/plugin/src',
-  'packages/worker/src',
   'packages/protocol/src',
 ];
 

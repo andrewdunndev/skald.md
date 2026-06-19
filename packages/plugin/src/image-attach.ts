@@ -35,31 +35,31 @@ const SUPPORTED_MEDIA_TYPES: ReadonlySet<string> = new Set<string>([
 ]);
 
 /**
- * Per-image transit cap, post-base64 + chat envelope. Cloudflare's
- * WebSocket platform limit is 1 MiB per receive on the server side
- * — that's the hard ceiling for a chat turn carrying an image,
- * because the full ClientMessage (turn + image content block) ships
- * in one WS frame. Base64 inflates by ~33%, plus the JSON envelope
- * + system prompt + headers ~= 80 KB overhead:
+ * Per-image cap, checked against the raw (pre-base64) blob size.
  *
- *   1 MiB platform cap
- *   − ~80 KB envelope/system-prompt overhead
- *   = ~970 KB usable
- *   ÷ 1.33 (base64 inflation)
- *   = ~730 KB raw image
+ * In direct mode the image rides an HTTPS POST to the provider, not a
+ * Cloudflare WebSocket frame, so the ceiling is the provider's per-image
+ * limit, not a transport frame size. Anthropic's API accepts up to 10 MB
+ * base64-encoded per image; base64 inflates raw bytes by ~33%, so the
+ * hard raw ceiling is ~7.3 MB. OpenRouter fans out to providers with
+ * assorted (often lower) limits, and surfaces their error verbatim if a
+ * blob is too large for the chosen backend.
  *
- * We round down to 700 KB. Source blobs OVER the cap are auto-
- * compressed via `compressImageBlob` (Canvas re-encode to JPEG
- * with progressively smaller dimensions + quality) until they fit.
- * The chip label surfaces the downsize ratio so the user sees what
- * happened. GIFs are an exception — re-encoding kills animation
- * frames — so oversize GIFs are rejected with a Notice.
+ * We set 4 MB raw: comfortably under Anthropic's ceiling with headroom
+ * for base64 + the request envelope, friendly to stricter OpenRouter
+ * backends, and large enough that a typical phone photo (2-4 MB) attaches
+ * at full fidelity instead of being needlessly downscaled. Note that
+ * token cost scales with image DIMENSIONS, not file size (Anthropic
+ * resizes anything over ~1568px internally for tokenization), so a larger
+ * byte cap does not by itself raise per-image token cost.
  *
- * The mobile-camera use case (a 3 MB iPhone JPEG attached via the
- * "Identify + file" chip) was broken pre-auto-compression: the
- * blob would silently drop. Camera-first flow now works end-to-end.
+ * Source blobs OVER the cap are auto-compressed via `compressImageBlob`
+ * (Canvas re-encode to JPEG with progressively smaller dimensions +
+ * quality) until they fit. The chip label surfaces the downsize ratio so
+ * the user sees what happened. GIFs are an exception — re-encoding kills
+ * animation frames — so oversize GIFs are rejected with a Notice.
  */
-const MAX_IMAGE_BYTES = 700 * 1024;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 
 /**
  * One image attached to the in-flight user turn. Held in plugin
@@ -188,9 +188,9 @@ async function blobToAttachment(
  * (Canvas + createImageBitmap) — no unit-testable path; verified
  * via the CDP walkthrough on real Obsidian.
  *
- * The mobile-photo case (a 3 MB iPhone JPEG into a 700 KB target)
- * usually settles in 2-3 iterations at quality ~0.7 + dimensions
- * ~70% of original. Output is always JPEG; alpha channels are
+ * An oversize photo (say an 8 MB JPEG into the 4 MB target) usually
+ * settles in 1-2 iterations at quality ~0.8 + near-full dimensions.
+ * Output is always JPEG; alpha channels are
  * lost on transparent PNGs but the vision use cases here (photos,
  * scans, screenshots) don't typically need alpha.
  */

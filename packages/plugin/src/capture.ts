@@ -3,32 +3,30 @@
  *
  * Trigger: `obsidian://skald-capture?...` (fired by an Apple
  * Shortcut). Flow: parseCaptureParams → CaptureService.run() →
- * mode dispatch:
- *   worker: POST /capture on the Worker → routeCapture
- *   direct: plugin calls provider API via requestUrl → routeCapture
- *             (auto-route is inbox-only in direct mode; no Vectorize)
+ * plugin calls the provider API via requestUrl → write to the
+ * captures folder.
  *
- * Privacy posture: transient pipe. Worker (or provider API) holds
- * nothing post-response. Same trust as the chat path. Rate-limited
- * at the handler level — see CAPTURE_RATE_LIMIT_COUNT.
+ * Privacy posture: transient pipe. The provider API holds nothing
+ * post-response. Same trust as the chat path. Rate-limited at the
+ * handler level — see CAPTURE_RATE_LIMIT_COUNT.
  */
 
 import {
   normalizePath,
   Notice,
+  requestUrl,
   TFile,
   TFolder,
   type App,
   type ObsidianProtocolData,
+  type RequestUrlParam,
 } from 'obsidian';
 import {
   CAPTURE_DEFAULT_PROMPTS,
+  CAPTURE_MAX_PROMPT_BYTES,
+  extractCaptureTitle,
   type Provider,
 } from '@skald/protocol';
-import { modeCapabilities } from './mode-capabilities';
-import type { ConnectionMode } from './settings';
-import { workerCapture, directCapture } from './capture-provider';
-import { searchVault, type SearchHit } from './memory-client';
 import { SlidingWindow } from './rate-limit';
 import {
   captureFilename,
@@ -39,36 +37,6 @@ import {
 export { captureFilename } from './capture-util';
 
 export type CaptureKind = 'url' | 'text' | 'image' | 'pdf';
-
-export type CaptureMode = 'auto-route' | 'inbox';
-
-/** Min similarity score for routing a capture to an existing note.
- *  Below this, the capture falls back to creating in captureFolder.
- *
- *  Tuned to 0.85: high enough that a malicious capture URI can't
- *  easily target an existing user note (would require attacker
- *  knowledge of vault content AND a payload that embeds close to
- *  it), low enough that genuinely-related captures route correctly.
- *
- *  Lower threshold (0.7) was the initial heuristic; raised after
- *  the security audit identified malicious-URI append as a real
- *  risk surface. False negatives (route to inbox when an append
- *  would've been better) are recoverable by the user; false
- *  positives (silent append to a wrong note) are not.
- */
-export const CAPTURE_ROUTE_THRESHOLD = 0.85;
-
-export interface CaptureRoute {
-  kind: 'create' | 'append';
-  path: string;
-  /** Score of the matched note when kind='append'; absent when
-   *  kind='create'. */
-  matchScore?: number;
-  /** Top candidates considered, for telemetry / a future "change
-   *  destination" picker. Empty when search wasn't run (inbox mode
-   *  or search unavailable). */
-  candidates: Array<{ path: string; score: number }>;
-}
 
 export interface CaptureParams {
   kind: CaptureKind;
@@ -121,8 +89,8 @@ export function parseCaptureParams(
 }
 
 /**
- * Compose the user-turn prompt that gets sent to /capture on the
- * Worker. Pure; tested with concrete in/out.
+ * Compose the user-turn prompt that gets sent to the provider.
+ * Pure; tested with concrete in/out.
  *
  *   - `params.prompt` (note path) takes precedence; the resolver
  *     reads that note's body and uses it verbatim as the system
@@ -145,86 +113,100 @@ export function buildCapturePrompt(
 // CaptureService orchestration.
 
 export interface CaptureServiceConfig {
-  /** Connection mode — determines which capture path is used. */
-  connectionMode: ConnectionMode;
-  workerUrl: string;
-  workerToken: string;
-  /** Active provider for direct mode (ignored in worker mode). */
+  /** Active provider. */
   provider: Provider;
-  /** Anthropic API key for direct mode. */
+  /** Anthropic API key. */
   anthropicApiKey: string;
-  /** OpenRouter API key for direct mode. */
+  /** OpenRouter API key. */
   openrouterApiKey: string;
-  /** Default Anthropic model id for direct mode. */
+  /** Default Anthropic model id. */
   defaultModel: string;
-  /** Default OpenRouter model id for direct mode. */
+  /** Default OpenRouter model id. */
   openrouterModel: string;
   captureFolder: string;
   /** Vault-relative path of a prompt-template note. Empty → use
    * the kind-default prompt baked into this module. */
   promptPath: string;
-  /** 'auto-route' runs find_related on the generated note + appends
-   * to the top match when score >= CAPTURE_ROUTE_THRESHOLD. 'inbox'
-   * always creates in captureFolder. Default is 'auto-route' —
-   * intelligent triage is skald's value-add over Obsidian's
-   * native share-sheet handler. In direct mode, auto-route is
-   * silently treated as inbox (Vectorize is not available). */
-  mode: CaptureMode;
 }
 
-/**
- * Decide where a captured note should land. Pure routing logic over
- * a searcher callback so the caller can inject either the real
- * /search HTTP path or a stub. Score threshold is the safety knob —
- * below the threshold the capture goes to inbox regardless of mode.
- *
- * Search failures are treated as "no match found" (falls back to
- * create-in-inbox); the caller decides whether to surface the
- * failure to the user via a Notice.
- */
-export async function routeCapture(
-  searcher: (query: string, topK: number) => Promise<SearchHit[]>,
-  options: {
-    mode: CaptureMode;
-    title: string;
-    body: string;
-    captureFolder: string;
-    threshold?: number;
-  },
-): Promise<CaptureRoute> {
-  const threshold = options.threshold ?? CAPTURE_ROUTE_THRESHOLD;
-  if (options.mode !== 'auto-route') {
-    return {
-      kind: 'create',
-      path: captureFilename(options.captureFolder, options.title),
-      candidates: [],
-    };
+interface CaptureResult {
+  body: string;
+  title: string;
+}
+
+/** Call the provider API directly from the plugin. Uses Obsidian's
+ * requestUrl — not subject to CORS, so plain x-api-key / Authorization
+ * headers work without the anthropic-dangerous-direct-browser-access
+ * header that native browser fetch requires. */
+async function directCapture(
+  cfg: CaptureServiceConfig,
+  prompt: string,
+): Promise<CaptureResult> {
+  const { provider } = cfg;
+  const apiKey =
+    provider === 'openrouter'
+      ? cfg.openrouterApiKey.trim()
+      : cfg.anthropicApiKey.trim();
+  if (!apiKey) {
+    const which = provider === 'openrouter' ? 'OpenRouter' : 'Anthropic';
+    const field =
+      provider === 'openrouter' ? 'openrouterApiKey' : 'anthropicApiKey';
+    throw new Error(
+      `No ${which} API key configured. Add it in plugin settings (${field}).`,
+    );
   }
-  // Title carries the topical handle; body excerpt grounds it. Cap
-  // body at 500 chars so the embedding model has signal without
-  // ballooning the query.
-  const query = `${options.title}\n\n${options.body.slice(0, 500)}`;
-  let hits: SearchHit[] = [];
-  try {
-    hits = await searcher(query, 3);
-  } catch {
-    hits = [];
+  if (new TextEncoder().encode(prompt).length > CAPTURE_MAX_PROMPT_BYTES) {
+    throw new Error(
+      `Capture content too large (>${CAPTURE_MAX_PROMPT_BYTES / 1024} KB).`,
+    );
   }
-  const candidates = hits.map((h) => ({ path: h.path, score: h.score }));
-  const top = hits[0];
-  if (top && top.score >= threshold) {
-    return {
-      kind: 'append',
-      path: top.path,
-      matchScore: top.score,
-      candidates,
-    };
-  }
-  return {
-    kind: 'create',
-    path: captureFilename(options.captureFolder, options.title),
-    candidates,
+  const model =
+    provider === 'openrouter' ? cfg.openrouterModel : cfg.defaultModel;
+  const reqBody = {
+    model,
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 2048,
   };
+  const headers: Record<string, string> =
+    provider === 'openrouter'
+      ? {
+          Authorization: `Bearer ${apiKey}`,
+          'content-type': 'application/json',
+          'HTTP-Referer': 'https://github.com/skald/skald',
+          'X-OpenRouter-Title': 'skald',
+        }
+      : {
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+          'content-type': 'application/json',
+        };
+  const url =
+    provider === 'openrouter'
+      ? 'https://openrouter.ai/api/v1/messages'
+      : 'https://api.anthropic.com/v1/messages';
+  const params: RequestUrlParam = {
+    url,
+    method: 'POST',
+    headers,
+    body: JSON.stringify(reqBody),
+    throw: false,
+  };
+  const resp = await requestUrl(params);
+  if (resp.status >= 400) {
+    throw new Error(
+      `${provider} API returned ${resp.status}: ${resp.text.slice(0, 300)}`,
+    );
+  }
+  const json = resp.json as {
+    content?: Array<{ type?: string; text?: string }>;
+  };
+  const text = (json.content ?? [])
+    .filter((b) => b.type === 'text' && typeof b.text === 'string')
+    .map((b) => b.text as string)
+    .join('\n')
+    .trim();
+  if (!text) throw new Error('Provider returned no text content');
+  return { body: text, title: extractCaptureTitle(text) };
 }
 
 /** Rate limit on the capture protocol handler. The handler can be
@@ -269,8 +251,7 @@ export class CaptureService {
     try {
       const note = await this.run(params);
       progress.hide();
-      const verb = note.routedTo === 'append' ? 'routed to' : 'captured';
-      new Notice(`skald: ${verb} → ${note.path}`, 5000);
+      new Notice(`skald: captured → ${note.path}`, 5000);
       if (!params.silent) {
         await this.app.workspace.openLinkText(note.path, '', false);
       }
@@ -281,86 +262,20 @@ export class CaptureService {
     }
   }
 
-  /** Run a capture end-to-end: prompt → provider call → routing →
-   * vault write. Returns the resolved path + whether it created or
-   * appended. Exposed for testing / future programmatic capture
-   * sources (browser extension).
-   *
-   * Mode dispatch is exhaustive on ConnectionMode so adding a third
-   * mode produces a compile-time error here. */
+  /** Run a capture end-to-end: prompt → provider call → vault write.
+   * Returns the resolved path. Exposed for testing / future
+   * programmatic capture sources (browser extension). */
   async run(
     params: CaptureParams,
-  ): Promise<{ path: string; routedTo: 'create' | 'append' }> {
+  ): Promise<{ path: string; routedTo: 'create' }> {
     const cfg = this.cfg();
     const customPromptBody = await this.readPromptTemplate(cfg.promptPath);
     const prompt = buildCapturePrompt(params, customPromptBody);
 
-    let captureBody: string;
-    let captureTitle: string;
-
-    switch (cfg.connectionMode) {
-      case 'worker':
-        ({ body: captureBody, title: captureTitle } = await workerCapture({
-          workerUrl: cfg.workerUrl,
-          workerToken: cfg.workerToken,
-          prompt,
-          kind: params.kind,
-        }));
-        break;
-      case 'direct':
-        ({ body: captureBody, title: captureTitle } = await directCapture({
-          provider: cfg.provider,
-          anthropicApiKey: cfg.anthropicApiKey,
-          openrouterApiKey: cfg.openrouterApiKey,
-          defaultModel: cfg.defaultModel,
-          openrouterModel: cfg.openrouterModel,
-          prompt,
-        }));
-        break;
-      default:
-        return modeCapabilities(cfg.connectionMode as never) as never;
-    }
-
-    // In direct mode, semantic search (Vectorize) is unavailable.
-    // Gate on the capability flag, not the mode string, so adding a
-    // future 'remote' mode only requires updating modeCapabilities.
-    const caps = modeCapabilities(cfg.connectionMode);
-    const effectiveMode: CaptureMode = caps.semanticSearch ? cfg.mode : 'inbox';
-
-    const searcher: (q: string, k: number) => Promise<SearchHit[]> =
-      caps.semanticSearch
-        ? (q, k) =>
-            searchVault(
-              { workerUrl: cfg.workerUrl, workerToken: cfg.workerToken },
-              q,
-              k,
-            )
-        : async () => [];
-
-    const route = await routeCapture(searcher, {
-      mode: effectiveMode,
-      title: captureTitle,
-      body: captureBody,
-      captureFolder: cfg.captureFolder,
-    });
-
-    if (route.kind === 'append') {
-      const path = normalizePath(route.path);
-      const existing = this.app.vault.getAbstractFileByPath(path);
-      if (existing instanceof TFile) {
-        // vault.process applies the transform atomically against
-        // whatever's on disk at the moment of write — safer than
-        // read-then-modify when the user has the target note open
-        // in another editor pane with unsaved edits.
-        const stamp = new Date().toISOString().slice(0, 16).replace('T', ' ');
-        await this.app.vault.process(existing, (current) => {
-          const sep = current.endsWith('\n') ? '\n' : '\n\n';
-          return `${current}${sep}---\n\nCaptured ${stamp}\n\n${captureBody}`;
-        });
-        return { path, routedTo: 'append' };
-      }
-      // Target vanished between search and write — fall back to create.
-    }
+    const { body: captureBody, title: captureTitle } = await directCapture(
+      cfg,
+      prompt,
+    );
 
     await this.ensureFolder(cfg.captureFolder);
     const filename = captureFilename(

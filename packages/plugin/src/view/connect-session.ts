@@ -2,23 +2,17 @@
  * Transport + ChatSession construction for the chat view.
  *
  * Extracted from view.ts so the main view file stays under the 400-line
- * cap. Transport selection is an exhaustive switch on ConnectionMode via
- * modeCapabilities — adding a new mode requires updating mode-capabilities.ts
- * and satisfying the compiler here.
- *
- * Returns the constructed transport and session (or null when configuration
- * is missing in worker mode).
+ * cap. skald is direct-mode only: the plugin always talks to Anthropic /
+ * OpenRouter directly via DirectTransport.
  */
 import type { App } from 'obsidian';
 import type { Provider, ServerMessage, Usage } from '@skald/protocol';
 import type SkaldPlugin from '../main';
 import type { SkaldTransport, TransportHandlers } from '../transport-interface';
-import { Transport } from '../transport';
 import { DirectTransport } from '../direct-transport';
 import { ChatSession } from '../chat-session';
 import { buildActiveTools, executeTool } from '../tools';
 import type { WriteProposal } from '../tools';
-import { modeCapabilities, assertNever } from '../mode-capabilities';
 import { loadSystemPrompt } from './system-prompt';
 import { providerCapabilities } from '../provider-capabilities';
 
@@ -41,16 +35,13 @@ export interface ConnectCallbacks {
 }
 
 /**
- * Build the transport + session for the current connection mode.
- * Returns null if the mode is 'worker' but the URL / token are missing.
+ * Build the DirectTransport + ChatSession for the chat view.
  */
 export function connectSession(
   app: App,
   plugin: SkaldPlugin,
   cbs: ConnectCallbacks,
 ): ConnectResult | null {
-  const mode = plugin.settings.connectionMode ?? 'direct';
-
   // session is captured by reference after construction below.
   let sessionRef: ChatSession | null = null;
 
@@ -74,33 +65,14 @@ export function connectSession(
     },
   };
 
-  const caps = modeCapabilities(mode);
-  let transport: SkaldTransport;
-
-  switch (mode) {
-    case 'worker': {
-      const { workerUrl, workerToken } = plugin.settings;
-      if (!workerUrl || !workerToken) {
-        cbs.setStatus('Not configured. Add Worker URL + token in settings.', 'error');
-        return null;
-      }
-      cbs.setStatus('Connecting…');
-      transport = new Transport(workerUrl, workerToken, handlers);
-      break;
-    }
-    case 'direct':
-      transport = new DirectTransport(
-        {
-          getAnthropicKey: () => plugin.settings.anthropicApiKey,
-          getOpenRouterKey: () => plugin.settings.openrouterApiKey,
-          getThinkingEnabled: () => plugin.settings.thinkingEnabled,
-        },
-        handlers,
-      );
-      break;
-    default:
-      return assertNever(mode);
-  }
+  const transport: SkaldTransport = new DirectTransport(
+    {
+      getAnthropicKey: () => plugin.settings.anthropicApiKey,
+      getOpenRouterKey: () => plugin.settings.openrouterApiKey,
+      getThinkingEnabled: () => plugin.settings.thinkingEnabled,
+    },
+    handlers,
+  );
 
   transport.connect();
 
@@ -121,7 +93,6 @@ export function connectSession(
       buildActiveTools({
         memoryEnabled: plugin.settings.memoryEnabled,
         memoryPath: plugin.settings.memoryPath,
-        connectionMode: plugin.settings.connectionMode,
         // Source the live model the same way dispatch does (modelProvider
         // is cbs.getModelValue()) so the two can't diverge mid-session.
         model: cbs.getModelValue(),
@@ -134,14 +105,7 @@ export function connectSession(
             ...proposal,
             informedBy: cbs.currentTurnReads(proposal.toolUseId),
           }),
-        memoryClient: caps.usesWorker
-          ? {
-              workerUrl: plugin.settings.workerUrl,
-              workerToken: plugin.settings.workerToken,
-            }
-          : undefined,
         memoryPath: plugin.settings.memoryPath,
-        connectionMode: mode,
         anthropicApiKey: plugin.settings.anthropicApiKey || undefined,
         provider: plugin.settings.provider ?? 'anthropic',
       }),

@@ -19,7 +19,7 @@ const READ_TOOLS = new Set([
   'list_notes',
 ]);
 
-const SEARCH_TOOLS = new Set(['search_vault', 'find_related']);
+const SEARCH_TOOLS = new Set(['search_vault']);
 
 const WRITE_TOOLS = new Set([
   'write_note',

@@ -111,7 +111,7 @@ describe('resumeConversation: usage continuity', () => {
     // ctx.session AFTER connect(); we pre-seed both slots with the same real
     // session so the hydrate target is the one we inspect.
     const real = new ChatSession(
-      { send: vi.fn() } as unknown as import('../transport').Transport,
+      { send: vi.fn() } as unknown as import('../transport-interface').SkaldTransport,
       () => 'claude-sonnet-4-6',
       async () => undefined,
       () => ({ provider: 'anthropic' }),

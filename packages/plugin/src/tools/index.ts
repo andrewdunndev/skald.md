@@ -1,8 +1,5 @@
 import type { ToolDefinition } from '@skald/protocol';
-import { executeFindRelated } from '../memory-client';
 import type { ToolContext, ToolExecutionResult } from './context';
-import type { ConnectionMode } from '../settings';
-import { modeCapabilities } from '../mode-capabilities';
 import {
   READ_ONLY_TOOLS,
   runReadNote,
@@ -90,13 +87,6 @@ export interface ActiveToolInput {
    * memory tools even if memoryEnabled is true. */
   memoryPath: string;
   /**
-   * Connection mode. find_related is only available when the mode's
-   * semanticSearch capability is true (currently 'worker' only).
-   * Server tools (web_search / web_fetch) work in all modes.
-   * executeTool gates the call site as defense-in-depth.
-   */
-  connectionMode?: ConnectionMode;
-  /**
    * The model id for the current turn. Used to select the correct
    * server-tool version pins — Haiku needs 20250305/20250910 while
    * all other Anthropic models use 20260209. Defaults to the
@@ -111,25 +101,15 @@ export interface ActiveToolInput {
  * so Claude only sees tools it can actually use successfully.
  */
 export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
-  // Exclude find_related when the mode lacks semantic search (requires
-  // the Worker's Vectorize binding). The executor gate remains as
-  // defense-in-depth. When connectionMode is absent, default to 'worker'
-  // behavior (include the tool) for backward compatibility.
-  const caps = input.connectionMode
-    ? modeCapabilities(input.connectionMode)
-    : { semanticSearch: true };
-  const readTools = caps.semanticSearch
-    ? READ_ONLY_TOOLS
-    : READ_ONLY_TOOLS.filter(
-        (t) => (t as Record<string, unknown>).name !== 'find_related',
-      );
-
-  const tools: ToolDefinition[] = [...readTools, ...GRAPH_TOOLS, ...WRITE_TOOLS];
+  const tools: ToolDefinition[] = [
+    ...READ_ONLY_TOOLS,
+    ...GRAPH_TOOLS,
+    ...WRITE_TOOLS,
+  ];
   if (input.memoryEnabled && input.memoryPath.trim()) {
     tools.push(...MEMORY_TOOLS);
   }
-  // Server tools (web_search / web_fetch) work in both modes — they
-  // execute on the provider side regardless of how we connect.
+  // Server tools (web_search / web_fetch) execute on the provider side.
   // Use the model-appropriate version pins so Haiku doesn't 400.
   tools.push(...serverToolsForModel(input.model ?? ''));
   return tools;
@@ -201,28 +181,6 @@ export async function executeTool(
           ctx.approve,
           ctx.memoryPath,
         );
-      case 'find_related': {
-        // Defense-in-depth: if the mode lacks semanticSearch, the tool
-        // should not have appeared in the catalog — but guard here too.
-        const findCaps = ctx.connectionMode
-          ? modeCapabilities(ctx.connectionMode)
-          : { semanticSearch: true };
-        if (!findCaps.semanticSearch) {
-          return {
-            content:
-              'find_related requires semantic search (Worker mode). Switch to Worker mode in plugin settings to enable it.',
-            is_error: true,
-          };
-        }
-        if (!ctx.memoryClient) {
-          return {
-            content:
-              'find_related: memory client not configured. Set the Worker URL + token in plugin settings.',
-            is_error: true,
-          };
-        }
-        return await executeFindRelated(ctx.app, ctx.memoryClient, input);
-      }
       default:
         return { content: `Unknown tool: ${name}`, is_error: true };
     }

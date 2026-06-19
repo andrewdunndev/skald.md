@@ -1,69 +1,52 @@
 # iOS share-sheet capture
 
-skald's share-sheet capture (phase 8) lets you share content from any
-iOS app — Safari, Photos, Messages, third-party apps — into your vault
-through Claude. Tap the share button, pick the skald Shortcut, and
-the content lands as a Claude-processed note in your captures folder.
+skald's share-sheet capture lets you share content from any iOS app --
+Safari, Photos, Messages, third-party apps -- into your vault through
+Claude. Tap the share button, pick the skald Shortcut, and the content
+lands as a Claude-processed note in your captures folder.
 
 ## How it works
 
 iOS plugins inside Obsidian can't register directly as share-sheet
-targets — that's a system-level Apple limitation, not an Obsidian one.
+targets -- that's a system-level Apple limitation, not an Obsidian one.
 The canonical workaround across the Obsidian ecosystem (Advanced URI,
 Actions URI, Save-to-Obsidian) is the Apple Shortcuts bridge:
 
-**Direct mode:**
-
 ```
 iOS Share Sheet
-  └─ Shortcuts "Skald Capture" (you install once)
-       └─ obsidian://skald-capture?... URL
-            └─ Obsidian launches → skald plugin protocol handler
-                 └─ Direct API call (Anthropic / OpenRouter)
-                      └─ Note written to Skald/Captures/YYYY-MM-DD-<slug>.md
-                           └─ (optional) Obsidian opens the captured note
-```
-
-**Worker mode (adds auto-routing):**
-
-```
-iOS Share Sheet
-  └─ Shortcuts "Skald Capture" (you install once)
-       └─ obsidian://skald-capture?... URL
-            └─ Obsidian launches → skald plugin protocol handler
-                 └─ POST /capture on your Worker (Claude one-shot)
-                      └─ find_related checks vault similarity (≥ 0.85 → append)
-                           └─ Note written or appended in your vault
-                                └─ (optional) Obsidian opens the captured note
+  -- Shortcuts "Skald Capture" (you install once)
+       -- obsidian://skald-capture?... URL
+            -- Obsidian launches -- skald plugin protocol handler
+                 -- Direct API call (Anthropic / OpenRouter)
+                      -- Note written to Skald/Captures/YYYY-MM-DD-<slug>.md
+                           -- (optional) Obsidian opens the captured note
 ```
 
 The Shortcut is the share-sheet target the iOS system sees. skald
 provides the protocol handler that turns its URL output into a
-finished vault note. Capture works in both modes; auto-routing requires
-the Worker.
+finished vault note. Captures always land in the captures folder.
 
 ## Setup (one-time)
 
-1. **Install skald** and configure it (direct mode: paste your API
-   key; worker mode: complete Worker setup per
-   `docs/deploying-the-worker.md`). Verify chat works first.
+1. **Install skald** and configure it (paste your API key). Verify
+   chat works first.
 2. **Install the skald capture Shortcut.** Open the iCloud share
    link from the skald repo's `shortcuts/skald-capture.shortcut`
    on your iPhone or iPad. Tap "Add Shortcut."
 3. **Configure the Shortcut.** It will ask once for:
    - Your vault name (the folder Obsidian shows in the vault picker)
    - The capture kind override (default: auto-detect from share input)
-4. **Verify settings.** In Obsidian on iOS, open Settings → Skald →
+4. **Verify settings.** In Obsidian on iOS, open Settings -> Skald ->
    Share-sheet capture and confirm the captures folder is what you want
    (default `Skald/Captures`).
 
 ## Daily use
 
-- In Safari: tap share → swipe to find "Skald Capture" → tap.
-- In Photos: tap share → tap "Skald Capture" with one or more
+- In Safari: tap share -> swipe to find "Skald Capture" -> tap.
+- In Photos: tap share -> tap "Skald Capture" with one or more
   photos selected.
-- In any text-bearing app (Messages, Notes, Mail): select text → share
-  → "Skald Capture."
+- In any text-bearing app (Messages, Notes, Mail): select text -> share
+  -> "Skald Capture."
 
 skald picks an appropriate kind-specific capture prompt (separate
 defaults for url / text / image / pdf) and tells Claude to produce a
@@ -73,12 +56,12 @@ you marked it silent in the Shortcut.
 
 ## Customizing the capture prompt
 
-Default prompts are baked into the plugin — one per kind. To override:
+Default prompts are baked into the plugin -- one per kind. To override:
 
 1. Create a markdown note anywhere in your vault, e.g.
    `Skald/Prompts/capture.md`.
 2. Write the system-style prompt body (frontmatter is stripped).
-3. In Settings → Skald → Share-sheet capture → Custom capture
+3. In Settings -> Skald -> Share-sheet capture -> Custom capture
    prompt, enter the vault-relative path.
 
 Your prompt replaces the kind-default. The captured content is
@@ -87,22 +70,19 @@ content second.
 
 ## Privacy posture
 
-The capture flow has the same trust boundary as the chat path:
+The capture flow has the same trust boundary as the chat path: shared
+content goes from the plugin -> Anthropic or OpenRouter -> back to
+the plugin -> vault file. The provider does not persist the captured
+content. No durable storage. No cache. The vault file is the only
+record.
 
-- In direct mode: shared content goes from the plugin → Anthropic or
-  OpenRouter → back to the plugin → vault file.
-- In worker mode: shared content traverses plugin → your Worker →
-  Claude (Anthropic or OpenRouter) → back to your Worker → back to
-  the plugin → vault file.
-- Neither the Worker nor the provider persists the captured content.
-  No durable storage. No cache. The vault file is the only record.
-- Apple Shortcuts URL-decoded payloads are passed through verbatim;
-  skald doesn't log them outside the standard plugin log file (and
-  even there, only the kind + outcome — not content).
+Apple Shortcuts URL-decoded payloads are passed through verbatim;
+skald doesn't log them outside the standard plugin log file (and
+even there, only the kind + outcome -- not content).
 
 The protocol handler is namespaced under `skald-capture` and is an
 explicit allowlist of exactly one action. There is no catch-all
-dispatcher — a malformed or attacker-crafted URI like
+dispatcher -- a malformed or attacker-crafted URI like
 `obsidian://skald-delete` 404s at the protocol-handler layer, not
 inside the plugin.
 
@@ -114,17 +94,13 @@ inside the plugin.
 | Binary/images in URL | The Shortcut saves images to `Skald/Captures/inbox/` first; the URL carries the vault path |
 | Encoding mismatches | Shortcut uses a single URL-Encode step; plugin uses `decodeURIComponent`; an optional `b64=true` flag falls back to base64 for content with awkward characters |
 | Wrong vault active | URL includes `vault=<name>`; if the wrong vault is foreground, Obsidian prompts to switch |
-| iOS backgrounds Obsidian mid-capture | Capture flow is short (one HTTP call); for slow models you can suspend without losing the request — Anthropic's response is forwarded back to the Worker which holds it until the plugin reconnects |
 
 ## What's not implemented yet
 
-- **`.shortcut` template file** — the iCloud share link is the long-
+- **`.shortcut` template file** -- the iCloud share link is the long-
   term distribution path; until that's published, see
   `shortcuts/skald-capture-recipe.md` for the step-by-step Shortcut
   build instructions.
-- **Setup URI** — `obsidian://skald-setup?endpoint=...&token=...`
-  for second-device onboarding without re-entering credentials on a
-  phone keyboard. Designed; lands in a phase-8 follow-up.
-- **Background queue** — if iOS suspends Obsidian during a capture,
+- **Background queue** -- if iOS suspends Obsidian during a capture,
   the request is retried on next foreground. v1 attempts the call
   inline; failure surfaces as a Notice the user can retry.

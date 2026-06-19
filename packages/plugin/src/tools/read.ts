@@ -127,25 +127,6 @@ export const READ_ONLY_TOOLS: ToolDefinition[] = [
       required: ['path'],
     },
   },
-  {
-    name: 'find_related',
-    description:
-      'Find vault notes semantically related to a free-text query. Returns ranked matches with vault-relative paths, similarity scores, and short excerpts. Use this when the user asks about a topic and you want to surface related notes the user might not remember exists. Requires the user to have indexed their vault at least once via the "Skald: Reindex vault" command.',
-    input_schema: {
-      type: 'object',
-      properties: {
-        query: {
-          type: 'string',
-          description: 'Free-text query. E.g. "knitting projects", "advice on resume writing".',
-        },
-        top_k: {
-          type: 'number',
-          description: 'Max results (default 8, max 20).',
-        },
-      },
-      required: ['query'],
-    },
-  },
 ];
 
 export async function runReadNote(

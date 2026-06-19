@@ -1,0 +1,78 @@
+name: Bug report
+description: Report a bug in Skald.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Skald is developed on **GitLab** ([dunn.dev/skald](https://gitlab.com/dunn.dev/skald)) -- that is where CI, code review, and the roadmap live. This GitHub repo is a mirror for discoverability. Issues and pull requests here are welcome and get triaged onto GitLab.
+
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One sentence -- what broke.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_vs_actual
+    attributes:
+      label: Expected vs actual
+      placeholder: |
+        Expected:
+
+        Actual:
+
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options:
+        - iOS
+        - iPadOS
+        - Desktop
+
+  - type: dropdown
+    id: provider
+    attributes:
+      label: Provider
+      options:
+        - Anthropic
+        - OpenRouter
+
+  - type: dropdown
+    id: connection_mode
+    attributes:
+      label: Connection mode
+      options:
+        - direct
+        - worker
+
+  - type: input
+    id: obsidian_version
+    attributes:
+      label: Obsidian version
+
+  - type: input
+    id: skald_version
+    attributes:
+      label: Skald version
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Console logs / screenshots
+      description: Open the Obsidian dev console (Ctrl+Shift+I / Cmd+Option+I) and paste relevant output. Attach screenshots if helpful.
+      render: shell

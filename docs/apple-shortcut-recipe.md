@@ -114,8 +114,7 @@ If it doesn't fire:
   URL (use `obsidian://open?vault=<name>` first if the wrong vault
   is active).
 - Check the plugin is enabled in Settings → Community plugins.
-- Check the Worker URL + token are configured in Settings →
-  Skald → Worker.
+- Check the API key is configured in Settings → Skald.
 
 ## Sharing the Shortcut
 

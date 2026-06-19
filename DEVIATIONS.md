@@ -32,14 +32,10 @@ without exception. The plugin stays Obsidian-native.
   `gitlab.com/dunn.dev/pipeline/<component>@X.Y.Z` catalog component
 
 **Why:** skald's `.gitlab-ci.yml` is hand-rolled (typecheck +
-plugin esbuild + worker `wrangler deploy --dry-run`) because the
-`dunn.dev/pipeline` catalog has no TypeScript/Node build component
-yet. The estate is heavy on Go and Rust primitives; a Node primitive
-needs to land upstream before skald can consume it. The closest
-existing component, `cloudflare-worker.yml`, deploys via wrangler —
-which skald intentionally doesn't do from CI (Worker is
-BYO-deployed per user, not shipped from skald's CI). Adopting it
-would conflict with that design.
+plugin esbuild) because the `dunn.dev/pipeline` catalog has no
+TypeScript/Node build component yet. The estate is heavy on Go and
+Rust primitives; a Node primitive needs to land upstream before skald
+can consume it.
 
 **Closure path:** propose a `typescript-build` (or similar) component
 upstream in `dunn.dev/pipeline`: pnpm install with lockfile cache +
@@ -50,32 +46,23 @@ becomes the first consumer once the component lands. See
 **Closure expires:** 2026-08-14 (~90 days from filing). Estate-level
 work; skald doesn't block on it for shipping.
 
-## architecture: direct-mode pivot (2026-06-12)
+## architecture: direct-mode only (2026-06-12)
 
-**What changed:** skald's headline deployment shape flipped from
-Worker-mandatory to direct-mode-default. Prior to this date, the
-architecture was: plugin → Cloudflare Worker (required) → Anthropic.
-The Worker was the only supported path; direct-to-API was not exposed.
+**What changed:** skald's deployment shape moved from Worker-mandatory
+to direct-mode only. Prior to this date, the architecture required a
+Cloudflare Worker as the relay; direct-to-API was not exposed.
 
-**New shape:** fresh installs default to `connectionMode = 'direct'`.
-The plugin calls Anthropic (or OpenRouter) directly via `fetch` with
-the `anthropic-dangerous-direct-browser-access: true` CORS header.
-No Worker needed. The Worker is now an opt-in power tier that adds
-semantic vault search (`find_related` via Vectorize), capture
-auto-routing, key-off-device, and per-client token revocation.
-
-**Migration:** existing installs that have a Worker URL already in
-`data.json` stay on `connectionMode = 'worker'` via
-`migrateConnectionMode()` in `settings/connection-mode.ts`. The
-upgrade is non-disruptive. Unknown mode strings stored by a newer
-version fall back to `'direct'` at runtime via `resolveConnectionMode()`
-without clobbering the stored value.
+**Current shape:** the plugin calls Anthropic (or OpenRouter) directly
+via `fetch` with the `anthropic-dangerous-direct-browser-access: true`
+CORS header. No server, no Worker, no relay. One mode. See
+`docs/adr/0001-direct-mode-over-cloudflare-worker.md` for the full
+rationale.
 
 **What this is NOT a deviation from:** no `dunn.dev/reference`
 contract covers deployment topology choices. This entry records the
 architectural decision so future readers don't mistake "direct mode"
 for a regressed feature. The prior Worker-mandatory shape was the
-correct v0 design decision; direct-mode-default is the correct v1
+correct v0 design decision; direct-mode-only is the correct v1
 decision for community-plugin distribution (no infra barrier to entry).
 
 **Closure:** permanent record. Not a gap to close.
