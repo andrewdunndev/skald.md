@@ -20,26 +20,28 @@ const BASE_VM: AdminViewModel = {
 };
 
 describe('renderAdminPage', () => {
-  it('renders the worker name + version in the heading', () => {
+  it('renders static page chrome: heading w/ name+version, rotation instructions, persistence footer', () => {
     const html = renderAdminPage(BASE_VM);
     expect(html).toContain('<h1>scribian');
     expect(html).toContain('v7');
+    // Token-rotation pre-block instructions.
+    expect(html).toContain('wrangler secret put SCRIBIAN_TOKENS');
+    expect(html).toContain('openssl rand -hex 32');
+    // Events footer mentions DO-storage persistence (post-hibernation
+    // -persist fix); the old "lost across hibernation" copy is gone.
+    expect(html).toContain('persisted to DO storage');
+    expect(html).not.toContain('Lost across hibernation cycles');
   });
 
-  it('marks Anthropic key as "set on Worker" when present', () => {
-    const html = renderAdminPage({ ...BASE_VM, anthropicKeyPresent: true });
-    expect(html).toContain('Anthropic key');
-    expect(html).toContain('set on Worker');
-  });
-
-  it('marks Anthropic key as "plugin-supplied only" when absent', () => {
-    const html = renderAdminPage({ ...BASE_VM, anthropicKeyPresent: false });
-    expect(html).toContain('plugin-supplied only');
-  });
-
-  it('marks OpenRouter key as "not configured" when absent', () => {
-    const html = renderAdminPage({ ...BASE_VM, openrouterKeyPresent: false });
-    expect(html).toContain('not configured');
+  // Provider key-status copy is operator-facing; each present/absent
+  // state must render its specific phrasing.
+  it.each([
+    { name: 'Anthropic present', vm: { anthropicKeyPresent: true }, contains: ['Anthropic key', 'set on Worker'] },
+    { name: 'Anthropic absent', vm: { anthropicKeyPresent: false }, contains: ['plugin-supplied only'] },
+    { name: 'OpenRouter absent', vm: { openrouterKeyPresent: false }, contains: ['not configured'] },
+  ])('renders provider key status: $name', ({ vm, contains }) => {
+    const html = renderAdminPage({ ...BASE_VM, ...vm });
+    for (const c of contains) expect(html).toContain(c);
   });
 
   it('renders the connected-plugin count verbatim', () => {
@@ -47,9 +49,10 @@ describe('renderAdminPage', () => {
     expect(html).toMatch(/Connected plugins[\s\S]*?<span class="v">3<\/span>/);
   });
 
-  it('shows an empty-state message when no tokens are configured', () => {
-    const html = renderAdminPage({ ...BASE_VM, tokenSummaries: [] });
+  it('shows empty-state messages for no tokens and no events', () => {
+    const html = renderAdminPage({ ...BASE_VM, tokenSummaries: [], recentEvents: [] });
     expect(html).toContain('No tokens configured');
+    expect(html).toContain('No events yet');
   });
 
   it('renders the token table with label + scope badges', () => {
@@ -63,11 +66,6 @@ describe('renderAdminPage', () => {
     expect(html).toContain('<td>plugin</td>');
     expect(html).toContain('<td>reader</td>');
     expect(html).toContain('chat');
-  });
-
-  it('shows an empty-state message when no recent events', () => {
-    const html = renderAdminPage({ ...BASE_VM, recentEvents: [] });
-    expect(html).toContain('No events yet');
   });
 
   it('renders recent events newest-first with type/provider/label/detail', () => {
@@ -124,15 +122,4 @@ describe('renderAdminPage', () => {
     expect(html).toContain('&lt;d&gt;');
   });
 
-  it('renders both <h1> and the rotation pre-block instructions', () => {
-    const html = renderAdminPage(BASE_VM);
-    expect(html).toContain('wrangler secret put SCRIBIAN_TOKENS');
-    expect(html).toContain('openssl rand -hex 32');
-  });
-
-  it('mentions persistence in the events footer (post-hibernation-persist fix)', () => {
-    const html = renderAdminPage(BASE_VM);
-    expect(html).toContain('persisted to DO storage');
-    expect(html).not.toContain('Lost across hibernation cycles');
-  });
 });
