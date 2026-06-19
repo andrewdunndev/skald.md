@@ -150,20 +150,10 @@ describe('runMemoryUpkeepView: write requires approval', () => {
     expect(vault.modify).not.toHaveBeenCalled();
     expect(vault.create).not.toHaveBeenCalled();
   });
-
-  it('writes the vault when approval resolves true', async () => {
-    proposeMemoryUpkeep.mockResolvedValue('new memory body');
-    const { app, vault } = makeApp();
-    const approvals = makeApprovals(true);
-    await runMemoryUpkeepView({
-      app,
-      settings: makeSettings(),
-      session: makeSession([{ role: 'user', content: 'remember X' }]),
-      approvals,
-      provider: 'anthropic',
-    });
-    expect(vault.modify).toHaveBeenCalledWith(existingFile, 'new memory body');
-  });
+  // The approval-true write path is exercised by the conversationId
+  // "writes when unchanged" test below (same vault.modify assertion with
+  // approval resolved true), so the standalone happy-path write was
+  // removed as redundant.
 });
 
 // ── Fix 3: in-flight guard + conversationId race ───────────────────────────────

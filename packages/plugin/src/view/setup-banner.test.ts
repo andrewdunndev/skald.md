@@ -39,10 +39,11 @@ describe('resolveBannerSpec: worker mode', () => {
     expect(resolveBannerSpec(workerInput())).toBeNull();
   });
 
-  it('returns a banner when workerUrl is missing', () => {
+  it('returns a banner (title names Worker) when workerUrl is missing', () => {
     const spec = resolveBannerSpec(workerInput({ workerUrl: '' }));
     expect(spec).not.toBeNull();
     expect(spec?.detail).toContain('Worker URL');
+    expect(spec?.title).toMatch(/worker/i);
   });
 
   it('returns a banner when workerToken is missing', () => {
@@ -56,11 +57,6 @@ describe('resolveBannerSpec: worker mode', () => {
     expect(spec).not.toBeNull();
     expect(spec?.detail).toContain('Worker URL');
     expect(spec?.detail).toContain('Worker token');
-  });
-
-  it('worker banner title mentions Worker', () => {
-    const spec = resolveBannerSpec(workerInput({ workerUrl: '' }));
-    expect(spec?.title).toMatch(/worker/i);
   });
 });
 
@@ -119,18 +115,18 @@ describe('resolveBannerSpec: direct mode, openrouter provider', () => {
     expect(spec?.detail).toContain('openrouter.ai');
   });
 
-  it('does not show banner for OpenRouter when Anthropic key is also empty', () => {
-    // Only the active provider key matters; the other key is irrelevant.
-    const spec = resolveBannerSpec(
-      directInput({ provider: 'openrouter', anthropicApiKey: '', openrouterApiKey: 'sk-or-live' }),
-    );
-    expect(spec).toBeNull();
-  });
-
-  it('does not show banner for Anthropic when OpenRouter key is also empty', () => {
-    const spec = resolveBannerSpec(
-      directInput({ provider: 'anthropic', anthropicApiKey: 'sk-ant-x', openrouterApiKey: '' }),
-    );
-    expect(spec).toBeNull();
+  it('only the ACTIVE provider key matters — the other key being empty is irrelevant', () => {
+    // Both directions of the provider-selection branch: the inactive
+    // provider's empty key must never trigger a banner.
+    expect(
+      resolveBannerSpec(
+        directInput({ provider: 'openrouter', anthropicApiKey: '', openrouterApiKey: 'sk-or-live' }),
+      ),
+    ).toBeNull();
+    expect(
+      resolveBannerSpec(
+        directInput({ provider: 'anthropic', anthropicApiKey: 'sk-ant-x', openrouterApiKey: '' }),
+      ),
+    ).toBeNull();
   });
 });
