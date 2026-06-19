@@ -44,16 +44,16 @@ describe('handleSearchRoute', () => {
     expect(await r.text()).toContain('expected { query');
   });
 
-  it('returns the hits[] shape from VECTORIZE.query (happy path)', async () => {
+  it('maps VECTORIZE matches to hits[] (path/title/score/heading_path) and never leaks excerpts', async () => {
     const env = {
       AI: { run: vi.fn().mockResolvedValue({ data: [[0.5, 0.5]] }) },
       VECTORIZE: {
         query: vi.fn().mockResolvedValue({
           matches: [
             {
-              id: 'note-summary:A.md:0',
+              id: 'section:A.md:2',
               score: 0.91,
-              metadata: { path: 'A.md', title: 'A' },
+              metadata: { path: 'A.md', title: 'A', headingPath: 'H1 / H2' },
             },
           ],
         }),
@@ -77,6 +77,8 @@ describe('handleSearchRoute', () => {
     expect(body.hits[0].path).toBe('A.md');
     expect(body.hits[0].title).toBe('A');
     expect(body.hits[0].score).toBe(0.91);
+    // heading_path is surfaced (renamed from the metadata's headingPath).
+    expect(body.hits[0].heading_path).toBe('H1 / H2');
     // Privacy invariant: the Worker NEVER returns plaintext excerpts.
     // Plugin re-reads from the live vault when rendering find_related.
     expect(body.hits[0]).not.toHaveProperty('excerpt');
@@ -104,34 +106,4 @@ describe('handleSearchRoute', () => {
     expect(await r.text()).toContain('exceeds');
   });
 
-  it('preserves heading_path in hits when present', async () => {
-    const env = {
-      AI: { run: vi.fn().mockResolvedValue({ data: [[0.5]] }) },
-      VECTORIZE: {
-        query: vi.fn().mockResolvedValue({
-          matches: [
-            {
-              id: 'section:A.md:2',
-              score: 0.8,
-              metadata: { path: 'A.md', title: 'A', headingPath: 'H1 / H2' },
-            },
-          ],
-        }),
-      },
-    } as unknown as Env;
-    const r = await handleSearchRoute(
-      new Request('https://w.example/search', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer tok-plugin',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ query: 'x' }),
-      }),
-      env,
-      makeRegistry(),
-    );
-    const body = (await r.json()) as { hits: any[] };
-    expect(body.hits[0].heading_path).toBe('H1 / H2');
-  });
 });

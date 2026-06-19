@@ -4,25 +4,26 @@ import { handleCaptureRoute } from './capture';
 import { makeRegistry } from './test-helpers';
 
 describe('handleCaptureRoute', () => {
-  it('returns 401 on missing Bearer', async () => {
-    const r = await handleCaptureRoute(
+  // Auth gate: 401 when bearer missing, 403 (+ exact reason) when
+  // authenticated but lacking chat scope. Reason-string semantics for
+  // 401 are owned by auth-helpers.test.ts.
+  it('gates on bearer auth + chat scope (401 / 403)', async () => {
+    const reg = makeRegistry();
+    const missing = await handleCaptureRoute(
       new Request('https://w.example/capture'),
       {} as Env,
-      makeRegistry(),
+      reg,
     );
-    expect(r.status).toBe(401);
-  });
-
-  it('returns 403 when token lacks chat scope', async () => {
-    const r = await handleCaptureRoute(
+    expect(missing.status).toBe(401);
+    const noScope = await handleCaptureRoute(
       new Request('https://w.example/capture', {
         headers: { Authorization: 'Bearer tok-empty' },
       }),
       {} as Env,
-      makeRegistry(),
+      reg,
     );
-    expect(r.status).toBe(403);
-    expect(await r.text()).toBe('token lacks chat scope');
+    expect(noScope.status).toBe(403);
+    expect(await noScope.text()).toBe('token lacks chat scope');
   });
 
   it('returns 405 + Allow:POST when method is not POST', async () => {
@@ -55,7 +56,23 @@ describe('handleCaptureRoute', () => {
     expect(await r.text()).toContain('expected { prompt');
   });
 
-  it('returns 503 with Anthropic-specific message when body forces anthropic + no key configured', async () => {
+  // 503 names the specific provider whose key is unconfigured. Two
+  // routings: body forces anthropic -> anthropic message; no provider
+  // in body + no ANTHROPIC_API_KEY -> openrouter fallback message. A
+  // regression that mislabels the provider (or routes to the wrong
+  // default) flips one of these messages.
+  it.each([
+    {
+      name: 'body forces anthropic',
+      body: { prompt: 'capture this', provider: 'anthropic' },
+      message: 'No Anthropic API key configured on the Worker for capture.',
+    },
+    {
+      name: 'default routing falls back to openrouter (no ANTHROPIC_API_KEY)',
+      body: { prompt: 'capture this' },
+      message: 'No OpenRouter API key configured on the Worker for capture.',
+    },
+  ])('returns 503 naming the unconfigured provider: $name', async ({ body, message }) => {
     const r = await handleCaptureRoute(
       new Request('https://w.example/capture', {
         method: 'POST',
@@ -63,15 +80,13 @@ describe('handleCaptureRoute', () => {
           Authorization: 'Bearer tok-plugin',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({ prompt: 'capture this', provider: 'anthropic' }),
+        body: JSON.stringify(body),
       }),
       {} as Env,
       makeRegistry(),
     );
     expect(r.status).toBe(503);
-    expect(await r.text()).toBe(
-      'No Anthropic API key configured on the Worker for capture.',
-    );
+    expect(await r.text()).toBe(message);
   });
 
   it('rejects with 413 when prompt exceeds CAPTURE_MAX_PROMPT_BYTES', async () => {
@@ -92,24 +107,4 @@ describe('handleCaptureRoute', () => {
     expect(await r.text()).toContain('exceeds');
   });
 
-  it('falls back to openrouter when no provider in body and ANTHROPIC_API_KEY unset', async () => {
-    // Default routing: empty body.provider + no ANTHROPIC_API_KEY
-    // forces the openrouter branch (which is also unconfigured here).
-    const r = await handleCaptureRoute(
-      new Request('https://w.example/capture', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer tok-plugin',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ prompt: 'capture this' }),
-      }),
-      {} as Env,
-      makeRegistry(),
-    );
-    expect(r.status).toBe(503);
-    expect(await r.text()).toBe(
-      'No OpenRouter API key configured on the Worker for capture.',
-    );
-  });
 });

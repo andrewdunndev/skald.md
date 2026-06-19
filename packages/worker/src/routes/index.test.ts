@@ -4,47 +4,42 @@ import { handleIndexRoute } from './index';
 import { makeRegistry } from './test-helpers';
 
 describe('handleIndexRoute', () => {
-  it('returns 401 on missing Bearer', async () => {
-    const r = await handleIndexRoute(
+  // Auth gate: route delegates to authBearer + chat-scope check (the
+  // exact 401/403 reason strings are owned by auth-helpers.test.ts).
+  // 401 = no/bad bearer; 403 = authenticated but lacks chat scope.
+  it('gates on bearer auth + chat scope (401 / 403)', async () => {
+    const reg = makeRegistry();
+    const missing = await handleIndexRoute(
       new Request('https://w.example/index'),
       {} as Env,
-      makeRegistry(),
+      reg,
     );
-    expect(r.status).toBe(401);
-  });
-
-  it('returns 403 when token lacks chat scope', async () => {
-    const r = await handleIndexRoute(
+    expect(missing.status).toBe(401);
+    const noScope = await handleIndexRoute(
       new Request('https://w.example/index', {
         headers: { Authorization: 'Bearer tok-empty' },
       }),
       {} as Env,
-      makeRegistry(),
+      reg,
     );
-    expect(r.status).toBe(403);
+    expect(noScope.status).toBe(403);
   });
 
-  it('returns 503 when AI binding is missing', async () => {
+  // Either missing binding (AI or VECTORIZE) must 503 — the route
+  // requires both for vault-memory.
+  it.each([
+    { name: 'AI binding missing', env: { VECTORIZE: {} as any } as Env },
+    { name: 'VECTORIZE binding missing', env: { AI: {} as any } as Env },
+  ])('returns 503 when $name', async ({ env }) => {
     const r = await handleIndexRoute(
       new Request('https://w.example/index', {
         headers: { Authorization: 'Bearer tok-plugin' },
       }),
-      { VECTORIZE: {} as any } as Env,
+      env,
       makeRegistry(),
     );
     expect(r.status).toBe(503);
     expect(await r.text()).toContain('vault-memory bindings not configured');
-  });
-
-  it('returns 503 when VECTORIZE binding is missing', async () => {
-    const r = await handleIndexRoute(
-      new Request('https://w.example/index', {
-        headers: { Authorization: 'Bearer tok-plugin' },
-      }),
-      { AI: {} as any } as Env,
-      makeRegistry(),
-    );
-    expect(r.status).toBe(503);
   });
 
   it('returns 405 when method is not POST', async () => {
@@ -111,33 +106,26 @@ describe('handleIndexRoute', () => {
     expect(upsert).toHaveBeenCalled();
   });
 
-  it('rejects with 413 when batch exceeds INDEX_MAX_NOTES_PER_BATCH', async () => {
-    const env = {
-      AI: { run: vi.fn() } as any,
-      VECTORIZE: { upsert: vi.fn() } as any,
-    } as Env;
-    const oversize = Array.from({ length: 201 }, (_, i) => ({
-      path: `note-${i}.md`,
-      title: `Note ${i}`,
-      content: 'short',
-    }));
-    const r = await handleIndexRoute(
-      new Request('https://w.example/index', {
-        method: 'POST',
-        headers: {
-          Authorization: 'Bearer tok-plugin',
-          'content-type': 'application/json',
-        },
-        body: JSON.stringify({ notes: oversize }),
-      }),
-      env,
-      makeRegistry(),
-    );
-    expect(r.status).toBe(413);
-    expect(await r.text()).toContain('too many notes in batch');
-  });
-
-  it('rejects with 413 when deletes exceeds INDEX_MAX_DELETES_PER_BATCH', async () => {
+  // Both per-batch caps (notes > 200, deletes > 500) reject with 413
+  // and a cap-specific message.
+  it.each([
+    {
+      name: 'notes batch exceeds INDEX_MAX_NOTES_PER_BATCH',
+      body: {
+        notes: Array.from({ length: 201 }, (_, i) => ({
+          path: `note-${i}.md`,
+          title: `Note ${i}`,
+          content: 'short',
+        })),
+      },
+      message: 'too many notes in batch',
+    },
+    {
+      name: 'deletes exceed INDEX_MAX_DELETES_PER_BATCH',
+      body: { notes: [], deletes: Array.from({ length: 501 }, (_, i) => `n-${i}.md`) },
+      message: 'too many deletes',
+    },
+  ])('rejects with 413 when $name', async ({ body, message }) => {
     const env = {
       AI: { run: vi.fn() } as any,
       VECTORIZE: { upsert: vi.fn(), deleteByIds: vi.fn() } as any,
@@ -149,16 +137,13 @@ describe('handleIndexRoute', () => {
           Authorization: 'Bearer tok-plugin',
           'content-type': 'application/json',
         },
-        body: JSON.stringify({
-          notes: [],
-          deletes: Array.from({ length: 501 }, (_, i) => `n-${i}.md`),
-        }),
+        body: JSON.stringify(body),
       }),
       env,
       makeRegistry(),
     );
     expect(r.status).toBe(413);
-    expect(await r.text()).toContain('too many deletes');
+    expect(await r.text()).toContain(message);
   });
 
   it('skips oversize notes (>50KB) but processes the rest in the same batch', async () => {

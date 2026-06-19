@@ -15,35 +15,25 @@ describe('handleChatRoute (WS upgrade)', () => {
     expect(await r.text()).toBe('expected websocket');
   });
 
-  it('returns 401 when no Sec-WebSocket-Protocol header (auth via subprotocol)', async () => {
+  // Subprotocol auth rejects 401 with the exact reason: no protocol
+  // header -> "missing protocol"; unknown token -> "bad token". (The
+  // reason semantics are owned by auth-helpers.test.ts authSubprotocol;
+  // here we prove the chat route wires them as 401 responses.)
+  it.each([
+    { name: 'no Sec-WebSocket-Protocol header', proto: undefined, reason: 'missing protocol' },
+    { name: 'subprotocol token is unknown', proto: 'wrong-token', reason: 'bad token' },
+  ])('returns 401 when $name', async ({ proto, reason }) => {
     const { env } = makeDOStub();
+    const headers: Record<string, string> = { Upgrade: 'websocket' };
+    if (proto) headers['Sec-WebSocket-Protocol'] = proto;
     const r = await handleChatRoute(
-      new Request('https://w.example/', {
-        headers: { Upgrade: 'websocket' },
-      }),
+      new Request('https://w.example/', { headers }),
       env,
       makeRegistry(),
       DO_NAME,
     );
     expect(r.status).toBe(401);
-    expect(await r.text()).toBe('missing protocol');
-  });
-
-  it('returns 401 when subprotocol token is unknown', async () => {
-    const { env } = makeDOStub();
-    const r = await handleChatRoute(
-      new Request('https://w.example/', {
-        headers: {
-          Upgrade: 'websocket',
-          'Sec-WebSocket-Protocol': 'wrong-token',
-        },
-      }),
-      env,
-      makeRegistry(),
-      DO_NAME,
-    );
-    expect(r.status).toBe(401);
-    expect(await r.text()).toBe('bad token');
+    expect(await r.text()).toBe(reason);
   });
 
   it('returns 403 when token lacks chat scope', async () => {
