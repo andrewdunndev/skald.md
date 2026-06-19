@@ -6,9 +6,10 @@
  * happy path, and on a parse miss the fallback opens the note instead.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { Message } from '@scribian/protocol';
+import type { Message, Usage } from '@scribian/protocol';
 import type { TFile } from 'obsidian';
 import { resumeConversation, type ResumeContext } from './resume-conversation';
+import { ChatSession } from '../chat-session';
 import * as store from '../conversation-store';
 
 const noticeSpy = vi.fn();
@@ -89,6 +90,46 @@ describe('resumeConversation: happy path', () => {
     );
     // The repaint flush is invoked with the session's current messages.
     expect(ctx.messageList.flushRender).toHaveBeenCalledOnce();
+  });
+});
+
+describe('resumeConversation: usage continuity', () => {
+  it('threads saved usage into the session accumulator (cost footer not zeroed)', async () => {
+    const savedUsage: Usage = {
+      input_tokens: 120_000,
+      output_tokens: 40_000,
+      cache_read_input_tokens: 9000,
+    };
+    const messages: Message[] = [{ role: 'user', content: 'hello again' }];
+    parseMock.mockReturnValue({
+      meta: { id: 'conv-cost', model: 'claude-sonnet-4-6', usage: savedUsage },
+      messages,
+    });
+
+    // A REAL ChatSession so hydrate's usage-restore is exercised end-to-end,
+    // not a vi.fn() that would swallow the threading. resumeConversation reads
+    // ctx.session AFTER connect(); we pre-seed both slots with the same real
+    // session so the hydrate target is the one we inspect.
+    const real = new ChatSession(
+      { send: vi.fn() } as unknown as import('../transport').Transport,
+      () => 'claude-sonnet-4-6',
+      async () => undefined,
+      () => ({ provider: 'anthropic' }),
+      () => [],
+      async () => ({ content: 'ok' }),
+      { onUpdate: vi.fn(), onError: vi.fn(), onDone: vi.fn() },
+    );
+    // Before resume, the accumulator is zero.
+    expect(real.getTotalUsage()).toEqual({ input_tokens: 0, output_tokens: 0 });
+
+    const ctx = makeCtx({ content: 'irrelevant — parse is mocked' });
+    (ctx as unknown as { session: ChatSession }).session = real;
+    await resumeConversation(fakeFile(), ctx);
+
+    // Saved usage now lives on the session — the footer can show real spend.
+    // FAILS under mutation "drop `usage` from the hydrate call in
+    // resume-conversation.ts" — the accumulator would stay zeroed.
+    expect(real.getTotalUsage()).toEqual(savedUsage);
   });
 });
 
