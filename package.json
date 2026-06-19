@@ -3,7 +3,19 @@
   "version": "0.0.10",
   "private": true,
   "type": "module",
-  "description": "Vault-native Claude client for Obsidian.",
+  "description": "Vault-native Claude client for Obsidian. Mobile-first, bring your own API key, no server required.",
+  "license": "MIT",
+  "author": "Andrew Dunn <andrew@dunn.dev>",
+  "keywords": [
+    "obsidian",
+    "obsidian-plugin",
+    "claude",
+    "anthropic",
+    "ai",
+    "llm",
+    "mobile",
+    "knowledge-management"
+  ],
   "repository": {
     "type": "git",
     "url": "https://gitlab.com/dunn.dev/scribian.git"
