@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Development & roadmap (GitLab)
+    url: https://gitlab.com/dunn.dev/skald/-/boards
+    about: Skald is developed on GitLab. CI, code review, and the roadmap live there.
+  - name: GitLab issues (canonical tracker)
+    url: https://gitlab.com/dunn.dev/skald/-/issues
+    about: Browse or file on the canonical tracker if you have a GitLab account.

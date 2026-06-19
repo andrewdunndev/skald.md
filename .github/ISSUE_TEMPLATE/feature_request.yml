@@ -1,0 +1,36 @@
+name: Feature request
+description: Suggest an improvement or new capability for Skald.
+labels: [feature]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Skald is developed on **GitLab** ([dunn.dev/skald](https://gitlab.com/dunn.dev/skald)) -- that is where CI, code review, and the roadmap live. This GitHub repo is a mirror for discoverability. Issues and pull requests here are welcome and get triaged onto GitLab.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem / use-case
+      description: What are you trying to do? Describe the workflow or friction point, not the solution.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Which tier?
+      description: "Tier 1 -- plugin: native Obsidian plugin, BYO API key, runs on-device including mobile (v1, shipping). Tier 2 -- agent-host: persistent headless companion the phone connects to (exploring, no dates)."
+      options:
+        - "Tier 1 -- plugin (on-device, token model)"
+        - "Tier 2 -- agent-host (headless, exploring)"
+        - Not sure
