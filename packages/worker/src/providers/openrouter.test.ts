@@ -16,44 +16,21 @@ describe('transformOpenRouterRequest', () => {
     expect(transformOpenRouterRequest(baseRequest)).toEqual(baseRequest);
   });
 
-  it('rewrites the Anthropic web_search server tool to the OpenRouter form', () => {
-    const out = transformOpenRouterRequest({
+  // The exact outbound tools[] is the OpenRouter wire contract. Each
+  // row pins one Anthropic server-tool pin (current + back-compat) to
+  // its rewritten openrouter:* form; a regression in the pin match
+  // would silently drop server tools for that provider.
+  it.each([
+    { pin: 'web_search_20260209', name: 'web_search', out: 'openrouter:web_search' },
+    { pin: 'web_search_20250305', name: 'web_search', out: 'openrouter:web_search' },
+    { pin: 'web_fetch_20260209', name: 'web_fetch', out: 'openrouter:web_fetch' },
+    { pin: 'web_fetch_20250910', name: 'web_fetch', out: 'openrouter:web_fetch' },
+  ])('rewrites $pin to $out', ({ pin, name, out }) => {
+    const result = transformOpenRouterRequest({
       ...baseRequest,
-      tools: [
-        { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
-      ],
+      tools: [{ type: pin, name, max_uses: 5 }],
     });
-    expect(out.tools).toEqual([{ type: 'openrouter:web_search' }]);
-  });
-
-  it('still accepts the older web_search_20250305 pin (back-compat)', () => {
-    const out = transformOpenRouterRequest({
-      ...baseRequest,
-      tools: [
-        { type: 'web_search_20250305', name: 'web_search', max_uses: 5 },
-      ],
-    });
-    expect(out.tools).toEqual([{ type: 'openrouter:web_search' }]);
-  });
-
-  it('rewrites the Anthropic web_fetch server tool to the OpenRouter form', () => {
-    const out = transformOpenRouterRequest({
-      ...baseRequest,
-      tools: [
-        { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 },
-      ],
-    });
-    expect(out.tools).toEqual([{ type: 'openrouter:web_fetch' }]);
-  });
-
-  it('still accepts the older web_fetch_20250910 pin (back-compat)', () => {
-    const out = transformOpenRouterRequest({
-      ...baseRequest,
-      tools: [
-        { type: 'web_fetch_20250910', name: 'web_fetch', max_uses: 5 },
-      ],
-    });
-    expect(out.tools).toEqual([{ type: 'openrouter:web_fetch' }]);
+    expect(result.tools).toEqual([{ type: out }]);
   });
 
   it('leaves user-defined tools untouched', () => {
@@ -62,10 +39,7 @@ describe('transformOpenRouterRequest', () => {
       description: 'Read a vault note',
       input_schema: { type: 'object', properties: {} },
     };
-    const out = transformOpenRouterRequest({
-      ...baseRequest,
-      tools: [userTool],
-    });
+    const out = transformOpenRouterRequest({ ...baseRequest, tools: [userTool] });
     expect(out.tools).toEqual([userTool]);
   });
 
@@ -78,80 +52,59 @@ describe('transformOpenRouterRequest', () => {
         { name: 'list_notes', input_schema: {} },
       ],
     });
-    expect(out.tools).toHaveLength(3);
-    expect(out.tools![0]).toEqual({ name: 'read_note', input_schema: {} });
-    expect(out.tools![1]).toEqual({ type: 'openrouter:web_search' });
-    expect(out.tools![2]).toEqual({ name: 'list_notes', input_schema: {} });
+    expect(out.tools).toEqual([
+      { name: 'read_note', input_schema: {} },
+      { type: 'openrouter:web_search' },
+      { name: 'list_notes', input_schema: {} },
+    ]);
   });
 });
 
 describe('transformOpenRouterEvent', () => {
-  it('passes through events on unrelated event names', () => {
-    const data = { content_block: { type: 'text', text: 'hello' } };
-    expect(transformOpenRouterEvent('message_start', data)).toEqual({
-      event: 'message_start',
-      data,
-    });
-  });
-
-  it('passes through content_block_start with a text block unchanged', () => {
-    const data = {
-      index: 0,
-      content_block: { type: 'text', text: '' },
-    };
+  it('passes through unrelated events + text blocks unchanged', () => {
+    const data = { index: 0, content_block: { type: 'text', text: 'hello' } };
     expect(transformOpenRouterEvent('content_block_start', data)).toEqual({
       event: 'content_block_start',
       data,
     });
+    expect(transformOpenRouterEvent('message_start', { x: 1 })).toEqual({
+      event: 'message_start',
+      data: { x: 1 },
+    });
   });
 
-  it('translates a tool_use block named openrouter:web_search to server_tool_use/web_search', () => {
+  // tool_use blocks named openrouter:<tool> are translated to the
+  // scribian-canonical server_tool_use shape so the plugin renderer
+  // never branches on provider. Each row pins one tool's translation.
+  it.each([
+    { name: 'openrouter:web_search', tool: 'web_search', input: {} },
+    {
+      name: 'openrouter:web_fetch',
+      tool: 'web_fetch',
+      input: { url: 'https://example.com' },
+    },
+  ])('translates tool_use $name to server_tool_use/$tool', ({ name, tool, input }) => {
     const data = {
       index: 1,
-      content_block: {
-        type: 'tool_use',
-        id: 'tu_xyz',
-        name: 'openrouter:web_search',
-        input: {},
-      },
+      content_block: { type: 'tool_use', id: 'tu_x', name, input },
     };
     const out = transformOpenRouterEvent('content_block_start', data);
     expect(out.event).toBe('content_block_start');
     expect((out.data as any).content_block).toEqual({
       type: 'server_tool_use',
-      id: 'tu_xyz',
-      name: 'web_search',
-      input: {},
+      id: 'tu_x',
+      name: tool,
+      input,
     });
   });
 
-  it('translates a tool_use block named openrouter:web_fetch to server_tool_use/web_fetch', () => {
-    const data = {
-      index: 2,
-      content_block: {
-        type: 'tool_use',
-        id: 'tu_fetch',
-        name: 'openrouter:web_fetch',
-        input: { url: 'https://example.com' },
-      },
-    };
-    const out = transformOpenRouterEvent('content_block_start', data);
-    expect((out.data as any).content_block.type).toBe('server_tool_use');
-    expect((out.data as any).content_block.name).toBe('web_fetch');
-    expect((out.data as any).content_block.input).toEqual({
-      url: 'https://example.com',
-    });
-  });
-
-  it('translates a tool_result block type openrouter:web_search_result to web_search_tool_result', () => {
+  it('translates a openrouter:web_search_result block to web_search_tool_result', () => {
     const data = {
       index: 3,
       content_block: {
         type: 'openrouter:web_search_result',
         tool_use_id: 'tu_xyz',
-        content: [
-          { title: 'hit', url: 'https://example.com' },
-        ],
+        content: [{ title: 'hit', url: 'https://example.com' }],
       },
     };
     const out = transformOpenRouterEvent('content_block_start', data);
@@ -169,8 +122,7 @@ describe('transformOpenRouterEvent', () => {
         input: { path: 'foo.md' },
       },
     };
-    const out = transformOpenRouterEvent('content_block_start', data);
-    expect(out.data).toEqual(data);
+    expect(transformOpenRouterEvent('content_block_start', data).data).toEqual(data);
   });
 
   it('handles a null data payload without throwing', () => {
