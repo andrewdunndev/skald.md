@@ -115,7 +115,12 @@ describe('CaptureService.run() — direct mode', () => {
     expect(created).toHaveLength(1);
   });
 
-  it('missing Anthropic key throws a clear error before any network call', async () => {
+  it('surfaces provider errors instead of swallowing them (no network call on bad config)', async () => {
+    // The service must propagate the provider's guard errors, not eat
+    // them. The provider-level guards themselves (missing OpenRouter
+    // key, oversize prompt, etc.) are exhaustively tested in
+    // capture-provider.test.ts; this single propagation test proves the
+    // orchestrator surfaces them and short-circuits before any network.
     const { app } = makeApp();
     const svc = new CaptureService(
       app,
@@ -124,32 +129,6 @@ describe('CaptureService.run() — direct mode', () => {
     await expect(
       svc.run({ kind: 'text', content: 'hello', silent: true }),
     ).rejects.toThrow('No Anthropic API key');
-    expect(spy).not.toHaveBeenCalled();
-  });
-
-  it('missing OpenRouter key throws a clear error', async () => {
-    const { app } = makeApp();
-    const svc = new CaptureService(
-      app,
-      () =>
-        makeDirectCfg({
-          provider: 'openrouter',
-          openrouterApiKey: '',
-        }),
-    );
-    await expect(
-      svc.run({ kind: 'text', content: 'hi', silent: true }),
-    ).rejects.toThrow('No OpenRouter API key');
-    expect(spy).not.toHaveBeenCalled();
-  });
-
-  it('oversize content (>100KB) rejected before network call', async () => {
-    const { app } = makeApp();
-    const huge = 'x'.repeat(101 * 1024);
-    const svc = new CaptureService(app, () => makeDirectCfg());
-    await expect(
-      svc.run({ kind: 'text', content: huge, silent: true }),
-    ).rejects.toThrow('too large');
     expect(spy).not.toHaveBeenCalled();
   });
 });
@@ -188,25 +167,8 @@ describe('CaptureService.run() — worker mode', () => {
     const call = spy.mock.calls[0][0] as Record<string, unknown>;
     expect((call.url as string).endsWith('/capture')).toBe(true);
   });
-
-  it('missing workerUrl throws before any network call', async () => {
-    const { app } = makeApp();
-    const svc = new CaptureService(app, () => ({
-      connectionMode: 'worker',
-      workerUrl: '',
-      workerToken: '',
-      provider: 'anthropic',
-      anthropicApiKey: '',
-      openrouterApiKey: '',
-      defaultModel: 'claude-sonnet-4-6',
-      openrouterModel: 'anthropic/claude-sonnet-4-6',
-      captureFolder: 'Scribian/Captures',
-      promptPath: '',
-      mode: 'inbox',
-    }));
-    await expect(
-      svc.run({ kind: 'text', content: 'hello', silent: true }),
-    ).rejects.toThrow('Worker URL + token');
-    expect(spy).not.toHaveBeenCalled();
-  });
+  // The missing-workerUrl guard is a capture-provider.ts contract (tested
+  // in capture-provider.test.ts "workerCapture throws when workerUrl is
+  // empty"); the service's error-propagation behavior is covered by the
+  // direct-mode propagation test above, so it isn't re-echoed here.
 });
