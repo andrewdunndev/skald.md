@@ -76,20 +76,16 @@ describe('estimateTurnCost', () => {
 });
 
 describe('formatCostUSD', () => {
-  it('shows $0 for zero', () => {
-    expect(formatCostUSD(0)).toBe('$0');
-  });
-
-  it('uses 4 decimals below 1 cent', () => {
-    expect(formatCostUSD(0.0024)).toBe('$0.0024');
-  });
-
-  it('uses 3 decimals below $1', () => {
-    expect(formatCostUSD(0.234)).toBe('$0.234');
-  });
-
-  it('uses 2 decimals above $1', () => {
-    expect(formatCostUSD(12.345)).toBe('$12.35');
+  // One row per precision band. The exact-string column pins both the
+  // decimal count AND the rounding for each range; a regression in any
+  // band's threshold fails its row.
+  it.each([
+    ['zero', 0, '$0'],
+    ['below 1 cent → 4 decimals', 0.0024, '$0.0024'],
+    ['below $1 → 3 decimals', 0.234, '$0.234'],
+    ['above $1 → 2 decimals (rounds)', 12.345, '$12.35'],
+  ])('%s', (_label, input, expected) => {
+    expect(formatCostUSD(input)).toBe(expected);
   });
 });
 

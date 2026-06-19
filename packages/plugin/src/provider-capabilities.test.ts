@@ -57,38 +57,20 @@ describe('providerCapabilities', () => {
 
 // ── utilityModel ──────────────────────────────────────────────────────────
 
-describe('utilityModel: provider defaults', () => {
-  it('anthropic → claude-haiku-4-5', () => {
-    const s = makeSettings({ provider: 'anthropic', utilityModel: '' });
-    // Cast: our minimal stub satisfies the fields utilityModel() reads.
-    expect(utilityModel(s as never)).toBe('claude-haiku-4-5');
-  });
-
-  it('openrouter → anthropic/claude-haiku-4-5', () => {
-    const s = makeSettings({ provider: 'openrouter', utilityModel: '' });
-    expect(utilityModel(s as never)).toBe('anthropic/claude-haiku-4-5');
-  });
-});
-
-describe('utilityModel: settings override takes precedence', () => {
-  it('override wins over anthropic default', () => {
-    const s = makeSettings({ provider: 'anthropic', utilityModel: 'my-local-model' });
-    expect(utilityModel(s as never)).toBe('my-local-model');
-  });
-
-  it('override wins over openrouter default', () => {
-    const s = makeSettings({ provider: 'openrouter', utilityModel: 'meta-llama/llama-3-8b' });
-    expect(utilityModel(s as never)).toBe('meta-llama/llama-3-8b');
-  });
-
-  it('empty override falls through to provider default (anthropic)', () => {
-    const s = makeSettings({ provider: 'anthropic', utilityModel: '' });
-    expect(utilityModel(s as never)).toBe('claude-haiku-4-5');
-  });
-
-  it('empty override falls through to provider default (openrouter)', () => {
-    const s = makeSettings({ provider: 'openrouter', utilityModel: '' });
-    expect(utilityModel(s as never)).toBe('anthropic/claude-haiku-4-5');
+// The full provider × override matrix: a non-empty override always wins;
+// an empty override falls through to the per-provider default. The default
+// column differs by provider (bare vs namespaced), so a regression that
+// drops the override branch OR swaps a provider default fails its row.
+// Cast: our minimal stub satisfies the fields utilityModel() reads.
+describe('utilityModel: provider × override matrix', () => {
+  it.each([
+    ['anthropic, no override → default', 'anthropic', '', 'claude-haiku-4-5'],
+    ['openrouter, no override → namespaced default', 'openrouter', '', 'anthropic/claude-haiku-4-5'],
+    ['anthropic, override wins', 'anthropic', 'my-local-model', 'my-local-model'],
+    ['openrouter, override wins', 'openrouter', 'meta-llama/llama-3-8b', 'meta-llama/llama-3-8b'],
+  ] as const)('%s', (_label, provider, override, expected) => {
+    const s = makeSettings({ provider, utilityModel: override });
+    expect(utilityModel(s as never)).toBe(expected);
   });
 });
 

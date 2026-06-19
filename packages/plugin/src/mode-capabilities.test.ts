@@ -33,33 +33,32 @@ describe('resolveConnectionMode: unknown values — downgrade safety', () => {
     warnSpy.mockRestore();
   });
 
-  it('resolves to "direct" for an unrecognized non-empty string (future mode)', () => {
-    expect(resolveConnectionMode('remote')).toBe('direct');
-  });
-
   it('emits a console.warn for an unrecognized value (not silent)', () => {
     resolveConnectionMode('remote');
     expect(warnSpy).toHaveBeenCalledOnce();
     expect(warnSpy.mock.calls[0]![0]).toMatch(/unrecognized.*remote/i);
   });
 
-  it('resolves to "direct" for undefined without warning', () => {
-    resolveConnectionMode(undefined);
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-
-  it('resolves to "direct" for null without warning', () => {
-    resolveConnectionMode(null);
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-
-  it('resolves to "direct" for empty string without warning', () => {
-    resolveConnectionMode('');
-    expect(warnSpy).not.toHaveBeenCalled();
-  });
-
-  it('resolves to "direct" for numeric values', () => {
-    expect(resolveConnectionMode(42)).toBe('direct');
+  // Every non-known value resolves to 'direct'. Absent/empty inputs
+  // (undefined/null/'') resolve silently — those are normal "not set yet"
+  // states. Any other unrecognized value (a future mode string, or a
+  // wrong-typed value) warns: it's a real value we don't understand and
+  // deliberately preserve on save, so the warn flags it.
+  // FAILS under mutation "resolveConnectionMode returns the raw value" — the
+  // toBe('direct') column catches it for every input.
+  it.each([
+    ['unrecognized string (future mode)', 'remote', true],
+    ['numeric value', 42, true],
+    ['undefined', undefined, false],
+    ['null', null, false],
+    ['empty string', '', false],
+  ])('resolves "%s" to "direct" (warns=%s)', (_label, input, warns) => {
+    expect(resolveConnectionMode(input as never)).toBe('direct');
+    if (warns) {
+      expect(warnSpy).toHaveBeenCalledOnce();
+    } else {
+      expect(warnSpy).not.toHaveBeenCalled();
+    }
   });
 });
 

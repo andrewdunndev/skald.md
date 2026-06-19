@@ -61,61 +61,40 @@ describe('summarizeVaultActions', () => {
     expect(out.reads).toBe(0);
   });
 
-  it('records a successful write with its path', () => {
-    const out = summarizeVaultActions(
-      assistant([
-        {
-          type: 'tool_use',
-          id: 'w1',
-          name: 'write_note',
-          input: { path: 'Daily/2026-05-15.md', content: 'x' },
-        },
-        {
-          type: 'tool_result',
-          tool_use_id: 'w1',
-          content: 'Created Daily/2026-05-15.md (1 chars).',
-        },
-      ]),
-    );
-    expect(out.writes).toEqual(['Daily/2026-05-15.md']);
-    expect(out.rejectedWrites).toBe(0);
-  });
-
-  it('records a rejected write as rejectedWrites, not writes', () => {
-    const out = summarizeVaultActions(
-      assistant([
-        {
-          type: 'tool_use',
-          id: 'w1',
-          name: 'edit_note',
-          input: { path: 'Notes.md', search: 'x', replace: 'y' },
-        },
-        {
-          type: 'tool_result',
-          tool_use_id: 'w1',
-          content: 'User rejected the edit to Notes.md. No changes were made.',
-          is_error: true,
-        },
-      ]),
-    );
-    expect(out.writes).toEqual([]);
-    expect(out.rejectedWrites).toBe(1);
-  });
-
-  it('does not count writes whose tool_result never arrived', () => {
-    const out = summarizeVaultActions(
-      assistant([
-        {
-          type: 'tool_use',
-          id: 'w1',
-          name: 'write_note',
-          input: { path: 'A.md', content: 'x' },
-        },
-        // No tool_result block — write is pending or aborted.
-      ]),
-    );
-    expect(out.writes).toEqual([]);
-    expect(out.rejectedWrites).toBe(0);
+  // Write accounting depends on the tool_result outcome paired with the
+  // tool_use: a success records the path, a rejection (is_error) counts as
+  // rejectedWrites, and a write with no result block (pending/aborted)
+  // counts as neither. One row per outcome; the (writes, rejectedWrites)
+  // columns pin the full accounting so a mis-bucketed outcome fails its row.
+  it.each<[string, any[], string[], number]>([
+    [
+      'successful write records its path',
+      [
+        { type: 'tool_use', id: 'w1', name: 'write_note', input: { path: 'Daily/2026-05-15.md', content: 'x' } },
+        { type: 'tool_result', tool_use_id: 'w1', content: 'Created Daily/2026-05-15.md (1 chars).' },
+      ],
+      ['Daily/2026-05-15.md'],
+      0,
+    ],
+    [
+      'rejected write counts as rejectedWrites, not writes',
+      [
+        { type: 'tool_use', id: 'w1', name: 'edit_note', input: { path: 'Notes.md', search: 'x', replace: 'y' } },
+        { type: 'tool_result', tool_use_id: 'w1', content: 'User rejected the edit to Notes.md. No changes were made.', is_error: true },
+      ],
+      [],
+      1,
+    ],
+    [
+      'write with no tool_result counts as neither (pending/aborted)',
+      [{ type: 'tool_use', id: 'w1', name: 'write_note', input: { path: 'A.md', content: 'x' } }],
+      [],
+      0,
+    ],
+  ])('%s', (_label, blocks, expectedWrites, expectedRejected) => {
+    const out = summarizeVaultActions(assistant(blocks));
+    expect(out.writes).toEqual(expectedWrites);
+    expect(out.rejectedWrites).toBe(expectedRejected);
   });
 
   it('labels memory-tool writes as "memory" instead of a path', () => {
