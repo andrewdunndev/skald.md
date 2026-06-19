@@ -112,7 +112,7 @@ export async function executeFindRelated(
     if (hits.length === 0) {
       return {
         content:
-          'find_related: no related notes found. The vault may not be indexed yet — run the "Scribian: Reindex vault" command and try again.',
+          'find_related: no related notes found. The vault may not be indexed yet — run the "Skald: Reindex vault" command and try again.',
       };
     }
     const lines = [

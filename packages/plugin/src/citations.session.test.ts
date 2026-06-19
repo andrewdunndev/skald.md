@@ -17,7 +17,7 @@ import type {
   ClientMessage,
   ServerMessage,
   ToolDefinition,
-} from '@scribian/protocol';
+} from '@skald/protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 // ── helpers ───────────────────────────────────────────────────────────────────

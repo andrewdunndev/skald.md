@@ -28,14 +28,14 @@ describe('migrateConnectionMode: fresh install', () => {
 describe('migrateConnectionMode: upgrade from worker era', () => {
   it('returns worker when a Worker URL is already configured', () => {
     expect(
-      migrateConnectionMode({ workerUrl: 'wss://scribian.user.workers.dev' }),
+      migrateConnectionMode({ workerUrl: 'wss://skald.user.workers.dev' }),
     ).toBe('worker');
   });
 
   it('returns worker even when workerToken is absent (URL is enough signal)', () => {
     expect(
       migrateConnectionMode({
-        workerUrl: 'wss://scribian.user.workers.dev',
+        workerUrl: 'wss://skald.user.workers.dev',
         // no workerToken — the key might have been set separately
       }),
     ).toBe('worker');
@@ -47,7 +47,7 @@ describe('migrateConnectionMode: explicit value in stored data', () => {
     expect(
       migrateConnectionMode({
         connectionMode: 'direct',
-        workerUrl: 'wss://scribian.user.workers.dev',
+        workerUrl: 'wss://skald.user.workers.dev',
       }),
     ).toBe('direct');
   });
@@ -62,7 +62,7 @@ describe('migrateConnectionMode: explicit value in stored data', () => {
     expect(
       migrateConnectionMode({
         connectionMode: 'legacy' as string,
-        workerUrl: 'wss://scribian.user.workers.dev',
+        workerUrl: 'wss://skald.user.workers.dev',
       }),
     ).toBe('worker');
   });

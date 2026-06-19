@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@scribian/protocol';
+import type { ToolDefinition } from '@skald/protocol';
 import { executeFindRelated } from '../memory-client';
 import type { ToolContext, ToolExecutionResult } from './context';
 import type { ConnectionMode } from '../settings';

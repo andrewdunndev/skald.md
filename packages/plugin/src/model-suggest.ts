@@ -135,7 +135,7 @@ async function ensureCatalog(): Promise<ModelInfo[]> {
     })
     .catch((err) => {
       inFlight = null;
-      console.warn('scribian: ModelSuggest catalog fetch failed', err);
+      console.warn('skald: ModelSuggest catalog fetch failed', err);
       // Return the stale cache if we have one; otherwise an empty list
       // so the suggestor renders without throwing.
       return catalogCache?.models ?? [];

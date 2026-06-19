@@ -5,7 +5,7 @@ import {
   setIcon,
   type ItemView,
 } from 'obsidian';
-import type { Message } from '@scribian/protocol';
+import type { Message } from '@skald/protocol';
 import { renderBlock, type BlockContext } from './block-renderer';
 import { renderMessageActions } from './message-actions';
 import {
@@ -65,7 +65,7 @@ export interface MessageListContext {
 /**
  * Streaming chat message list. Owns the scrollable messages
  * container; rebuilds rows incrementally as the chat session emits
- * updates. ScribianView calls requestRender() on every update; the
+ * updates. SkaldView calls requestRender() on every update; the
  * list batches with a 150ms throttle before walking the diff between
  * its current row count + the session's history.
  */
@@ -78,7 +78,7 @@ export class MessageList {
 
   constructor(parent: HTMLElement, ctx: MessageListContext) {
     this.ctx = ctx;
-    this.messagesEl = parent.createDiv({ cls: 'scribian-messages' });
+    this.messagesEl = parent.createDiv({ cls: 'skald-messages' });
     this.renderEmptyState();
   }
 
@@ -96,7 +96,7 @@ export class MessageList {
       void this.ctx.loadStarterChips().then((chips) => {
         if (this.emptyStateEl !== target) return;
         const chipRow = target.querySelector(
-          '.scribian-empty-chips',
+          '.skald-empty-chips',
         ) as HTMLDivElement | null;
         if (!chipRow) return;
         renderChipsInto(chipRow, chips, (chip) =>
@@ -167,7 +167,7 @@ export class MessageList {
         : history[i];
       const row = this.rows[i];
       // Toggle the streaming class so CSS can animate the in-flight row.
-      row.el.toggleClass('scribian-msg-streaming', isInFlight);
+      row.el.toggleClass('skald-msg-streaming', isInFlight);
       if (row.finalized && !isInFlight) continue;
       await this.renderRow(row, msg, isInFlight);
       if (!isInFlight) row.finalized = true;
@@ -208,14 +208,14 @@ export class MessageList {
    * touch it; the approval flow patches the DOM in place). */
   queryDiff(toolUseId: string): Element | null {
     return this.messagesEl.querySelector(
-      `.scribian-diff[data-tool-use-id="${escapeCss(toolUseId)}"]`,
+      `.skald-diff[data-tool-use-id="${escapeCss(toolUseId)}"]`,
     );
   }
 
   private appendRow(): void {
-    const el = this.messagesEl.createDiv({ cls: 'scribian-msg' });
-    el.createSpan({ cls: 'scribian-msg-who' });
-    const body = el.createDiv({ cls: 'scribian-msg-body' });
+    const el = this.messagesEl.createDiv({ cls: 'skald-msg' });
+    el.createSpan({ cls: 'skald-msg-who' });
+    const body = el.createDiv({ cls: 'skald-msg-body' });
     const component = new Component();
     this.ctx.host.addChild(component);
     this.rows.push({ el, body, component, finalized: false });
@@ -234,18 +234,18 @@ export class MessageList {
     msg: Message,
     isInFlight: boolean,
   ): Promise<void> {
-    row.el.removeClass('scribian-msg-user', 'scribian-msg-assistant');
-    row.el.addClass(`scribian-msg-${msg.role}`);
+    row.el.removeClass('skald-msg-user', 'skald-msg-assistant');
+    row.el.addClass(`skald-msg-${msg.role}`);
 
     const whoEl = row.el.querySelector(
-      '.scribian-msg-who',
+      '.skald-msg-who',
     ) as HTMLElement | null;
     if (whoEl) {
       whoEl.empty();
-      const avatar = whoEl.createSpan({ cls: 'scribian-msg-avatar' });
+      const avatar = whoEl.createSpan({ cls: 'skald-msg-avatar' });
       setIcon(avatar, msg.role === 'user' ? 'user' : 'sparkles');
       whoEl.createSpan({
-        cls: 'scribian-msg-label',
+        cls: 'skald-msg-label',
         text: msg.role === 'user' ? 'You' : 'Claude',
       });
     }
@@ -269,7 +269,7 @@ export class MessageList {
 
     if (typeof msg.content === 'string') {
       if (msg.content.trim()) {
-        const wrap = row.body.createDiv({ cls: 'scribian-text' });
+        const wrap = row.body.createDiv({ cls: 'skald-text' });
         wrap.addClass('markdown-rendered');
         await MarkdownRenderer.render(
           this.ctx.app,
@@ -309,12 +309,12 @@ export class MessageList {
 }
 
 /** Render three pulsing dots into a row body. Pure CSS animation —
- * see styles.css `.scribian-typing-dot`. */
+ * see styles.css `.skald-typing-dot`. */
 function renderTypingDots(parent: HTMLElement): void {
-  const wrap = parent.createDiv({ cls: 'scribian-typing' });
-  wrap.createSpan({ cls: 'scribian-typing-dot' });
-  wrap.createSpan({ cls: 'scribian-typing-dot' });
-  wrap.createSpan({ cls: 'scribian-typing-dot' });
+  const wrap = parent.createDiv({ cls: 'skald-typing' });
+  wrap.createSpan({ cls: 'skald-typing-dot' });
+  wrap.createSpan({ cls: 'skald-typing-dot' });
+  wrap.createSpan({ cls: 'skald-typing-dot' });
 }
 
 /**

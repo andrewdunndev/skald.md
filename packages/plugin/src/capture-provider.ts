@@ -18,7 +18,7 @@ import {
   CAPTURE_MAX_PROMPT_BYTES,
   extractCaptureTitle,
   type Provider,
-} from '@scribian/protocol';
+} from '@skald/protocol';
 
 export interface CaptureResult {
   body: string;
@@ -107,8 +107,8 @@ export async function directCapture(
       ? {
           Authorization: `Bearer ${apiKey}`,
           'content-type': 'application/json',
-          'HTTP-Referer': 'https://github.com/scribian/scribian',
-          'X-OpenRouter-Title': 'scribian',
+          'HTTP-Referer': 'https://github.com/skald/skald',
+          'X-OpenRouter-Title': 'skald',
         }
       : {
           'x-api-key': apiKey,

@@ -16,12 +16,12 @@
  */
 
 import { Notice, Setting, requestUrl } from 'obsidian';
-import type ScribianPlugin from '../main';
+import type SkaldPlugin from '../main';
 import type { ConnectionMode } from '../settings';
 
 export function renderConnectionModeSection(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
   redisplay: () => void,
 ): void {
   new Setting(containerEl).setName('Connection').setHeading();
@@ -62,7 +62,7 @@ export function renderConnectionModeSection(
  * authenticated GET — not a streaming fetch. The dangerous-direct-
  * browser-access header is only required for the /v1/messages endpoint.
  */
-async function testDirectConnection(plugin: ScribianPlugin): Promise<void> {
+async function testDirectConnection(plugin: SkaldPlugin): Promise<void> {
   const key = plugin.settings.anthropicApiKey.trim();
   if (!key) {
     new Notice('Set the Anthropic API key first (Provider section below).');
@@ -108,7 +108,7 @@ async function testDirectConnection(plugin: ScribianPlugin): Promise<void> {
  *     (user has a Worker configured; preserve their setup).
  *   - Otherwise → default to 'direct' (fresh install or unconfigured).
  *
- * Accepts the raw stored object rather than ScribianSettings so it can
+ * Accepts the raw stored object rather than SkaldSettings so it can
  * inspect the persisted state before defaults are merged.
  */
 export function migrateConnectionMode(

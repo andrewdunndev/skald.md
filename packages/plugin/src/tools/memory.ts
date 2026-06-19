@@ -1,5 +1,5 @@
 import { App } from 'obsidian';
-import type { ToolDefinition } from '@scribian/protocol';
+import type { ToolDefinition } from '@skald/protocol';
 import { type ApproveFn, type ToolExecutionResult } from './context';
 import { runAppendToNote, runEditNote } from './write';
 

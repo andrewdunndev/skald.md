@@ -1,12 +1,12 @@
-import { type ChatRequest, CAPTURE_MAX_PROMPT_BYTES, extractCaptureTitle } from '@scribian/protocol';
+import { type ChatRequest, CAPTURE_MAX_PROMPT_BYTES, extractCaptureTitle } from '@skald/protocol';
 import type { Env } from '../env';
 import { TokenRegistry, hasScope } from '../auth';
 import { dispatchFor, resolveProviderKey } from '../providers';
 import { authBearer } from './auth-helpers';
 
-// CAPTURE_MAX_PROMPT_BYTES is the shared constant from @scribian/protocol —
+// CAPTURE_MAX_PROMPT_BYTES is the shared constant from @skald/protocol —
 // re-export for the worker's own tests that reference it by name here.
-export { CAPTURE_MAX_PROMPT_BYTES } from '@scribian/protocol';
+export { CAPTURE_MAX_PROMPT_BYTES } from '@skald/protocol';
 
 interface CaptureRequestBody {
   prompt?: string;

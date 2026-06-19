@@ -19,7 +19,7 @@ Run phase A in **direct mode** (the default for new installs). If you
 also have a Worker deployed, repeat with mode switched to worker to
 verify both paths.
 
-- [ ] Open Settings → Scribian. **Connection mode** should read
+- [ ] Open Settings → Skald. **Connection mode** should read
       "Direct". **Provider** set to Anthropic. **API key** populated.
       Verify no error banner in the chat pane.
 - [ ] Open the chat pane from the ribbon icon. Empty state renders:
@@ -30,7 +30,7 @@ verify both paths.
       or "💭 no vault action").
 - [ ] Verify the assistant message renders Markdown (bold, lists,
       code).
-- [ ] Check `Scribian/Chats/<date>-…-<id>.md` was saved with
+- [ ] Check `Skald/Chats/<date>-…-<id>.md` was saved with
       frontmatter (model, usage, cost).
 
 If you have the Worker deployed:
@@ -41,17 +41,17 @@ If you have the Worker deployed:
 
 ## Phase B: iPad / iPhone (15 min)
 
-The real target. If this breaks, scribian breaks.
+The real target. If this breaks, skald breaks.
 
 ### Onboarding
 - [ ] On a fresh device with Obsidian Sync, open the same vault.
-      Verify scribian plugin auto-syncs into the device's plugins
+      Verify skald plugin auto-syncs into the device's plugins
       folder (give it ~30s).
-- [ ] Enable scribian in Settings → Community plugins.
+- [ ] Enable skald in Settings → Community plugins.
 - [ ] Open chat pane. In direct mode: if the API key is already in
       vault data (synced from desktop), no setup banner — chat is
       ready immediately. If not, banner shows + tapping "Open
-      settings" lands in scribian's tab.
+      settings" lands in skald's tab.
 
 ### Setup URI flow (worker mode "wife test")
 
@@ -60,7 +60,7 @@ token. In direct mode, the API key syncs automatically via plugin
 data.
 
 - [ ] On desktop, construct
-      `obsidian://scribian-setup?endpoint=<URL>&token=<TOKEN>`.
+      `obsidian://skald-setup?endpoint=<URL>&token=<TOKEN>`.
       AirDrop / Messages-to-self to the iPad.
 - [ ] Tap the URI on the iPad. Confirmation modal opens. Verify
       endpoint shown verbatim + **token masked** (`abcd…wxyz`).
@@ -89,15 +89,15 @@ data.
       the proposed memory append, you approve, memory note grows.
 
 ### Apple Shortcut share-sheet
-- [ ] In Safari, share an article via the Scribian Capture
+- [ ] In Safari, share an article via the Skald Capture
       Shortcut (see `docs/apple-shortcut-recipe.md`).
-- [ ] Verify: Obsidian foregrounds, "scribian: capturing…" Notice
-      shows, then "scribian: captured → …" (direct mode always
-      creates in the captures folder) OR "scribian: routed to …"
+- [ ] Verify: Obsidian foregrounds, "skald: capturing…" Notice
+      shows, then "skald: captured → …" (direct mode always
+      creates in the captures folder) OR "skald: routed to …"
       (worker mode when find_related matched a target at ≥ 0.85
       similarity).
 - [ ] Open the resulting note. Verify the body is a clean
-      scribian-generated summary, not raw HTML.
+      skald-generated summary, not raw HTML.
 
 ## Phase C: Provider + security (10 min)
 
@@ -109,18 +109,18 @@ data.
       cost surfaces in status row.
 - [ ] Ask Claude to "search the web for X." Verify
       `web_search_tool_result` renders correctly (the translator
-      converted `openrouter:web_search` → scribian-canonical).
+      converted `openrouter:web_search` → skald-canonical).
 - [ ] (Worker mode only) Send a turn that triggers `find_related`.
       Verify semantic search results render correctly regardless
       of which provider is active.
 
 ### Setup URI security
 - [ ] Craft a malicious URI:
-      `obsidian://scribian-setup?endpoint=http://evil.example&token=lol`.
+      `obsidian://skald-setup?endpoint=http://evil.example&token=lol`.
       Open on iPad. Verify confirmation modal opens (does NOT
       silently rewrite settings).
 - [ ] Tap **Cancel**. Verify previous configuration is intact.
-- [ ] Try `obsidian://scribian-setup?endpoint=javascript:alert(1)&token=x`.
+- [ ] Try `obsidian://skald-setup?endpoint=javascript:alert(1)&token=x`.
       Verify a "setup link invalid" Notice and NO modal.
 
 ## Phase D: Vault-action loop (15 min)
@@ -143,7 +143,7 @@ premature.
       my writing."
 - [ ] Verify Claude calls `remember_fact`. Diff card shows the
       proposed append to your memory note. Approve.
-- [ ] Open `Scribian/Memory.md`. Verify the fact is there.
+- [ ] Open `Skald/Memory.md`. Verify the fact is there.
 - [ ] Start a new chat. Ask: "What writing preference do I
       have?" Verify Claude pulls from memory without `find_related`.
 
@@ -157,7 +157,7 @@ premature.
       with a follow-up. Send. Verify Claude now emits the write.
 
 ### Tag-aware auto-pull
-- [ ] Ask: "What do I have on #projects/scribian?" (or any tag
+- [ ] Ask: "What do I have on #projects/skald?" (or any tag
       you actually use).
 - [ ] Verify the response references specific notes by path —
       the tag-context block surfaced the candidates without
@@ -177,14 +177,14 @@ premature.
       Verify empty state returns + new chips render.
 
 ### Starters live-edit
-- [ ] In your vault, edit `Scribian/Starters.md` — change a chip
+- [ ] In your vault, edit `Skald/Starters.md` — change a chip
       label or add a new one. Save.
 - [ ] In the chat pane, tap "new chat." Verify the chip row now
       reflects the edit (no plugin restart needed).
 
 ### Conversation search
 - [ ] After several saved conversations, open command palette →
-      "Scribian: Search conversations." Verify fuzzy search ranks
+      "Skald: Search conversations." Verify fuzzy search ranks
       by recency + match quality.
 - [ ] Pick a result. Verify the saved markdown opens (resume-
       into-pane is a v2 follow-up — currently opens the file).
@@ -205,11 +205,11 @@ For each unexpected behavior:
 1. Note the scene + repro steps.
 2. Capture: console errors (View → Toggle Developer Tools on
    desktop; `?vault=<name>` query for mobile dev console).
-3. Capture: Logger output (`Scribian/Logs/<date>.md` if logs
+3. Capture: Logger output (`Skald/Logs/<date>.md` if logs
    folder is configured).
 4. Triage:
    - Reproducible + clear scope → file as a TODO in
-     `campaigns/factory/notes/scribian-followups.md`.
+     `campaigns/factory/notes/skald-followups.md`.
    - Cosmetic + low-impact → ship anyway, fix post-tag.
    - Functional regression → block ship until fixed.
 
@@ -217,10 +217,10 @@ For each unexpected behavior:
 
 When all five phases pass without functional regressions:
 
-- [ ] Cut the 0.1.0 tag in scribian (`git tag -a 0.1.0 -m "..."`)
+- [ ] Cut the 0.1.0 tag in skald (`git tag -a 0.1.0 -m "..."`)
 - [ ] Bump versions in `package.json` (root + plugin) AND
       `manifest.json` (must agree — pre-submission lint enforces)
-- [ ] Build the release plugin (`pnpm --filter @scribian/plugin
+- [ ] Build the release plugin (`pnpm --filter @skald/plugin
       build`) and verify `dist/main.js` + `dist/styles.css` +
       `dist/manifest.json` are present.
 - [ ] Submit via the Obsidian developer dashboard.

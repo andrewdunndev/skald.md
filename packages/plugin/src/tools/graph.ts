@@ -10,7 +10,7 @@
  */
 
 import { App, TFile, TFolder } from 'obsidian';
-import type { ToolDefinition } from '@scribian/protocol';
+import type { ToolDefinition } from '@skald/protocol';
 import type { ToolExecutionResult } from './context';
 import { safePath } from './context';
 import { notesWithTag } from '../view/tag-context';

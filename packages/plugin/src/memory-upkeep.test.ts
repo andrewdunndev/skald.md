@@ -24,7 +24,7 @@ import {
   UPKEEP_EVERY_N_TURNS,
   UPKEEP_MAX_DELETION_FRACTION,
 } from './memory-upkeep';
-import type { Message } from '@scribian/protocol';
+import type { Message } from '@skald/protocol';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

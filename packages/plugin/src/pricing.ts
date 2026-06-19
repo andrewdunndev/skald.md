@@ -16,7 +16,7 @@
  *   - claude-haiku-4-5: $1 / $5, cache_read $0.10, cache_write $2.00
  *
  * cache_write rates above are the 1-HOUR-TTL write rate (2x base
- * input), because scribian writes its system+tools prefix with a
+ * input), because skald writes its system+tools prefix with a
  * 1-hour TTL (see anthropic-caching.ts) to survive multi-minute
  * mobile gaps. cache_read stays 0.1x base regardless of TTL. Per
  * Anthropic prompt-caching docs: 5-min write = 1.25x, 1-hour write =
@@ -28,7 +28,7 @@
  * OpenRouter dashboard).
  */
 
-import type { Usage } from '@scribian/protocol';
+import type { Usage } from '@skald/protocol';
 
 export interface ModelPricing {
   /** Input tokens, $/M */
@@ -38,7 +38,7 @@ export interface ModelPricing {
   /** Cache-hit reads, $/M (lower than input). Defaults to input
    * rate if absent. */
   cacheRead?: number;
-  /** Cache writes / creation, $/M. For scribian this is the
+  /** Cache writes / creation, $/M. For skald this is the
    * 1-hour-TTL write rate (2x base input). Defaults to input rate if
    * absent. */
   cacheWrite?: number;

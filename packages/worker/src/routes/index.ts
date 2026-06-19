@@ -2,7 +2,7 @@ import type { Env, MemoryEnv } from '../env';
 import { TokenRegistry, hasScope } from '../auth';
 import { embedDocument, upsertChunks, vectorId } from '../memory';
 import { chunkBySection } from '../memory/chunk';
-import type { ScribianVector } from '../memory/types';
+import type { SkaldVector } from '../memory/types';
 import { authBearer } from './auth-helpers';
 
 /** DOS-resistance caps. An authenticated client could otherwise
@@ -109,7 +109,7 @@ async function handleIndex(req: Request, env: MemoryEnv): Promise<Response> {
       { status: 413 },
     );
   }
-  const vectors: ScribianVector[] = [];
+  const vectors: SkaldVector[] = [];
   let indexedSummaries = 0;
   let indexedSections = 0;
   let skippedOversize = 0;

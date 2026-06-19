@@ -10,9 +10,9 @@
  * is missing in worker mode).
  */
 import type { App } from 'obsidian';
-import type { Provider, ServerMessage, Usage } from '@scribian/protocol';
-import type ScribianPlugin from '../main';
-import type { ScribianTransport, TransportHandlers } from '../transport-interface';
+import type { Provider, ServerMessage, Usage } from '@skald/protocol';
+import type SkaldPlugin from '../main';
+import type { SkaldTransport, TransportHandlers } from '../transport-interface';
 import { Transport } from '../transport';
 import { DirectTransport } from '../direct-transport';
 import { ChatSession } from '../chat-session';
@@ -23,7 +23,7 @@ import { loadSystemPrompt } from './system-prompt';
 import { providerCapabilities } from '../provider-capabilities';
 
 export interface ConnectResult {
-  transport: ScribianTransport;
+  transport: SkaldTransport;
   session: ChatSession;
 }
 
@@ -46,7 +46,7 @@ export interface ConnectCallbacks {
  */
 export function connectSession(
   app: App,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
   cbs: ConnectCallbacks,
 ): ConnectResult | null {
   const mode = plugin.settings.connectionMode ?? 'direct';
@@ -75,7 +75,7 @@ export function connectSession(
   };
 
   const caps = modeCapabilities(mode);
-  let transport: ScribianTransport;
+  let transport: SkaldTransport;
 
   switch (mode) {
     case 'worker': {

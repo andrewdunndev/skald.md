@@ -71,7 +71,7 @@ export function resolveConnectionMode(raw: unknown): ConnectionMode {
   if (raw === 'direct' || raw === 'worker') return raw;
   if (raw !== undefined && raw !== null && raw !== '') {
     console.warn(
-      `scribian: unrecognized connectionMode value "${String(raw)}" — ` +
+      `skald: unrecognized connectionMode value "${String(raw)}" — ` +
         'falling back to "direct". This value will NOT be overwritten on save.',
     );
   }

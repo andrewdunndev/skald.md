@@ -9,7 +9,7 @@
  * dispatcher is the biggest single function in the codebase; it
  * has a clear single responsibility (DOM from blocks) so it lives
  * alone here. The host view provides the BlockContext bundle so
- * this module doesn't reach back into ScribianView state.
+ * this module doesn't reach back into SkaldView state.
  *
  * Vacuity note: the renderer's behavior is exercised through the
  * Obsidian runtime — pure unit tests can cover the helpers
@@ -20,7 +20,7 @@
  */
 
 import { MarkdownRenderer, type App, type Component } from 'obsidian';
-import type { ContentBlock } from '@scribian/protocol';
+import type { ContentBlock } from '@skald/protocol';
 import { renderDiffCard } from './diff-card';
 import type { WriteProposal } from '../tools';
 import { citationLabel, citationPath, type CitationLocation } from '../citations';
@@ -53,7 +53,7 @@ export async function renderBlock(
   if (type === 'text') {
     const text = (b.text as string) ?? '';
     if (!text) return;
-    const wrap = parent.createDiv({ cls: 'scribian-text' });
+    const wrap = parent.createDiv({ cls: 'skald-text' });
     await renderMarkdownInto(wrap, text, ctx);
     // Citations path: if this text block carries citation objects (returned
     // by the Anthropic Citations API) and we have a document registry,
@@ -70,8 +70,8 @@ export async function renderBlock(
   }
 
   if (type === 'thinking') {
-    const t = parent.createDiv({ cls: 'scribian-thinking' });
-    t.createSpan({ cls: 'scribian-thinking-icon', text: '💭' });
+    const t = parent.createDiv({ cls: 'skald-thinking' });
+    t.createSpan({ cls: 'skald-thinking-icon', text: '💭' });
     t.createSpan({ text: (b.thinking as string) ?? '' });
     return;
   }
@@ -85,9 +85,9 @@ export async function renderBlock(
     const id = b.id as string | undefined;
     const name = (b.name as string) ?? 'tool';
     const input = b.input ?? b.partial_json;
-    const row = parent.createDiv({ cls: 'scribian-tool-call' });
+    const row = parent.createDiv({ cls: 'skald-tool-call' });
     row.createSpan({
-      cls: 'scribian-tool-name',
+      cls: 'skald-tool-name',
       text: describeToolUse(name, input),
     });
     const pending = id ? ctx.pendingApproval(id) : null;
@@ -117,9 +117,9 @@ export async function renderBlock(
 
   if (type === 'server_tool_use') {
     const name = (b.name as string) ?? 'server_tool';
-    const row = parent.createDiv({ cls: 'scribian-tool-call' });
+    const row = parent.createDiv({ cls: 'skald-tool-call' });
     row.createSpan({
-      cls: 'scribian-tool-name',
+      cls: 'skald-tool-name',
       text: describeToolUse(name, b.input),
     });
     return;
@@ -128,7 +128,7 @@ export async function renderBlock(
   // Unknown block type — friendly placeholder instead of JSON dump.
   // Non-developer users find JSON in chat jarring; developers can
   // drop to the console.
-  const placeholder = parent.createDiv({ cls: 'scribian-unknown-block' });
+  const placeholder = parent.createDiv({ cls: 'skald-unknown-block' });
   placeholder.createSpan({ text: `(unhandled block: ${type ?? 'unknown'})` });
 }
 
@@ -157,8 +157,8 @@ function renderImageBlock(
 ): void {
   const source = b.source as Record<string, unknown> | undefined;
   if (!source) return;
-  const figure = parent.createDiv({ cls: 'scribian-image' });
-  const img = figure.createEl('img', { cls: 'scribian-image-thumb' });
+  const figure = parent.createDiv({ cls: 'skald-image' });
+  const img = figure.createEl('img', { cls: 'skald-image-thumb' });
   if (source.type === 'base64') {
     const media = String(source.media_type ?? 'image/png');
     const data = String(source.data ?? '');
@@ -180,25 +180,25 @@ async function renderToolResult(
     typeof content === 'string' && content.length > 0;
   if (!hasStringContent) {
     const row = parent.createDiv({
-      cls: `scribian-tool-result-row${isError ? ' scribian-tool-result-error' : ''}`,
+      cls: `skald-tool-result-row${isError ? ' skald-tool-result-error' : ''}`,
     });
     row.createSpan({
-      cls: 'scribian-tool-result-label',
+      cls: 'skald-tool-result-label',
       text: describeToolResult(content, isError),
     });
     return;
   }
   const card = parent.createEl('details', {
-    cls: `scribian-tool-result${isError ? ' scribian-tool-result-error' : ''}`,
+    cls: `skald-tool-result${isError ? ' skald-tool-result-error' : ''}`,
   });
   const summary = card.createEl('summary', {
-    cls: 'scribian-tool-summary',
+    cls: 'skald-tool-summary',
   });
   summary.createSpan({
-    cls: 'scribian-tool-result-label',
+    cls: 'skald-tool-result-label',
     text: describeToolResult(content, isError),
   });
-  const body = card.createDiv({ cls: 'scribian-tool-result-body' });
+  const body = card.createDiv({ cls: 'skald-tool-result-body' });
   await renderMarkdownInto(body, content as string, ctx);
 }
 
@@ -208,16 +208,16 @@ async function renderWebSearchResult(
   ctx: BlockContext,
 ): Promise<void> {
   const card = parent.createEl('details', {
-    cls: 'scribian-tool-result scribian-tool-web',
+    cls: 'skald-tool-result skald-tool-web',
   });
-  const summary = card.createEl('summary', { cls: 'scribian-tool-summary' });
+  const summary = card.createEl('summary', { cls: 'skald-tool-summary' });
   const content = b.content;
   const hitCount = Array.isArray(content) ? content.length : 0;
   summary.createSpan({
-    cls: 'scribian-tool-result-label',
+    cls: 'skald-tool-result-label',
     text: `🌐 ${hitCount} web result${hitCount === 1 ? '' : 's'}`,
   });
-  const body = card.createDiv({ cls: 'scribian-tool-result-body' });
+  const body = card.createDiv({ cls: 'skald-tool-result-body' });
   if (Array.isArray(content)) {
     const md = content
       .map((entry: Record<string, unknown>) => {
@@ -243,15 +243,15 @@ async function renderWebFetchResult(
 ): Promise<void> {
   const content = b.content as Record<string, unknown> | undefined;
   const card = parent.createEl('details', {
-    cls: 'scribian-tool-result scribian-tool-web',
+    cls: 'skald-tool-result skald-tool-web',
   });
-  const summary = card.createEl('summary', { cls: 'scribian-tool-summary' });
+  const summary = card.createEl('summary', { cls: 'skald-tool-summary' });
   const url = content?.url as string | undefined;
   summary.createSpan({
-    cls: 'scribian-tool-result-label',
+    cls: 'skald-tool-result-label',
     text: url ? `🌐 Fetched ${url}` : '🌐 Fetched',
   });
-  const body = card.createDiv({ cls: 'scribian-tool-result-body' });
+  const body = card.createDiv({ cls: 'skald-tool-result-body' });
   // web_fetch returns content as either a document object with
   // extracted markdown, or an array of content blocks. Surface the
   // text; never dump JSON.
@@ -348,14 +348,14 @@ function renderCitationMarkers(
   });
   if (unique.length === 0) return;
 
-  const sup = parent.createEl('sup', { cls: 'scribian-citations' });
+  const sup = parent.createEl('sup', { cls: 'skald-citations' });
   unique.forEach((citation, i) => {
     if (i > 0) sup.createSpan({ text: ' ' }); // thin nbsp separator
     const path = citationPath(registry, citation);
     const label = citationLabel(citation.document_index);
     if (path) {
       const a = sup.createEl('a', {
-        cls: 'internal-link scribian-citation-link',
+        cls: 'internal-link skald-citation-link',
         text: label,
         attr: {
           'data-href': path,

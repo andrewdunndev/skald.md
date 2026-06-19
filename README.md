@@ -1,6 +1,6 @@
 ![hero](hero.svg)
 
-# scribian
+# skald
 
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![status](https://img.shields.io/badge/status-pre--alpha-orange)]()
@@ -8,7 +8,7 @@
 **Mobile-first AI companion for Obsidian. Install the plugin, paste your
 API key, chat. No server to deploy, nothing to host.**
 
-scribian is a Claude client that lives where you write. It streams
+skald is a Claude client that lives where you write. It streams
 responses from Anthropic (or OpenRouter) directly — no relay,
 no shared backend, no account beyond your API key. Reads and writes
 your vault under explicit user approval. Searches the web inline.
@@ -27,14 +27,14 @@ Claude-processed vault note.
 
 Today: manual install. Copy `packages/plugin/dist/{manifest.json,
 main.js, styles.css}` into your vault's
-`.obsidian/plugins/scribian/` folder, enable the plugin in Obsidian.
+`.obsidian/plugins/skald/` folder, enable the plugin in Obsidian.
 
 See [`docs/installing-the-plugin.md`](docs/installing-the-plugin.md)
 for the full path, including the upcoming BRAT route.
 
 ### 2. Add your API key
 
-Open Obsidian → Settings → Scribian. The five core settings:
+Open Obsidian → Settings → Skald. The five core settings:
 
 1. **Connection mode** — leave on "Direct" (the default for new
    installs)
@@ -51,7 +51,7 @@ settings) is behind an **Advanced** expander and has safe defaults.
 
 ### 3. Chat
 
-Open the chat pane via the speech-bubble ribbon icon or **Scribian:
+Open the chat pane via the speech-bubble ribbon icon or **Skald:
 Open chat** from the command palette. Type a question. Watch markdown
 stream in.
 
@@ -74,11 +74,11 @@ plugin and Worker.
 
 ## Optional companions
 
-- Install **[Omnisearch](https://github.com/scambier/obsidian-omnisearch)** for ranked vault search — scribian uses its BM25 results automatically when it's present, falling back to a substring scan otherwise.
+- Install **[Omnisearch](https://github.com/scambier/obsidian-omnisearch)** for ranked vault search — skald uses its BM25 results automatically when it's present, falling back to a substring scan otherwise.
 
 ## Going further: the Worker (optional power tier)
 
-The Cloudflare Worker is not required to use scribian. It adds:
+The Cloudflare Worker is not required to use skald. It adds:
 
 - **Semantic search** (`find_related`) — Claude can search your vault
   by meaning, not just substring, backed by Cloudflare Vectorize +
@@ -152,7 +152,7 @@ Full framing in [`docs/security-model.md`](docs/security-model.md).
 pnpm install
 
 # Plugin in watch mode, writes into your dev vault
-SCRIBIAN_OUT_DIR="$HOME/your-vault/.obsidian/plugins/scribian" \
+SKALD_OUT_DIR="$HOME/your-vault/.obsidian/plugins/skald" \
   pnpm dev:plugin
 
 # Deploy Worker (if you're working on the worker)
@@ -162,7 +162,7 @@ pnpm exec wrangler deploy
 
 The plugin requires Hot Reload to auto-pick up changes — install
 [pjeby/hot-reload](https://github.com/pjeby/hot-reload) in your dev
-vault and drop a `.hotreload` sentinel into the scribian plugin folder.
+vault and drop a `.hotreload` sentinel into the skald plugin folder.
 
 ## License
 

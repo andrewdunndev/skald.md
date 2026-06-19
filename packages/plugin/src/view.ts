@@ -1,6 +1,6 @@
 import { ItemView, WorkspaceLeaf, setIcon, setTooltip } from 'obsidian';
-import type ScribianPlugin from './main';
-import type { ScribianTransport } from './transport-interface';
+import type SkaldPlugin from './main';
+import type { SkaldTransport } from './transport-interface';
 import { ChatSession } from './chat-session';
 import type { WriteProposal } from './tools';
 import { ApprovalManager } from './approval-manager';
@@ -18,15 +18,15 @@ import { toImageContentBlock } from './image-attach';
 import { saveConversation } from './conversation-store';
 import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
 import { ConversationSearchModal } from './conversation-search';
-import type { ContentBlock } from '@scribian/protocol';
+import type { ContentBlock } from '@skald/protocol';
 import { isUpkeepDue } from './memory-upkeep';
 import { runMemoryUpkeepView, UpkeepInFlightGate } from './view/memory-upkeep-view';
 
-export const VIEW_TYPE_SCRIBIAN = 'scribian-chat';
+export const VIEW_TYPE_SKALD = 'skald-chat';
 
-export class ScribianView extends ItemView {
-  private plugin: ScribianPlugin;
-  private transport: ScribianTransport | null = null;
+export class SkaldView extends ItemView {
+  private plugin: SkaldPlugin;
+  private transport: SkaldTransport | null = null;
   private session: ChatSession | null = null;
   private modelSelect!: HTMLSelectElement;
   private statusEl!: HTMLDivElement;
@@ -52,17 +52,17 @@ export class ScribianView extends ItemView {
     },
   });
 
-  constructor(leaf: WorkspaceLeaf, plugin: ScribianPlugin) {
+  constructor(leaf: WorkspaceLeaf, plugin: SkaldPlugin) {
     super(leaf);
     this.plugin = plugin;
   }
 
   override getViewType(): string {
-    return VIEW_TYPE_SCRIBIAN;
+    return VIEW_TYPE_SKALD;
   }
 
   override getDisplayText(): string {
-    return 'Scribian';
+    return 'Skald';
   }
 
   override getIcon(): string {
@@ -72,7 +72,7 @@ export class ScribianView extends ItemView {
   override async onOpen(): Promise<void> {
     const root = this.containerEl.children[1] as HTMLElement;
     root.empty();
-    root.addClass('scribian-root');
+    root.addClass('skald-root');
 
     const refs = renderHeader(root, this.plugin.settings, {
       onModelChange: async (newModel) => {
@@ -84,10 +84,10 @@ export class ScribianView extends ItemView {
     });
     this.modelSelect = refs.modelSelect;
 
-    const statusRow = root.createDiv({ cls: 'scribian-status-row' });
-    this.statusEl = statusRow.createDiv({ cls: 'scribian-status' });
+    const statusRow = root.createDiv({ cls: 'skald-status-row' });
+    this.statusEl = statusRow.createDiv({ cls: 'skald-status' });
     const reconnectBtn = statusRow.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn',
+      cls: 'clickable-icon skald-icon-btn',
       attr: { 'aria-label': 'Reconnect' },
     });
     setIcon(reconnectBtn, 'rotate-cw');
@@ -131,7 +131,7 @@ export class ScribianView extends ItemView {
         loadStarterChips(this.app, this.plugin.settings.startersPath),
     });
 
-    this.usageFooterEl = root.createDiv({ cls: 'scribian-usage-footer' });
+    this.usageFooterEl = root.createDiv({ cls: 'skald-usage-footer' });
     this.usageFooterEl.style.display = 'none';
 
     this.composer = new Composer(root, this.app, {
@@ -350,7 +350,7 @@ export class ScribianView extends ItemView {
     );
   }
 
-  private handleServerMessage(msg: import('@scribian/protocol').ServerMessage): void {
+  private handleServerMessage(msg: import('@skald/protocol').ServerMessage): void {
     this.session?.handleServer(msg);
   }
 

@@ -21,7 +21,7 @@
  */
 
 import { requestUrl } from 'obsidian';
-import type { Message, Provider } from '@scribian/protocol';
+import type { Message, Provider } from '@skald/protocol';
 
 /** Run upkeep every this many finalized turns. Conservative default
  * keeps utility-model cost low. Exposed so callers can test. */
@@ -250,7 +250,7 @@ async function callOpenRouter(
     headers: {
       Authorization: `Bearer ${apiKey}`,
       'content-type': 'application/json',
-      'HTTP-Referer': 'https://scribian.dunn.dev',
+      'HTTP-Referer': 'https://skald.dunn.dev',
     },
     body: JSON.stringify({
       model,

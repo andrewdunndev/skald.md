@@ -25,7 +25,7 @@ export interface EmptyStateHooks {
 
 /**
  * Default starter chips. Tuned for the mobile-second-brain context:
- * scribian's value-add over Apple Intelligence / ChatGPT is that
+ * skald's value-add over Apple Intelligence / ChatGPT is that
  * the OUTPUT lands in the user's vault. Every starter leans into
  * "AI → vault action" rather than "AI → answer in a transient
  * chat window." Mirrors the example use case: "what is this flower,
@@ -124,7 +124,7 @@ function stripFrontmatter(content: string): string {
 
 /**
  * Load starter chips from a vault note. The note's path is
- * configurable (defaults to `Scribian/Starters.md`). Returns the
+ * configurable (defaults to `Skald/Starters.md`). Returns the
  * default chip list when the note is missing, empty, or parses
  * to no chips — keeping the empty state useful out of the box.
  */
@@ -146,7 +146,7 @@ export async function loadStarterChips(
       // so the user knows why their custom starters aren't showing
       // instead of silently falling back.
       console.warn(
-        `scribian: starters note at ${normalized} parsed to zero chips — check the list format (\`- :icon: Label — prompt\` per line). Using defaults.`,
+        `skald: starters note at ${normalized} parsed to zero chips — check the list format (\`- :icon: Label — prompt\` per line). Using defaults.`,
       );
       return DEFAULT_STARTER_CHIPS;
     }
@@ -154,7 +154,7 @@ export async function loadStarterChips(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     console.warn(
-      `scribian: failed to load starters at ${normalized}: ${msg}. Using defaults.`,
+      `skald: failed to load starters at ${normalized}: ${msg}. Using defaults.`,
     );
     return DEFAULT_STARTER_CHIPS;
   }
@@ -173,23 +173,23 @@ export function renderEmptyState(
   hooks: EmptyStateHooks,
   chips: StarterChip[] = DEFAULT_STARTER_CHIPS,
 ): HTMLDivElement {
-  const wrap = parent.createDiv({ cls: 'scribian-empty' });
+  const wrap = parent.createDiv({ cls: 'skald-empty' });
 
-  const icon = wrap.createDiv({ cls: 'scribian-empty-icon' });
+  const icon = wrap.createDiv({ cls: 'skald-empty-icon' });
   setIcon(icon, 'sparkles');
 
   wrap.createEl('div', {
-    cls: 'scribian-empty-title',
+    cls: 'skald-empty-title',
     text: 'Your vault, on call.',
   });
 
   wrap.createEl('div', {
-    cls: 'scribian-empty-subtitle',
+    cls: 'skald-empty-subtitle',
     text:
       'Tap a starter, type a question, or attach notes with @ to give Claude context.',
   });
 
-  const chipRow = wrap.createDiv({ cls: 'scribian-empty-chips' });
+  const chipRow = wrap.createDiv({ cls: 'skald-empty-chips' });
   renderChipsInto(chipRow, chips, hooks.onChipPick);
 
   return wrap;
@@ -208,14 +208,14 @@ export function renderChipsInto(
   chipRow.empty();
   for (const chip of chips) {
     const btn = chipRow.createEl('button', {
-      cls: 'scribian-empty-chip',
+      cls: 'skald-empty-chip',
       attr: { type: 'button' },
     });
     if (chip.icon) {
-      const ic = btn.createSpan({ cls: 'scribian-empty-chip-icon' });
+      const ic = btn.createSpan({ cls: 'skald-empty-chip-icon' });
       setIcon(ic, chip.icon);
     }
-    btn.createSpan({ cls: 'scribian-empty-chip-label', text: chip.label });
+    btn.createSpan({ cls: 'skald-empty-chip-label', text: chip.label });
     btn.addEventListener('click', () => onChipPick(chip));
   }
 }

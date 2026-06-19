@@ -38,56 +38,56 @@ export function renderDiffCard(
   proposal: WriteProposal,
   hooks: DiffCardHooks,
 ): void {
-  const card = parent.createDiv({ cls: 'scribian-diff' });
+  const card = parent.createDiv({ cls: 'skald-diff' });
   card.setAttr('data-tool-use-id', proposal.toolUseId);
 
-  const header = card.createDiv({ cls: 'scribian-diff-header' });
+  const header = card.createDiv({ cls: 'skald-diff-header' });
   header.createSpan({
-    cls: 'scribian-diff-kind',
+    cls: 'skald-diff-kind',
     text: KIND_LABELS[proposal.kind],
   });
   header.createSpan({
-    cls: 'scribian-diff-path',
+    cls: 'skald-diff-path',
     text: proposal.path,
   });
 
   if (proposal.informedBy && proposal.informedBy.length > 0) {
-    const trace = card.createDiv({ cls: 'scribian-diff-trace' });
+    const trace = card.createDiv({ cls: 'skald-diff-trace' });
     trace.createSpan({
-      cls: 'scribian-diff-trace-label',
+      cls: 'skald-diff-trace-label',
       text: 'Informed by: ',
     });
     for (let i = 0; i < proposal.informedBy.length; i++) {
       if (i > 0) trace.createSpan({ text: ', ' });
       trace.createSpan({
-        cls: 'scribian-diff-trace-source',
+        cls: 'skald-diff-trace-source',
         text: proposal.informedBy[i],
       });
     }
   }
 
-  const body = card.createDiv({ cls: 'scribian-diff-body' });
+  const body = card.createDiv({ cls: 'skald-diff-body' });
   const diff = lineDiff(proposal.before ?? '', proposal.after);
   for (const line of diff) {
     const row = body.createDiv({
-      cls: `scribian-diff-line scribian-diff-${line.type}`,
+      cls: `skald-diff-line skald-diff-${line.type}`,
     });
-    const marker = row.createSpan({ cls: 'scribian-diff-marker' });
+    const marker = row.createSpan({ cls: 'skald-diff-marker' });
     marker.setText(
       line.type === 'add' ? '+' : line.type === 'remove' ? '−' : ' ',
     );
-    row.createSpan({ cls: 'scribian-diff-text', text: line.text });
+    row.createSpan({ cls: 'skald-diff-text', text: line.text });
   }
 
-  const actions = card.createDiv({ cls: 'scribian-diff-actions' });
+  const actions = card.createDiv({ cls: 'skald-diff-actions' });
   const approve = actions.createEl('button', {
-    cls: 'clickable-icon scribian-icon-btn scribian-diff-approve',
+    cls: 'clickable-icon skald-icon-btn skald-diff-approve',
     attr: { 'aria-label': 'Approve write' },
   });
   setIcon(approve, 'check');
   setTooltip(approve, 'Approve');
   const reject = actions.createEl('button', {
-    cls: 'clickable-icon scribian-icon-btn scribian-diff-reject',
+    cls: 'clickable-icon skald-icon-btn skald-diff-reject',
     attr: { 'aria-label': 'Reject write' },
   });
   setIcon(reject, 'x');

@@ -1,12 +1,12 @@
 # Deploying the Worker
 
-> **You do not need the Worker to use scribian.** Direct mode (the
+> **You do not need the Worker to use skald.** Direct mode (the
 > default) calls Anthropic or OpenRouter from the plugin with no
 > server in the middle. The Worker is the optional power tier — deploy
 > it when you want semantic vault search (`find_related`), capture
 > auto-routing, key off-device, or per-client token revocation.
 
-The scribian Worker is a Cloudflare Workers Durable Object that proxies
+The skald Worker is a Cloudflare Workers Durable Object that proxies
 streaming chat between the Obsidian plugin and the Anthropic Messages
 API, and hosts the Vectorize bindings that back `find_related`. You
 deploy it to your own CF account; nobody else's Worker handles your
@@ -21,8 +21,8 @@ traffic.
 ## One-time setup
 
 ```sh
-git clone https://gitlab.com/dunn.dev/scribian.git
-cd scribian
+git clone https://gitlab.com/dunn.dev/skald.git
+cd skald
 pnpm install
 
 cd packages/worker
@@ -37,7 +37,7 @@ re-authenticating.
 
 The Worker needs at least one secret:
 
-### `SCRIBIAN_TOKENS` (recommended)
+### `SKALD_TOKENS` (recommended)
 
 A JSON array of token records — one per client. Each record has a
 human-readable label, the token itself, and a list of scopes:
@@ -63,29 +63,29 @@ human-readable label, the token itself, and a list of scopes:
 PLUGIN=$(openssl rand -hex 32)
 
 # Build the JSON
-cat <<JSON > /tmp/scribian-tokens.json
+cat <<JSON > /tmp/skald-tokens.json
 [
   { "label": "plugin", "token": "$PLUGIN", "scopes": ["chat"] }
 ]
 JSON
-cat /tmp/scribian-tokens.json  # save these — you'll paste into clients
+cat /tmp/skald-tokens.json  # save these — you'll paste into clients
 
 # Push as a Worker secret
-cat /tmp/scribian-tokens.json | pnpm exec wrangler secret put SCRIBIAN_TOKENS
+cat /tmp/skald-tokens.json | pnpm exec wrangler secret put SKALD_TOKENS
 
 # Clean up
-rm /tmp/scribian-tokens.json
+rm /tmp/skald-tokens.json
 ```
 
 To revoke a single token (say the `claude-code` one): edit the JSON
 to remove that entry, push again. Other clients keep working.
 
-### `SCRIBIAN_TOKEN` (legacy, single-token fallback)
+### `SKALD_TOKEN` (legacy, single-token fallback)
 
-If `SCRIBIAN_TOKENS` is unset, the Worker accepts a single
-`SCRIBIAN_TOKEN` secret with implicit full scopes. Kept for backward
+If `SKALD_TOKENS` is unset, the Worker accepts a single
+`SKALD_TOKEN` secret with implicit full scopes. Kept for backward
 compatibility — existing deploys keep working unchanged. For new
-deploys, use `SCRIBIAN_TOKENS` (above) so per-client revocation
+deploys, use `SKALD_TOKENS` (above) so per-client revocation
 works.
 
 ### `ANTHROPIC_API_KEY` (optional fallback)
@@ -114,7 +114,7 @@ fall over to other providers later. BYO-key mode adds no markup.
 # Find your CF account ID at dash.cloudflare.com → Workers & Pages
 # Gateway auto-creates on first request — no dashboard setup needed
 ACCOUNT_ID="xxx..."
-GATEWAY_ID="scribian"
+GATEWAY_ID="skald"
 printf "%s" \
   "https://gateway.ai.cloudflare.com/v1/${ACCOUNT_ID}/${GATEWAY_ID}/anthropic/v1/messages" \
   | pnpm exec wrangler secret put AI_GATEWAY_URL
@@ -134,21 +134,21 @@ You'll see something like:
 Total Upload: 7.56 KiB / gzip: 2.51 KiB
 Your Worker has access to the following bindings:
 Binding                                     Resource
-env.SCRIBIAN_SESSION (ScribianSession)      Durable Object
+env.SKALD_SESSION (SkaldSession)      Durable Object
 
-Uploaded scribian (1.53 sec)
-Deployed scribian triggers (0.82 sec)
-  https://scribian.<your-subdomain>.workers.dev
+Uploaded skald (1.53 sec)
+Deployed skald triggers (0.82 sec)
+  https://skald.<your-subdomain>.workers.dev
 ```
 
-The `https://scribian.<your-subdomain>.workers.dev` URL is yours.
+The `https://skald.<your-subdomain>.workers.dev` URL is yours.
 Paste it (changing `https://` to `wss://`) into the plugin's
 "Worker URL" setting.
 
 ## Verify
 
 ```sh
-curl -sS https://scribian.<your-subdomain>.workers.dev/health
+curl -sS https://skald.<your-subdomain>.workers.dev/health
 ```
 
 Should respond with JSON:
@@ -162,12 +162,12 @@ Should respond with JSON:
 }
 ```
 
-The plugin's Settings → Scribian → "Test connection" button does the
+The plugin's Settings → Skald → "Test connection" button does the
 same check from inside Obsidian.
 
 ## Updating
 
-Pull the latest scribian repo, then redeploy:
+Pull the latest skald repo, then redeploy:
 
 ```sh
 git pull
@@ -176,7 +176,7 @@ cd packages/worker
 pnpm exec wrangler deploy
 ```
 
-The plugin and the Worker share `@scribian/protocol` — if the wire
+The plugin and the Worker share `@skald/protocol` — if the wire
 protocol changes in a non-backward-compatible way, you'll need to
 redeploy the Worker before the new plugin version connects. Watch
 the changelog for breaking changes.

@@ -3,7 +3,7 @@
  *
  * Fuzzy-searches saved conversation files in the configured Chats
  * folder and opens the matched conversation as a markdown note when
- * picked. Triggered from the command palette ("Scribian: Search
+ * picked. Triggered from the command palette ("Skald: Search
  * conversations") or via the workspace search hotkey if a chat pane
  * is focused (wired in main.ts).
  *
@@ -115,15 +115,15 @@ export class ConversationSearchModal extends SuggestModal<ConversationHit> {
 
   override renderSuggestion(hit: ConversationHit, el: HTMLElement): void {
     el.empty();
-    el.addClass('scribian-conv-suggest');
-    const head = el.createDiv({ cls: 'scribian-conv-suggest-head' });
-    head.createSpan({ cls: 'scribian-conv-suggest-title', text: hit.title });
+    el.addClass('skald-conv-suggest');
+    const head = el.createDiv({ cls: 'skald-conv-suggest-head' });
+    head.createSpan({ cls: 'skald-conv-suggest-title', text: hit.title });
     head.createSpan({
-      cls: 'scribian-conv-suggest-date',
+      cls: 'skald-conv-suggest-date',
       text: relativeTime(hit.mtime),
     });
     el.createDiv({
-      cls: 'scribian-conv-suggest-excerpt',
+      cls: 'skald-conv-suggest-excerpt',
       text: hit.excerpt,
     });
   }

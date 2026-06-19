@@ -1,6 +1,6 @@
 import { Notice, Plugin } from 'obsidian';
-import { ScribianView, VIEW_TYPE_SCRIBIAN } from './view';
-import { ScribianSettingTab, DEFAULT_SETTINGS, type ScribianSettings } from './settings';
+import { SkaldView, VIEW_TYPE_SKALD } from './view';
+import { SkaldSettingTab, DEFAULT_SETTINGS, type SkaldSettings } from './settings';
 import { migrateConnectionMode } from './settings/connection-mode';
 import { resolveConnectionMode } from './mode-capabilities';
 import { Logger } from './logger';
@@ -16,11 +16,11 @@ import {
   SlashCommandModal,
 } from './slash-commands';
 
-export default class ScribianPlugin extends Plugin {
-  settings: ScribianSettings = DEFAULT_SETTINGS;
+export default class SkaldPlugin extends Plugin {
+  settings: SkaldSettings = DEFAULT_SETTINGS;
   /**
    * The raw connectionMode string as stored in data.json. Kept separately
-   * so that a future mode value stored by a newer version of scribian is
+   * so that a future mode value stored by a newer version of skald is
    * preserved on save rather than clobbered by downgrade to 'direct'.
    * Runtime code always reads this.settings.connectionMode (a valid
    * ConnectionMode resolved by resolveConnectionMode).
@@ -39,7 +39,7 @@ export default class ScribianPlugin extends Plugin {
   override async onload() {
     await this.loadSettings();
     this.logger = new Logger(this.app, () => this.settings.logsFolder);
-    this.logger.info('scribian loaded');
+    this.logger.info('skald loaded');
 
     this.captureService = new CaptureService(this.app, () => ({
       connectionMode: this.settings.connectionMode,
@@ -55,19 +55,19 @@ export default class ScribianPlugin extends Plugin {
       mode: this.settings.captureMode,
     }));
 
-    this.registerView(VIEW_TYPE_SCRIBIAN, (leaf) => new ScribianView(leaf, this));
+    this.registerView(VIEW_TYPE_SKALD, (leaf) => new SkaldView(leaf, this));
 
-    this.addRibbonIcon('message-square', 'Open Scribian', () => this.activateView());
+    this.addRibbonIcon('message-square', 'Open Skald', () => this.activateView());
 
     // Phase 8: iOS share-sheet capture via Apple Shortcuts. Each
     // discrete sub-action is its own handler — implicit allowlist
     // through the set of names registered here. No "catch-all"
     // handler that dispatches on action params, so a malformed /
-    // attacker-crafted URI like obsidian://scribian/delete just
+    // attacker-crafted URI like obsidian://skald/delete just
     // 404s instead of reaching a handler that has to decide what
     // to do with it.
-    this.registerObsidianProtocolHandler('scribian-capture', (data) => {
-      this.logger.info(`protocol: scribian-capture kind=${data.kind ?? 'text'}`);
+    this.registerObsidianProtocolHandler('skald-capture', (data) => {
+      this.logger.info(`protocol: skald-capture kind=${data.kind ?? 'text'}`);
       void this.captureService.handleProtocol(data);
     });
 
@@ -76,12 +76,12 @@ export default class ScribianPlugin extends Plugin {
     // (where the Worker was deployed) generates the URI; the iPad
     // opens it and the plugin populates settings. The token is
     // bearer-grade — sharing this URI is sharing the token.
-    this.registerObsidianProtocolHandler('scribian-setup', (data) => {
+    this.registerObsidianProtocolHandler('skald-setup', (data) => {
       void this.handleSetupUri(data);
     });
 
     this.addCommand({
-      id: 'scribian-open',
+      id: 'skald-open',
       name: 'Open chat',
       callback: () => this.activateView(),
     });
@@ -91,7 +91,7 @@ export default class ScribianPlugin extends Plugin {
     // upsert into Vectorize. find_related queries depend on this
     // having run at least once.
     this.addCommand({
-      id: 'scribian-reindex-vault',
+      id: 'skald-reindex-vault',
       name: 'Reindex vault (for semantic search)',
       callback: () => {
         void this.reindexVault();
@@ -102,7 +102,7 @@ export default class ScribianPlugin extends Plugin {
     // recency-weighted ranking. Opens the matched file directly;
     // resume-into-pane is a follow-up.
     this.addCommand({
-      id: 'scribian-search-conversations',
+      id: 'skald-search-conversations',
       name: 'Search conversations',
       callback: () => {
         new ConversationSearchModal(this.app, this.settings.chatsFolder).open();
@@ -113,12 +113,12 @@ export default class ScribianPlugin extends Plugin {
     // a Mustache-style template; on pick, the rendered template
     // drops into the active chat input for review + send.
     this.addCommand({
-      id: 'scribian-run-command',
+      id: 'skald-run-command',
       name: 'Run command (slash command)',
       callback: () => void this.runSlashCommand(),
     });
 
-    this.addSettingTab(new ScribianSettingTab(this.app, this));
+    this.addSettingTab(new SkaldSettingTab(this.app, this));
   }
 
   /**
@@ -126,7 +126,7 @@ export default class ScribianPlugin extends Plugin {
    * The plugin maintains a {path → {mtime, size}} manifest in
    * plugin data; only added/modified/deleted entries hit the
    * Worker. Excludes the conversation, logs, and saved-notes
-   * folders since they're scribian-generated artifacts the user
+   * folders since they're skald-generated artifacts the user
    * doesn't want surfaced as "related notes."
    *
    * Public so the settings tab can invoke it directly without
@@ -138,7 +138,7 @@ export default class ScribianPlugin extends Plugin {
       workerToken: this.settings.workerToken,
     };
     if (!cfg.workerUrl || !cfg.workerToken) {
-      new Notice('scribian: Worker URL + token must be configured first.');
+      new Notice('skald: Worker URL + token must be configured first.');
       return;
     }
     const excluded = [
@@ -152,13 +152,13 @@ export default class ScribianPlugin extends Plugin {
         this.app,
         cfg,
         excluded,
-        (msg) => progressNotice.setMessage(`scribian: ${msg}`),
+        (msg) => progressNotice.setMessage(`skald: ${msg}`),
         () => this.loadIndexManifest(),
         (m) => this.saveIndexManifest(m),
       );
       progressNotice.hide();
       new Notice(
-        `scribian: reindex complete — +${result.added} new, ~${result.modified} changed, −${result.deleted} removed (skipped ${result.skipped}).`,
+        `skald: reindex complete — +${result.added} new, ~${result.modified} changed, −${result.deleted} removed (skipped ${result.skipped}).`,
         7000,
       );
       this.logger.info(
@@ -167,7 +167,7 @@ export default class ScribianPlugin extends Plugin {
     } catch (err) {
       progressNotice.hide();
       const msg = err instanceof Error ? err.message : String(err);
-      new Notice(`scribian: reindex failed — ${msg}`, 8000);
+      new Notice(`skald: reindex failed — ${msg}`, 8000);
       this.logger.error(`reindex failed: ${msg}`);
     }
   }
@@ -217,14 +217,14 @@ export default class ScribianPlugin extends Plugin {
     const connectionMode = resolveConnectionMode(this._rawConnectionMode);
     this.settings = {
       ...DEFAULT_SETTINGS,
-      ...(base as Partial<ScribianSettings>),
+      ...(base as Partial<SkaldSettings>),
       connectionMode,
     };
   }
 
   async saveSettings() {
     // Preserve the raw connectionMode string so a future mode value stored
-    // by a newer version of scribian is not clobbered on downgrade.
+    // by a newer version of skald is not clobbered on downgrade.
     // If the current runtime mode differs from the raw stored value (user
     // changed mode in settings), the new mode becomes the canonical value.
     const rawMode =
@@ -236,7 +236,7 @@ export default class ScribianPlugin extends Plugin {
   }
 
   /**
-   * Handle obsidian://scribian-setup. Validates the URI's endpoint +
+   * Handle obsidian://skald-setup. Validates the URI's endpoint +
    * token via the pure parser, then surfaces a confirmation modal
    * before writing both fields to settings. The setup URI is
    * bearer-grade — a silent rewrite would turn a forwarded link
@@ -246,12 +246,12 @@ export default class ScribianPlugin extends Plugin {
   private async handleSetupUri(data: Record<string, string>): Promise<void> {
     const result = parseSetupParams(data);
     if (!result.ok) {
-      this.logger.warn(`scribian-setup rejected: ${result.reason}`);
-      new Notice(`scribian: setup link invalid — ${result.reason}`, 8000);
+      this.logger.warn(`skald-setup rejected: ${result.reason}`);
+      new Notice(`skald: setup link invalid — ${result.reason}`, 8000);
       return;
     }
     const { endpoint, token } = result.params;
-    this.logger.info(`scribian-setup preview shown: endpoint=${endpoint}`);
+    this.logger.info(`skald-setup preview shown: endpoint=${endpoint}`);
     new SetupConfirmModal(
       this.app,
       {
@@ -264,14 +264,14 @@ export default class ScribianPlugin extends Plugin {
           this.settings.workerUrl = endpoint;
           this.settings.workerToken = token;
           await this.saveSettings();
-          this.logger.info(`scribian-setup applied: endpoint=${endpoint}`);
+          this.logger.info(`skald-setup applied: endpoint=${endpoint}`);
           new Notice(
-            `scribian: configured against ${endpoint}. Don't share that link — it contains your Worker token. Open the chat pane to verify the connection.`,
+            `skald: configured against ${endpoint}. Don't share that link — it contains your Worker token. Open the chat pane to verify the connection.`,
             10000,
           );
         },
         onCancel: () => {
-          this.logger.info('scribian-setup cancelled by user');
+          this.logger.info('skald-setup cancelled by user');
         },
       },
     ).open();
@@ -302,20 +302,20 @@ export default class ScribianPlugin extends Plugin {
     }).open();
   }
 
-  private findChatView(): ScribianView | null {
-    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SCRIBIAN);
+  private findChatView(): SkaldView | null {
+    const leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE_SKALD);
     const view = leaves[0]?.view;
-    return view instanceof ScribianView ? view : null;
+    return view instanceof SkaldView ? view : null;
   }
 
   async activateView() {
     const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(VIEW_TYPE_SCRIBIAN)[0];
+    let leaf = workspace.getLeavesOfType(VIEW_TYPE_SKALD)[0];
     if (!leaf) {
       const right = workspace.getRightLeaf(false);
       if (!right) return;
       leaf = right;
-      await leaf.setViewState({ type: VIEW_TYPE_SCRIBIAN, active: true });
+      await leaf.setViewState({ type: VIEW_TYPE_SKALD, active: true });
     }
     workspace.revealLeaf(leaf);
   }

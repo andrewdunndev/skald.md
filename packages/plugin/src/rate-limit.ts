@@ -1,7 +1,7 @@
 /**
  * Generic sliding-window rate limiter. Used by the capture
  * protocol handler to bound the rate at which a hostile webpage
- * can fire `obsidian://scribian-capture` URLs (each capture costs
+ * can fire `obsidian://skald-capture` URLs (each capture costs
  * LLM tokens).
  *
  * Pure: timestamps live in-memory on the instance, no persistence,

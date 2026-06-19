@@ -83,7 +83,7 @@ describe('upsertChunks', () => {
     expect(vec.upsert).not.toHaveBeenCalled();
   });
 
-  it('maps ScribianVectors to the Vectorize upsert shape, routing kind onto namespace', async () => {
+  it('maps SkaldVectors to the Vectorize upsert shape, routing kind onto namespace', async () => {
     // Two chunks of different kinds in one call: proves the full
     // id/values/namespace/metadata mapping AND that namespace is driven
     // by each chunk's kind (note-summary vs section not hardcoded).
@@ -182,7 +182,7 @@ describe('querySimilar', () => {
 });
 
 describe('constants', () => {
-  it('pins the embedding dims at 768 (matches the scribian-vault index config)', () => {
+  it('pins the embedding dims at 768 (matches the skald-vault index config)', () => {
     expect(EMBEDDING_DIMS).toBe(768);
   });
 

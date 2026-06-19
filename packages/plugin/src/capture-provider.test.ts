@@ -7,7 +7,7 @@
 
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import * as obsidian from 'obsidian';
-import { CAPTURE_MAX_PROMPT_BYTES } from '@scribian/protocol';
+import { CAPTURE_MAX_PROMPT_BYTES } from '@skald/protocol';
 import { workerCapture, directCapture } from './capture-provider';
 
 // ── helpers ───────────────────────────────────────────────────────────────

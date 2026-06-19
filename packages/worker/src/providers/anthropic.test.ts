@@ -5,7 +5,7 @@
  * silent changes (e.g. version pin slip) corrupt every chat turn.
  */
 import { describe, expect, it } from 'vitest';
-import type { ChatRequest } from '@scribian/protocol';
+import type { ChatRequest } from '@skald/protocol';
 import {
   ANTHROPIC_BASE_URL,
   ANTHROPIC_MESSAGES_PATH,
@@ -42,7 +42,7 @@ describe('anthropicHeaders', () => {
     expect(headers['anthropic-version']).toBe(ANTHROPIC_VERSION);
     expect(headers['anthropic-version']).toBe('2023-06-01');
     expect(headers['content-type']).toBe('application/json');
-    expect(headers['user-agent']).toContain('scribian/');
+    expect(headers['user-agent']).toContain('skald/');
   });
 
   it('omits cf-aig-metadata when AI_GATEWAY_URL is unset', () => {
@@ -60,7 +60,7 @@ describe('anthropicHeaders', () => {
     expect(headers['cf-aig-metadata']).toBeDefined();
     const meta = JSON.parse(headers['cf-aig-metadata']);
     expect(meta).toEqual({
-      app: 'scribian',
+      app: 'skald',
       model: 'claude-opus-4-7',
       has_tools: true,
     });

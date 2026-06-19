@@ -1,14 +1,14 @@
-<svg viewBox="0 0 1200 430" width="1200" height="430" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="scribian hero — vault-native Claude client for Obsidian. Mobile-first, BYO Anthropic key, your CF Worker, your vault.">
+<svg viewBox="0 0 1200 430" width="1200" height="430" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="skald hero — vault-native Claude client for Obsidian. Mobile-first, BYO Anthropic key, your CF Worker, your vault.">
   <rect x="0" y="0" width="1200" height="430" fill="#f4f4f4"/>
   <g font-family="IBM Plex Sans, Helvetica, Arial, sans-serif">
 
   <!-- top metadata row: y 0-48 -->
-  <text x="60" y="34" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">SCRIBIAN · OBSIDIAN CLAUDE CLIENT</text>
+  <text x="60" y="34" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">SKALD · OBSIDIAN CLAUDE CLIENT</text>
   <text x="1140" y="34" text-anchor="end" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">2026</text>
   <line x1="60" y1="48" x2="1140" y2="48" stroke="#e0e0e0" stroke-width="1"/>
 
   <!-- title block: y 60-200, left -->
-  <text x="60" y="138" font-size="72" font-weight="700" fill="#4a6741" letter-spacing="-2">scribian</text>
+  <text x="60" y="138" font-size="72" font-weight="700" fill="#4a6741" letter-spacing="-2">skald</text>
   <text x="60" y="172" font-size="14" fill="#404040">vault-native Claude in Obsidian, mobile first.</text>
   <text x="60" y="192" font-size="14" fill="#404040">your CF Worker, your Anthropic key, your vault.</text>
 
@@ -16,7 +16,7 @@
   <text x="60" y="222" font-size="12" font-style="italic" fill="#404040">a Claude client that lives where you write.</text>
 
   <!-- metaphor mark: y 230-380. dunn.dev rune as placeholder glyph
-       (per repository contract — replace later with a scribian-
+       (per repository contract — replace later with a skald-
        specific glyph once the metaphor is settled). -->
   <g transform="translate(170 240) scale(2)" stroke="#4a6741" fill="none" stroke-linecap="round">
     <line x1="33.8" y1="9.8"  x2="46.2" y2="22.2" stroke-width="2"/>
@@ -50,7 +50,7 @@
   <text x="868" y="106" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">POSTURE</text>
   <text x="868" y="152" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">BYO worker</text>
   <text x="868" y="178" font-size="11" fill="#404040">your CF account, your keys, your data</text>
-  <text x="868" y="200" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">NO SHARED BACKEND · NO SCRIBIAN AUTH</text>
+  <text x="868" y="200" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">NO SHARED BACKEND · NO SKALD AUTH</text>
 
   <!-- tile 3: bottom-left — OUT -->
   <rect x="560" y="224" width="270" height="130" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1"/>
@@ -69,6 +69,6 @@
   <!-- bottom metadata row -->
   <line x1="60" y1="386" x2="1140" y2="386" stroke="#e0e0e0" stroke-width="1"/>
   <text x="60"   y="412" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">OBSIDIAN · CLOUDFLARE · ANTHROPIC · MCP · MOBILE</text>
-  <text x="1140" y="412" text-anchor="end" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">MIT · GITLAB.COM/DUNN.DEV/SCRIBIAN</text>
+  <text x="1140" y="412" text-anchor="end" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">MIT · GITLAB.COM/DUNN.DEV/SKALD</text>
   </g>
 </svg>

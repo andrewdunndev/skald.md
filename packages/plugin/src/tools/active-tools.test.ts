@@ -42,7 +42,7 @@ describe('buildActiveTools', () => {
   it('EXCLUDES memory tools when memoryEnabled is false', () => {
     const out = buildActiveTools({
       memoryEnabled: false,
-      memoryPath: 'Scribian/Memory.md',
+      memoryPath: 'Skald/Memory.md',
     });
     const names = toolNames(out);
     for (const t of MEMORY_TOOLS) {
@@ -72,7 +72,7 @@ describe('buildActiveTools', () => {
   it('INCLUDES memory tools when both enabled + path are set', () => {
     const out = buildActiveTools({
       memoryEnabled: true,
-      memoryPath: 'Scribian/Memory.md',
+      memoryPath: 'Skald/Memory.md',
     });
     const names = toolNames(out);
     expect(names).toContain('remember_fact');

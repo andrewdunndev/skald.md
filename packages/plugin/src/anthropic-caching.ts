@@ -7,12 +7,12 @@
  * original request shape.
  */
 
-import type { ChatRequest } from '@scribian/protocol';
+import type { ChatRequest } from '@skald/protocol';
 
 /**
  * 1-hour cache_control for the long-lived prefix breakpoints.
  *
- * Rationale: scribian is a mobile app. Gaps between turns routinely
+ * Rationale: skald is a mobile app. Gaps between turns routinely
  * exceed the 5-minute ephemeral default, so the cache expires between
  * turns and every turn pays cache-CREATION (1.25x base) instead of
  * cache-READ (0.1x base) — caching backfires for exactly our common

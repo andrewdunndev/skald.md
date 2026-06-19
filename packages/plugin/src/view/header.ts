@@ -1,6 +1,6 @@
 import { setIcon, setTooltip } from 'obsidian';
 import { MODELS } from '../settings';
-import type { ScribianSettings } from '../settings';
+import type { SkaldSettings } from '../settings';
 
 export interface HeaderHooks {
   onModelChange: (newModel: string) => void | Promise<void>;
@@ -24,16 +24,16 @@ export interface HeaderRefs {
  */
 export function renderHeader(
   parent: HTMLElement,
-  settings: ScribianSettings,
+  settings: SkaldSettings,
   hooks: HeaderHooks,
 ): HeaderRefs {
-  const header = parent.createDiv({ cls: 'scribian-header' });
+  const header = parent.createDiv({ cls: 'skald-header' });
   const provider = settings.provider ?? 'anthropic';
 
   let modelSelect: HTMLSelectElement;
   if (provider === 'anthropic') {
     // Anthropic-direct: small fixed dropdown of Anthropic models.
-    modelSelect = header.createEl('select', { cls: 'scribian-model' });
+    modelSelect = header.createEl('select', { cls: 'skald-model' });
     for (const m of MODELS) {
       const opt = modelSelect.createEl('option', {
         text: m.label,
@@ -51,12 +51,12 @@ export function renderHeader(
     // <select> below is a stand-in so `.value` keeps working — its
     // single option carries the user's configured OpenRouter model.
     const label = header.createEl('span', {
-      cls: 'scribian-model-label',
+      cls: 'skald-model-label',
       text: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
     });
     label.setAttr('title', 'Active OpenRouter model. Change in settings.');
     modelSelect = header.createEl('select', {
-      cls: 'scribian-model scribian-model-hidden',
+      cls: 'skald-model skald-model-hidden',
     });
     const opt = modelSelect.createEl('option', {
       text: settings.openrouterModel,
@@ -67,7 +67,7 @@ export function renderHeader(
 
   if (hooks.onHistory) {
     const historyBtn = header.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn',
+      cls: 'clickable-icon skald-icon-btn',
       attr: { 'aria-label': 'Chat history' },
     });
     setIcon(historyBtn, 'history');
@@ -76,7 +76,7 @@ export function renderHeader(
   }
 
   const newChatBtn = header.createEl('button', {
-    cls: 'clickable-icon scribian-icon-btn',
+    cls: 'clickable-icon skald-icon-btn',
     attr: { 'aria-label': 'New chat' },
   });
   setIcon(newChatBtn, 'square-pen');

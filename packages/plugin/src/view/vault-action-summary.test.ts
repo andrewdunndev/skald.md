@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Message } from '@scribian/protocol';
+import type { Message } from '@skald/protocol';
 import {
   formatSummary,
   hasAnyAction,
@@ -109,7 +109,7 @@ describe('summarizeVaultActions', () => {
         {
           type: 'tool_result',
           tool_use_id: 'w1',
-          content: 'Appended N chars to Scribian/Memory.md.',
+          content: 'Appended N chars to Skald/Memory.md.',
         },
       ]),
     );

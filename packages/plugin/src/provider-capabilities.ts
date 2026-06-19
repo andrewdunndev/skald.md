@@ -4,7 +4,7 @@
  * Every decision that forks on Provider lives here as a single exhaustive
  * switch. Call sites consume capability fields rather than comparing provider
  * strings directly, so adding a third provider means: extend Provider in
- * @scribian/protocol, add a case here, satisfy the compiler — no other
+ * @skald/protocol, add a case here, satisfy the compiler — no other
  * file changes required.
  *
  * reasoningModel: the user's configured chat model for the active provider.
@@ -13,8 +13,8 @@
  *   Set to point the cheap/utility role at any model incl. a local one.
  */
 
-import type { Provider } from '@scribian/protocol';
-import type { ScribianSettings } from './settings';
+import type { Provider } from '@skald/protocol';
+import type { SkaldSettings } from './settings';
 import { assertNever } from './mode-capabilities';
 
 export interface ProviderCapabilities {
@@ -45,7 +45,7 @@ export function providerCapabilities(provider: Provider): ProviderCapabilities {
  * anthropic → settings.defaultModel
  * openrouter → settings.openrouterModel
  */
-export function reasoningModel(settings: ScribianSettings): string {
+export function reasoningModel(settings: SkaldSettings): string {
   switch (settings.provider) {
     case 'anthropic':
       return settings.defaultModel;
@@ -63,7 +63,7 @@ export function reasoningModel(settings: ScribianSettings): string {
  *      at any model including a local one
  *   2. per-provider default (the cheapest capable Haiku-tier model)
  */
-export function utilityModel(settings: ScribianSettings): string {
+export function utilityModel(settings: SkaldSettings): string {
   if (settings.utilityModel) return settings.utilityModel;
   switch (settings.provider) {
     case 'anthropic':

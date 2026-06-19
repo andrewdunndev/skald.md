@@ -61,7 +61,7 @@ function makeDirectCfg(
     openrouterApiKey: '',
     defaultModel: 'claude-sonnet-4-6',
     openrouterModel: 'anthropic/claude-sonnet-4-6',
-    captureFolder: 'Scribian/Captures',
+    captureFolder: 'Skald/Captures',
     promptPath: '',
     mode: 'inbox',
     ...overrides,
@@ -88,7 +88,7 @@ describe('CaptureService.run() — direct mode', () => {
       silent: true,
     });
     expect(result.routedTo).toBe('create');
-    expect(result.path).toMatch(/Scribian\/Captures\//);
+    expect(result.path).toMatch(/Skald\/Captures\//);
     expect(created[0].body).toBe('# Flowers\nRed tulips.');
     expect(spy).toHaveBeenCalledOnce();
     const call = spy.mock.calls[0][0] as Record<string, unknown>;
@@ -153,7 +153,7 @@ describe('CaptureService.run() — worker mode', () => {
       openrouterApiKey: '',
       defaultModel: 'claude-sonnet-4-6',
       openrouterModel: 'anthropic/claude-sonnet-4-6',
-      captureFolder: 'Scribian/Captures',
+      captureFolder: 'Skald/Captures',
       promptPath: '',
       mode: 'inbox',
     }));

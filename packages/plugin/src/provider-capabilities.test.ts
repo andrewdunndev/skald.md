@@ -7,17 +7,17 @@
  *
  * Note: we do NOT import settings.ts here — it transitively pulls in
  * Obsidian classes (Setting, PluginSettingTab, etc.) which require a full
- * mock. Instead we inline the minimal ScribianSettings shape needed.
+ * mock. Instead we inline the minimal SkaldSettings shape needed.
  */
 import { describe, expect, it } from 'vitest';
-import type { Provider } from '@scribian/protocol';
+import type { Provider } from '@skald/protocol';
 import {
   providerCapabilities,
   utilityModel,
   reasoningModel,
 } from './provider-capabilities';
 
-// Minimal ScribianSettings stub — only the fields provider-capabilities uses.
+// Minimal SkaldSettings stub — only the fields provider-capabilities uses.
 interface MinimalSettings {
   provider: Provider;
   defaultModel: string;

@@ -51,7 +51,7 @@ describe('buildActiveTools: direct mode', () => {
   it('includes memory tools in direct mode when memory is enabled', () => {
     const tools = buildActiveTools({
       memoryEnabled: true,
-      memoryPath: 'Scribian/Memory.md',
+      memoryPath: 'Skald/Memory.md',
       connectionMode: 'direct',
     });
     expect(toolNames(tools)).toContain('remember_fact');

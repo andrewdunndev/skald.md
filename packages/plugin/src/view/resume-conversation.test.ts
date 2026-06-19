@@ -1,12 +1,12 @@
 /**
  * resumeConversation orchestrator tests. The flow itself owns no parsing
  * or rendering logic — it wires read → parse → hydrate → repaint, with a
- * read-only fallback when the file isn't a parseable scribian conversation.
+ * read-only fallback when the file isn't a parseable skald conversation.
  * These tests pin that wiring: hydrate runs with the parsed payload on the
  * happy path, and on a parse miss the fallback opens the note instead.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { Message, Usage } from '@scribian/protocol';
+import type { Message, Usage } from '@skald/protocol';
 import type { TFile } from 'obsidian';
 import { resumeConversation, type ResumeContext } from './resume-conversation';
 import { ChatSession } from '../chat-session';
@@ -137,7 +137,7 @@ describe('resumeConversation: parse failure', () => {
   it('opens the note for reading and does NOT hydrate when parse returns null', async () => {
     parseMock.mockReturnValue(null);
 
-    const ctx = makeCtx({ content: 'not a scribian conversation' });
+    const ctx = makeCtx({ content: 'not a skald conversation' });
     const file = fakeFile('Chats/random.md');
     await resumeConversation(file, ctx);
 

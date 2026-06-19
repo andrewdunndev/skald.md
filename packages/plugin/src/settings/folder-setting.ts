@@ -9,10 +9,10 @@
  */
 
 import { Setting } from 'obsidian';
-import type ScribianPlugin from '../main';
+import type SkaldPlugin from '../main';
 import { FolderSuggest } from '../folder-suggest';
 
-/** Subset of ScribianSettings keys that hold a folder path. */
+/** Subset of SkaldSettings keys that hold a folder path. */
 export type FolderSettingKey =
   | 'harnessFolder'
   | 'chatsFolder'
@@ -24,7 +24,7 @@ export type FolderSettingKey =
 
 export function addFolderSetting(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
   args: {
     name: string;
     desc: string;

@@ -41,7 +41,7 @@ describe('handleAdminRoute', () => {
     expect(await r.text()).toBe('admin page requires chat scope');
   });
 
-  it('forwards to the DO with x-scribian-admin-* metadata headers', async () => {
+  it('forwards to the DO with x-skald-admin-* metadata headers', async () => {
     const { env, received } = makeDOStub();
     await handleAdminRoute(
       new Request('https://w.example/admin', {
@@ -54,14 +54,14 @@ describe('handleAdminRoute', () => {
     expect(received).toHaveLength(1);
     const fwd = received[0];
     const summaries = JSON.parse(
-      fwd.headers.get('x-scribian-admin-token-summaries')!,
+      fwd.headers.get('x-skald-admin-token-summaries')!,
     );
     expect(summaries).toEqual([
       { label: 'plugin', scopes: ['chat'] },
       { label: 'noscope', scopes: [] },
     ]);
     const envSnap = JSON.parse(
-      fwd.headers.get('x-scribian-admin-env-snapshot')!,
+      fwd.headers.get('x-skald-admin-env-snapshot')!,
     );
     expect(envSnap).toEqual({
       anthropic: false,

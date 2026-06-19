@@ -20,16 +20,16 @@ export async function handleAdminRoute(
   if (!hasScope(auth.result.scopes, 'chat')) {
     return new Response('admin page requires chat scope', { status: 403 });
   }
-  const stub = env.SCRIBIAN_SESSION.get(
-    env.SCRIBIAN_SESSION.idFromName(sessionDoName),
+  const stub = env.SKALD_SESSION.get(
+    env.SKALD_SESSION.idFromName(sessionDoName),
   );
   const fwd = new Request(req.url, {
     method: 'GET',
     headers: new Headers({
-      'x-scribian-admin-token-summaries': JSON.stringify(
+      'x-skald-admin-token-summaries': JSON.stringify(
         registry.tokenSummaries(),
       ),
-      'x-scribian-admin-env-snapshot': JSON.stringify({
+      'x-skald-admin-env-snapshot': JSON.stringify({
         anthropic: !!env.ANTHROPIC_API_KEY,
         openrouter: !!env.OPENROUTER_API_KEY,
         aigw: !!env.AI_GATEWAY_URL,

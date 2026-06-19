@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ChatRequest } from '@scribian/protocol';
+import type { ChatRequest } from '@skald/protocol';
 import {
   transformOpenRouterEvent,
   transformOpenRouterRequest,
@@ -74,7 +74,7 @@ describe('transformOpenRouterEvent', () => {
   });
 
   // tool_use blocks named openrouter:<tool> are translated to the
-  // scribian-canonical server_tool_use shape so the plugin renderer
+  // skald-canonical server_tool_use shape so the plugin renderer
   // never branches on provider. Each row pins one tool's translation.
   it.each([
     { name: 'openrouter:web_search', tool: 'web_search', input: {} },

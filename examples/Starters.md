@@ -1,7 +1,7 @@
 ---
-description: Empty-state starter chips for scribian's chat pane.
+description: Empty-state starter chips for skald's chat pane.
 note: |
-  Copy this to your vault as `Scribian/Starters.md` (or any path,
+  Copy this to your vault as `Skald/Starters.md` (or any path,
   pointed at via Settings → Share-sheet capture → Starter chips note).
   Each list item below becomes a tap-to-fill chip on the chat
   pane's empty state. Format per line:

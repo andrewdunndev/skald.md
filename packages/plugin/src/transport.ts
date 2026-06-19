@@ -5,19 +5,19 @@
  * WebSockets get killed when the app backgrounds; backoff + visibility-
  * change handling pulls the connection back up without user intervention.
  *
- * Implements ScribianTransport so it can be used interchangeably with
+ * Implements SkaldTransport so it can be used interchangeably with
  * DirectTransport inside ChatSession and view.ts.
  */
-import type { ClientMessage } from '@scribian/protocol';
-import type { ScribianTransport, TransportHandlers } from './transport-interface';
+import type { ClientMessage } from '@skald/protocol';
+import type { SkaldTransport, TransportHandlers } from './transport-interface';
 
-export type { ScribianTransport, TransportHandlers } from './transport-interface';
+export type { SkaldTransport, TransportHandlers } from './transport-interface';
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30_000;
 const RECONNECT_MAX_ATTEMPTS = 8;
 
-export class Transport implements ScribianTransport {
+export class Transport implements SkaldTransport {
   private ws: WebSocket | null = null;
   private closed = false;
   private reconnectAttempt = 0;
@@ -74,7 +74,7 @@ export class Transport implements ScribianTransport {
     this.ws.addEventListener('error', () => this.handlers.onError('socket error'));
     this.ws.addEventListener('message', (e) => {
       try {
-        const msg = JSON.parse(e.data as string) as import('@scribian/protocol').ServerMessage;
+        const msg = JSON.parse(e.data as string) as import('@skald/protocol').ServerMessage;
         this.handlers.onMessage(msg);
       } catch {
         this.handlers.onError('parse error');

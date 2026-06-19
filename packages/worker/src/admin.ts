@@ -28,7 +28,7 @@ export function renderAdminPage(vm: AdminViewModel): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>scribian Worker · admin</title>
+  <title>skald Worker · admin</title>
   <style>
     :root {
       color-scheme: light dark;
@@ -142,7 +142,7 @@ export function renderAdminPage(vm: AdminViewModel): string {
 </head>
 <body>
   <h1>${vm.workerName} <span class="badge">v${vm.version}</span></h1>
-  <p class="lead">Read-only diagnostic page. No mutation — token management runs through <code>wrangler secret put SCRIBIAN_TOKENS</code>.</p>
+  <p class="lead">Read-only diagnostic page. No mutation — token management runs through <code>wrangler secret put SKALD_TOKENS</code>.</p>
 
   <h2>Status</h2>
   <div class="card">
@@ -200,8 +200,8 @@ export function renderAdminPage(vm: AdminViewModel): string {
       Token values are intentionally hidden. To rotate or add a token:
     </p>
     <pre><code>TOKEN=$(openssl rand -hex 32)
-# Edit your SCRIBIAN_TOKENS JSON, add/replace an entry, then:
-pnpm exec wrangler secret put SCRIBIAN_TOKENS</code></pre>
+# Edit your SKALD_TOKENS JSON, add/replace an entry, then:
+pnpm exec wrangler secret put SKALD_TOKENS</code></pre>
   </div>
 
   <h2>Recent events (last ${vm.recentEvents.length})</h2>

@@ -1,10 +1,10 @@
-<svg viewBox="0 0 256 256" width="256" height="256" font-family="Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="scribian avatar — vault-native Claude client for Obsidian, with the dunn.dev rune as placeholder glyph.">
+<svg viewBox="0 0 256 256" width="256" height="256" font-family="Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="skald avatar — vault-native Claude client for Obsidian, with the dunn.dev rune as placeholder glyph.">
   <g font-family="Helvetica, Arial, sans-serif">
   <rect x="0" y="0" width="256" height="256" fill="#ffffff"/>
   <rect x="0" y="0" width="256" height="256" fill="none" stroke="#e0e0e0" stroke-width="1"/>
 
   <!-- title block: y 0-90 -->
-  <text x="128" y="56" text-anchor="middle" font-size="32" font-weight="700" fill="#4a6741">scribian</text>
+  <text x="128" y="56" text-anchor="middle" font-size="32" font-weight="700" fill="#4a6741">skald</text>
   <text x="128" y="76" text-anchor="middle" font-size="10" fill="#707070">vault-native Claude client for Obsidian</text>
 
   <!-- glyph band: y 90-200. Replace this group with the project's metaphorical mark.

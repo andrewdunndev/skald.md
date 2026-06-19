@@ -5,7 +5,7 @@
  * A persona is a single vault note whose body becomes a system-
  * prompt prefix. Users author their own ("code-reviewer.md",
  * "drill-down.md", "therapist.md") in a configurable folder
- * (default Scribian/Personas/) and pick one in settings. The
+ * (default Skald/Personas/) and pick one in settings. The
  * persona's frontmatter is stripped before injection so the user
  * can keep YAML metadata without it leaking into the prompt.
  *

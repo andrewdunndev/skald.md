@@ -18,7 +18,7 @@
  *   scripts/cdp-out/report.md
  *
  * Requires: Obsidian launched with --remote-debugging-port=9222
- * AND the scribian plugin enabled in the open vault. Will refuse
+ * AND the skald plugin enabled in the open vault. Will refuse
  * to run otherwise.
  */
 
@@ -131,14 +131,14 @@ async function scenePluginLoaded(client) {
   const state = await evaluate(
     client,
     `JSON.stringify({
-       enabled: !!app.plugins.plugins.scribian,
+       enabled: !!app.plugins.plugins.skald,
        vault: app.vault.getName(),
-       leaves: app.workspace.getLeavesOfType('scribian-chat').length,
+       leaves: app.workspace.getLeavesOfType('skald-chat').length,
      })`,
   );
   const parsed = JSON.parse(state);
   if (!parsed.enabled) {
-    record('plugin-loaded', 'fail', 'scribian plugin not enabled');
+    record('plugin-loaded', 'fail', 'skald plugin not enabled');
     return false;
   }
   record('plugin-loaded', 'pass', `vault=${parsed.vault}, leaves=${parsed.leaves}`);
@@ -146,11 +146,11 @@ async function scenePluginLoaded(client) {
 }
 
 async function sceneOpenChatPane(client) {
-  await evaluate(client, `app.plugins.plugins.scribian.activateView()`);
+  await evaluate(client, `app.plugins.plugins.skald.activateView()`);
   await delay(600);
   const open = await evaluate(
     client,
-    `app.workspace.getLeavesOfType('scribian-chat').length > 0`,
+    `app.workspace.getLeavesOfType('skald-chat').length > 0`,
   );
   record('open-chat-pane', open ? 'pass' : 'fail', `leaves=${open ? '≥1' : '0'}`);
   const file = await screenshot(client, '01-chat-pane');
@@ -161,19 +161,19 @@ async function sceneEmptyState(client) {
   const probe = await evaluate(
     client,
     `(function() {
-       const root = document.querySelector('.scribian-empty');
+       const root = document.querySelector('.skald-empty');
        if (!root) return { present: false };
-       const chips = Array.from(root.querySelectorAll('.scribian-empty-chip'));
+       const chips = Array.from(root.querySelectorAll('.skald-empty-chip'));
        return {
          present: true,
-         title: root.querySelector('.scribian-empty-title')?.textContent,
-         subtitle: root.querySelector('.scribian-empty-subtitle')?.textContent,
-         chips: chips.map(c => c.querySelector('.scribian-empty-chip-label')?.textContent),
+         title: root.querySelector('.skald-empty-title')?.textContent,
+         subtitle: root.querySelector('.skald-empty-subtitle')?.textContent,
+         chips: chips.map(c => c.querySelector('.skald-empty-chip-label')?.textContent),
        };
      })()`,
   );
   if (!probe.present) {
-    record('empty-state', 'fail', 'no .scribian-empty in DOM');
+    record('empty-state', 'fail', 'no .skald-empty in DOM');
     return;
   }
   if (!probe.chips || probe.chips.length === 0) {
@@ -192,11 +192,11 @@ async function sceneSetupBanner(client) {
   const probe = await evaluate(
     client,
     `(function() {
-       const b = document.querySelector('.scribian-setup-banner');
+       const b = document.querySelector('.skald-setup-banner');
        return b ? {
          present: true,
-         title: b.querySelector('.scribian-setup-banner-title')?.textContent,
-         detail: b.querySelector('.scribian-setup-banner-detail')?.textContent,
+         title: b.querySelector('.skald-setup-banner-title')?.textContent,
+         detail: b.querySelector('.skald-setup-banner-detail')?.textContent,
        } : { present: false };
      })()`,
   );
@@ -231,8 +231,8 @@ async function sceneActiveNote(client) {
   const probe = await evaluate(
     client,
     `(function() {
-       const el = document.querySelector('.scribian-active-note');
-       const label = el?.querySelector('.scribian-active-note-label')?.textContent;
+       const el = document.querySelector('.skald-active-note');
+       const label = el?.querySelector('.skald-active-note-label')?.textContent;
        return { present: !!el, label, displayed: el ? el.style.display !== 'none' : false };
      })()`,
   );
@@ -249,10 +249,10 @@ async function sceneStarterPick(client) {
   const filled = await evaluate(
     client,
     `(function() {
-       const chip = document.querySelector('.scribian-empty-chip');
+       const chip = document.querySelector('.skald-empty-chip');
        if (!chip) return null;
        chip.click();
-       const input = document.querySelector('.scribian-input');
+       const input = document.querySelector('.skald-input');
        return input ? input.value.slice(0, 60) : null;
      })()`,
   );
@@ -265,27 +265,27 @@ async function sceneStarterPick(client) {
 }
 
 async function sceneSetupURI(client) {
-  // Trigger the scribian-setup protocol handler directly with a
+  // Trigger the skald-setup protocol handler directly with a
   // fake endpoint + token, verify the confirmation modal renders
   // with masked token preview.
   await evaluate(
     client,
     `(function() {
        const data = {
-         action: 'scribian-setup',
+         action: 'skald-setup',
          endpoint: 'https://test.example.workers.dev',
          token: 'abcd1234efgh5678ijkl9012'
        };
-       app.plugins.plugins.scribian.handleSetupUri(data);
+       app.plugins.plugins.skald.handleSetupUri(data);
      })()`,
   );
   await delay(400);
   const probe = await evaluate(
     client,
     `(function() {
-       const modal = document.querySelector('.scribian-setup-confirm');
+       const modal = document.querySelector('.skald-setup-confirm');
        if (!modal) return { present: false };
-       const fields = Array.from(modal.querySelectorAll('.scribian-confirm-field-value'))
+       const fields = Array.from(modal.querySelectorAll('.skald-confirm-field-value'))
          .map(e => e.textContent);
        return { present: true, fields };
      })()`,
@@ -307,7 +307,7 @@ async function sceneSetupURI(client) {
   // Close the modal so the next scenes have a clean DOM
   await evalVoid(
     client,
-    `document.querySelector('.scribian-setup-confirm')
+    `document.querySelector('.skald-setup-confirm')
        ?.closest('.modal-container')?.querySelector('.modal-close-button')?.click()`,
   );
   await delay(200);
@@ -327,13 +327,13 @@ async function sceneVaultActionBadge(client) {
   // requestRender resolves before we inject.
   await evalVoid(
     client,
-    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+    `document.querySelector('.skald-header [aria-label="New chat"]')?.click()`,
   );
   await delay(300);
   await evalVoid(
     client,
     `(async function() {
-       const leaf = app.workspace.getLeavesOfType('scribian-chat')[0];
+       const leaf = app.workspace.getLeavesOfType('skald-chat')[0];
        const view = leaf.view;
        const session = view.session;
        if (!session) return;
@@ -369,8 +369,8 @@ async function sceneVaultActionBadge(client) {
   const probe = await evaluate(
     client,
     `JSON.stringify({
-       badgeText: document.querySelector('.scribian-vault-badge-active')?.textContent ?? null,
-       badgeIdle: document.querySelector('.scribian-vault-badge-idle')?.textContent ?? null,
+       badgeText: document.querySelector('.skald-vault-badge-active')?.textContent ?? null,
+       badgeIdle: document.querySelector('.skald-vault-badge-idle')?.textContent ?? null,
      })`,
   );
   const parsed = JSON.parse(probe);
@@ -391,13 +391,13 @@ async function sceneWriteNudge(client) {
   // next probe.
   await evalVoid(
     client,
-    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+    `document.querySelector('.skald-header [aria-label="New chat"]')?.click()`,
   );
   await delay(300);
   await evalVoid(
     client,
     `(async function() {
-       const leaf = app.workspace.getLeavesOfType('scribian-chat')[0];
+       const leaf = app.workspace.getLeavesOfType('skald-chat')[0];
        const view = leaf.view;
        const session = view.session;
        if (!session) return;
@@ -416,16 +416,16 @@ async function sceneWriteNudge(client) {
   const probe = await evaluate(
     client,
     `JSON.stringify({
-       nudges: Array.from(document.querySelectorAll('.scribian-write-nudge'))
+       nudges: Array.from(document.querySelectorAll('.skald-write-nudge'))
          .map(b => b.textContent.trim()),
-       msgCount: app.workspace.getLeavesOfType('scribian-chat')[0]?.view?.session?.getMessages?.()?.length,
+       msgCount: app.workspace.getLeavesOfType('skald-chat')[0]?.view?.session?.getMessages?.()?.length,
        lastText: (() => {
-         const last = app.workspace.getLeavesOfType('scribian-chat')[0]?.view?.session?.getMessages?.()?.slice(-1)[0];
+         const last = app.workspace.getLeavesOfType('skald-chat')[0]?.view?.session?.getMessages?.()?.slice(-1)[0];
          if (!last) return null;
          if (typeof last.content === 'string') return last.content;
          return last.content.find(b => b.type === 'text')?.text;
        })(),
-       renderedTexts: Array.from(document.querySelectorAll('.scribian-msg-assistant .scribian-text')).map(e => e.textContent.slice(0, 80)),
+       renderedTexts: Array.from(document.querySelectorAll('.skald-msg-assistant .skald-text')).map(e => e.textContent.slice(0, 80)),
      })`,
   );
   const parsed = JSON.parse(probe);
@@ -450,13 +450,13 @@ async function sceneIdleBadge(client) {
   // Plain text-only assistant turn → idle badge ("💭 no vault action").
   await evalVoid(
     client,
-    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+    `document.querySelector('.skald-header [aria-label="New chat"]')?.click()`,
   );
   await delay(300);
   await evalVoid(
     client,
     `(async function() {
-       const leaf = app.workspace.getLeavesOfType('scribian-chat')[0];
+       const leaf = app.workspace.getLeavesOfType('skald-chat')[0];
        const view = leaf.view;
        const session = view.session;
        if (!session) return;
@@ -473,7 +473,7 @@ async function sceneIdleBadge(client) {
   const probe = await evaluate(
     client,
     `JSON.stringify({
-       idle: document.querySelector('.scribian-vault-badge-idle')?.textContent ?? null,
+       idle: document.querySelector('.skald-vault-badge-idle')?.textContent ?? null,
      })`,
   );
   const parsed = JSON.parse(probe);
@@ -489,14 +489,14 @@ async function sceneNewChatReset(client) {
   // Tap the new-chat button + verify the empty state returns.
   await evalVoid(
     client,
-    `document.querySelector('.scribian-header [aria-label="New chat"]')?.click()`,
+    `document.querySelector('.skald-header [aria-label="New chat"]')?.click()`,
   );
   await delay(400);
   const probe = await evaluate(
     client,
     `JSON.stringify({
-       hasEmpty: !!document.querySelector('.scribian-empty'),
-       msgCount: document.querySelectorAll('.scribian-msg').length,
+       hasEmpty: !!document.querySelector('.skald-empty'),
+       msgCount: document.querySelectorAll('.skald-msg').length,
      })`,
   );
   const parsed = JSON.parse(probe);
@@ -509,11 +509,11 @@ async function sceneNewChatReset(client) {
 }
 
 async function sceneSettingsTab(client) {
-  // Open the Obsidian settings, switch to the scribian tab,
-  // capture the scribian-specific UI.
+  // Open the Obsidian settings, switch to the skald tab,
+  // capture the skald-specific UI.
   await evalVoid(
     client,
-    `app.setting.open(); app.setting.openTabById('scribian')`,
+    `app.setting.open(); app.setting.openTabById('skald')`,
   );
   await delay(500);
   // JSON.stringify the result inside the page so CDP returns a
@@ -542,7 +542,7 @@ async function sceneSettingsTab(client) {
 
 async function writeReport() {
   const lines = [
-    `# scribian CDP walkthrough — ${new Date().toISOString()}`,
+    `# skald CDP walkthrough — ${new Date().toISOString()}`,
     '',
     'Live UI walkthrough against Obsidian running with',
     '`--remote-debugging-port=9222`. Each scene exercises one visible',
@@ -566,7 +566,7 @@ async function writeReport() {
   await fs.writeFile(path.join(OUT_DIR, 'report.md'), lines.join('\n'));
 }
 
-console.log(`scribian CDP walkthrough — Obsidian @ ${CDP_HTTP}`);
+console.log(`skald CDP walkthrough — Obsidian @ ${CDP_HTTP}`);
 const target = await findPage();
 console.log(`target: ${target.title}`);
 const client = newClient(target.webSocketDebuggerUrl);

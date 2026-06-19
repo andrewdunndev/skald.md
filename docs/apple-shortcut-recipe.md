@@ -1,14 +1,14 @@
-# Apple Shortcut recipe for scribian capture
+# Apple Shortcut recipe for skald capture
 
 Step-by-step instructions to build the Shortcut that powers
-`obsidian://scribian-capture`. Until the `.shortcut` iCloud share
+`obsidian://skald-capture`. Until the `.shortcut` iCloud share
 link lands in the repo (issue: distribution-prep), this is the
 canonical build recipe.
 
 The Shortcut sits in your iOS share sheet. When triggered from
 Safari (URL/text), Photos (image), or any text-bearing app, it
-URL-encodes the input and opens an `obsidian://scribian-capture`
-URL. scribian's protocol handler picks it up and runs the capture
+URL-encodes the input and opens an `obsidian://skald-capture`
+URL. skald's protocol handler picks it up and runs the capture
 flow.
 
 ## Build it once
@@ -17,7 +17,7 @@ On iPhone or iPad:
 
 1. Open the **Shortcuts** app.
 2. Tap **+** (top right) → "New Shortcut."
-3. Rename the shortcut: tap the title bar, type **Scribian
+3. Rename the shortcut: tap the title bar, type **Skald
    Capture**. Tap a color/icon if you want.
 4. Tap the (i) icon at the bottom → **Show in Share Sheet** ON.
 5. Under "Share Sheet Types" select: **URLs**, **Text**, **Images**
@@ -65,11 +65,11 @@ vaults live there. Use the **Save File** action:
 
 - Action: **Save File**
 - Destination: Browse → On My iPad/iPhone → Obsidian → `<vault>` →
-  `scribian` → `inbox`
+  `skald` → `inbox`
 - Filename: timestamp + `.jpg` (use the "Current Date" magic
   variable formatted as `yyyy-MM-dd-HH-mm-ss`)
 - After saving, get the file's vault-relative path (e.g.
-  `scribian/inbox/2026-05-14-15-30-00.jpg`) and store in Variable
+  `skald/inbox/2026-05-14-15-30-00.jpg`) and store in Variable
   **payload**.
 
 ### 5. URL-encode the payload (text/URL branches)
@@ -87,7 +87,7 @@ Add action: **URL** (search "URL").
 Type the URL with magic-variable substitution:
 
 ```
-obsidian://scribian-capture?vault=<vault>&kind=<kind>&payload=<payload>
+obsidian://skald-capture?vault=<vault>&kind=<kind>&payload=<payload>
 ```
 
 Replace `<vault>`, `<kind>`, `<payload>` with the magic variables
@@ -103,11 +103,11 @@ Add action: **Open URLs**.
 
 1. Save the Shortcut (tap Done top-right).
 2. Open Safari, go to any page, tap share → swipe to find
-   **Scribian Capture** → tap.
+   **Skald Capture** → tap.
 3. Obsidian should foreground (or open if it wasn't running) and
-   scribian's protocol handler should fire. A "scribian:
-   capturing…" Notice appears, then "scribian: captured →
-   Scribian/Captures/<date>-<slug>.md" when done.
+   skald's protocol handler should fire. A "skald:
+   capturing…" Notice appears, then "skald: captured →
+   Skald/Captures/<date>-<slug>.md" when done.
 
 If it doesn't fire:
 - Check Obsidian is the foreground vault matches `<vault>` in the
@@ -115,7 +115,7 @@ If it doesn't fire:
   is active).
 - Check the plugin is enabled in Settings → Community plugins.
 - Check the Worker URL + token are configured in Settings →
-  Scribian → Worker.
+  Skald → Worker.
 
 ## Sharing the Shortcut
 
@@ -135,7 +135,7 @@ this user-generated iCloud link is the distribution path.)
   and pass the path instead of the content. Future iteration.
 - **PDF capture.** PDFs from share-sheet are valid (`kind=pdf`)
   per the protocol handler, but the Shortcut would need a PDF
-  branch that saves to `scribian/inbox/`. Not built yet.
+  branch that saves to `skald/inbox/`. Not built yet.
 - **Base64 fallback.** When content has special characters that
   break URL encoding, pass `b64=true` and base64-encode the
   payload. Not built yet.

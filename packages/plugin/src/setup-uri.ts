@@ -1,5 +1,5 @@
 /**
- * Setup URI handler — obsidian://scribian-setup?endpoint=<url>&token=<token>
+ * Setup URI handler — obsidian://skald-setup?endpoint=<url>&token=<token>
  *
  * Use case: user deploys their Worker on a desktop machine + mints a
  * token, then opens the resulting URI on an iPad to onboard without
@@ -21,7 +21,7 @@ export interface SetupParams {
 }
 
 /**
- * Parse the obsidian://scribian-setup query string into SetupParams,
+ * Parse the obsidian://skald-setup query string into SetupParams,
  * or return a reason describing why the URI is unusable. Pure
  * function — no I/O, no plugin state, no Notice surface. Tested in
  * isolation in setup-uri.test.ts.

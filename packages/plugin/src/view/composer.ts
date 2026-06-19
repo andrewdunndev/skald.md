@@ -18,7 +18,7 @@ export interface ComposerHooks {
 /**
  * Input row at the bottom of the chat pane. Owns the textarea, the
  * send/stop/camera buttons, the @-picker, the picked-attachment chip
- * row, and the paste/file event handlers. ScribianView reads the
+ * row, and the paste/file event handlers. SkaldView reads the
  * composer's current text + attachments when sending; the composer
  * doesn't know about the transport or chat session.
  */
@@ -40,12 +40,12 @@ export class Composer {
     // Chip slot — only renders when notes are explicitly attached via @.
     // No auto-attachment of the active vault note (avoids visual noise +
     // surprise context injection).
-    this.chipEl = root.createDiv({ cls: 'scribian-chip-row' });
+    this.chipEl = root.createDiv({ cls: 'skald-chip-row' });
     this.renderChip();
 
-    const inputWrap = root.createDiv({ cls: 'scribian-input-wrap' });
+    const inputWrap = root.createDiv({ cls: 'skald-input-wrap' });
     this.inputEl = inputWrap.createEl('textarea', {
-      cls: 'scribian-input',
+      cls: 'skald-input',
       attr: {
         placeholder: 'Ask Claude…',
         rows: '2',
@@ -60,20 +60,20 @@ export class Composer {
         enterkeyhint: 'send',
       },
     });
-    const buttonRow = inputWrap.createDiv({ cls: 'scribian-button-row' });
+    const buttonRow = inputWrap.createDiv({ cls: 'skald-button-row' });
 
     // Phase 7 (vision): file/camera picker. Available on every
     // platform; on iOS the `capture="environment"` attribute opens
     // the camera UI directly. On desktop the user gets the standard
     // file picker (image-only filter).
     const cameraBtn = buttonRow.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn scribian-camera',
+      cls: 'clickable-icon skald-icon-btn skald-camera',
       attr: { 'aria-label': 'Attach image' },
     });
     setIcon(cameraBtn, 'camera');
     setTooltip(cameraBtn, 'Attach image (photo / file)');
     this.fileInput = buttonRow.createEl('input', {
-      cls: 'scribian-file-input',
+      cls: 'skald-file-input',
       attr: {
         type: 'file',
         accept: 'image/jpeg,image/png,image/gif,image/webp',
@@ -90,13 +90,13 @@ export class Composer {
     });
 
     this.sendBtn = buttonRow.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn scribian-send',
+      cls: 'clickable-icon skald-icon-btn skald-send',
       attr: { 'aria-label': 'Send' },
     });
     setIcon(this.sendBtn, 'send-horizontal');
     setTooltip(this.sendBtn, 'Send (Enter)');
     this.stopBtn = buttonRow.createEl('button', {
-      cls: 'clickable-icon scribian-icon-btn scribian-stop',
+      cls: 'clickable-icon skald-icon-btn skald-stop',
       attr: { 'aria-label': 'Stop' },
     });
     setIcon(this.stopBtn, 'square');
@@ -273,16 +273,16 @@ export class Composer {
     this.chipEl.empty();
 
     for (const f of this.pickedFiles) {
-      const chip = this.chipEl.createDiv({ cls: 'scribian-chip' });
+      const chip = this.chipEl.createDiv({ cls: 'skald-chip' });
       const label = chip.createSpan({
-        cls: 'scribian-chip-label',
+        cls: 'skald-chip-label',
         text: f.basename,
       });
       label.addEventListener('click', () => {
         this.app.workspace.openLinkText(f.path, '', false);
       });
       const dismiss = chip.createEl('button', {
-        cls: 'clickable-icon scribian-chip-dismiss',
+        cls: 'clickable-icon skald-chip-dismiss',
         attr: { 'aria-label': 'Remove attachment' },
       });
       setIcon(dismiss, 'x');
@@ -294,16 +294,16 @@ export class Composer {
 
     for (const img of this.pickedImages) {
       const chip = this.chipEl.createDiv({
-        cls: 'scribian-chip scribian-chip-image',
+        cls: 'skald-chip skald-chip-image',
       });
-      const icon = chip.createSpan({ cls: 'scribian-chip-icon' });
+      const icon = chip.createSpan({ cls: 'skald-chip-icon' });
       setIcon(icon, 'image');
       chip.createSpan({
-        cls: 'scribian-chip-label',
+        cls: 'skald-chip-label',
         text: `${img.label} · ${humanByteCount(img.byteLength)}`,
       });
       const dismiss = chip.createEl('button', {
-        cls: 'clickable-icon scribian-chip-dismiss',
+        cls: 'clickable-icon skald-chip-dismiss',
         attr: { 'aria-label': 'Remove image' },
       });
       setIcon(dismiss, 'x');

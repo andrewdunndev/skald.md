@@ -5,11 +5,11 @@
  */
 
 import { Notice, Setting, requestUrl } from 'obsidian';
-import type ScribianPlugin from '../main';
+import type SkaldPlugin from '../main';
 
 export function renderWorkerSection(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
 ): void {
   new Setting(containerEl).setName('Worker').setHeading();
 
@@ -20,7 +20,7 @@ export function renderWorkerSection(
     )
     .addText((t) =>
       t
-        .setPlaceholder('wss://scribian.username.workers.dev')
+        .setPlaceholder('wss://skald.username.workers.dev')
         .setValue(plugin.settings.workerUrl)
         .onChange(async (v) => {
           plugin.settings.workerUrl = v.trim();
@@ -31,7 +31,7 @@ export function renderWorkerSection(
   new Setting(containerEl)
     .setName('Worker token')
     .setDesc(
-      'Bearer token matching the Worker secret SCRIBIAN_TOKEN. Generate with `openssl rand -hex 32`.',
+      'Bearer token matching the Worker secret SKALD_TOKEN. Generate with `openssl rand -hex 32`.',
     )
     .addText((t) => {
       t.inputEl.type = 'password';
@@ -57,7 +57,7 @@ export function renderWorkerSection(
 
 /**
  * Hit the Worker's /health endpoint and surface the result as a
- * Notice. Doesn't validate SCRIBIAN_TOKEN — that only matters on
+ * Notice. Doesn't validate SKALD_TOKEN — that only matters on
  * WebSocket upgrades.
  *
  * Uses Obsidian's `requestUrl` (server-side fetch) rather than the
@@ -66,7 +66,7 @@ export function renderWorkerSection(
  * trips a CORS preflight and surfaces as `TypeError: Failed to
  * fetch`. requestUrl bypasses the browser CORS layer.
  */
-async function testWorkerHealth(plugin: ScribianPlugin): Promise<void> {
+async function testWorkerHealth(plugin: SkaldPlugin): Promise<void> {
   const url = plugin.settings.workerUrl.trim();
   if (!url) {
     new Notice('Set the Worker URL first.');

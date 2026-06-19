@@ -1,6 +1,6 @@
 # Vault-as-memory
 
-scribian's vault-as-memory feature (phase 6) turns your Obsidian vault
+skald's vault-as-memory feature (phase 6) turns your Obsidian vault
 into Claude's working memory across chat sessions. Two pieces:
 
 1. **Long-term memory note** — a single vault note Claude reads at
@@ -19,22 +19,22 @@ into Claude's working memory across chat sessions. Two pieces:
 ### Settings → Memory
 
 - **Enable memory note** — toggle on (default).
-- **Memory note path** — default `Scribian/Memory.md`. The note is
+- **Memory note path** — default `Skald/Memory.md`. The note is
   created on first write; nothing exists at this path initially.
 - **Reindex vault** — runs the initial embedding pass.
 
 ### First-time reindex
 
-Open the command palette and run **Scribian: Reindex vault (for
+Open the command palette and run **Skald: Reindex vault (for
 semantic search)**, or click the **Reindex** button in settings.
 
 The plugin walks every markdown file in your vault (excluding the
 configured chats / logs / saved-notes folders, since those are
-scribian-generated content you don't want surfaced as "related
+skald-generated content you don't want surfaced as "related
 notes"), batches them, and ships them to the Worker's `/index`
 endpoint. The Worker embeds each note via Workers AI's
 `@cf/baai/bge-base-en-v1.5` (768-dim vectors) and upserts to the
-`scribian-vault` Vectorize index.
+`skald-vault` Vectorize index.
 
 Progress shows in a Notice. For ~1000 notes, expect ~1 minute and a
 few cents. Free tier covers ~6K notes; the Workers Paid plan ($5/mo)
@@ -81,7 +81,7 @@ reindex moves ~3-4 changed notes plus 0-1 deletes through the
 Worker. The first-time reindex is full; everything after is
 incremental.
 
-Manual reindex via the **Scribian: Reindex vault** command or the
+Manual reindex via the **Skald: Reindex vault** command or the
 Reindex button in settings. A future enhancement will trigger
 incremental sync on vault save events; today it's manual.
 

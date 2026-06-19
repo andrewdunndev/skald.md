@@ -1,4 +1,4 @@
-// scribian wire protocol.
+// skald wire protocol.
 //
 // Phase 0 retains `echo` / `pong` / `echoed` for diagnostics.
 // Phase 1 adds Anthropic-shaped chat passthrough.

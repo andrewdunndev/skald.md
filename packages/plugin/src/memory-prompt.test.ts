@@ -24,10 +24,10 @@ function mockApp(files: Record<string, string>) {
 
 describe('buildMemorySection', () => {
   it('returns null when memory is disabled', async () => {
-    const app = mockApp({ 'Scribian/Memory.md': 'My memory' });
+    const app = mockApp({ 'Skald/Memory.md': 'My memory' });
     const out = await buildMemorySection(app, {
       enabled: false,
-      path: 'Scribian/Memory.md',
+      path: 'Skald/Memory.md',
     });
     expect(out).toBeNull();
   });
@@ -42,10 +42,10 @@ describe('buildMemorySection', () => {
     const app = mockApp({});
     const out = await buildMemorySection(app, {
       enabled: true,
-      path: 'Scribian/Memory.md',
+      path: 'Skald/Memory.md',
     });
     expect(out).not.toBeNull();
-    expect(out).toContain('Scribian/Memory.md');
+    expect(out).toContain('Skald/Memory.md');
     expect(out).toContain('<memory>');
     expect(out).toContain('(empty — no memories saved yet)');
     expect(out).toContain('</memory>');
@@ -53,11 +53,11 @@ describe('buildMemorySection', () => {
 
   it('embeds the memory content inside the <memory> block', async () => {
     const app = mockApp({
-      'Scribian/Memory.md': 'Bailey is allergic to chicken.',
+      'Skald/Memory.md': 'Bailey is allergic to chicken.',
     });
     const out = await buildMemorySection(app, {
       enabled: true,
-      path: 'Scribian/Memory.md',
+      path: 'Skald/Memory.md',
     });
     expect(out).toContain('<memory>\nBailey is allergic to chicken.\n</memory>');
   });
@@ -74,10 +74,10 @@ describe('buildMemorySection', () => {
   });
 
   it('does NOT inject the consolidation nudge for a small memory', async () => {
-    const app = mockApp({ 'Scribian/Memory.md': 'one short fact.' });
+    const app = mockApp({ 'Skald/Memory.md': 'one short fact.' });
     const out = await buildMemorySection(app, {
       enabled: true,
-      path: 'Scribian/Memory.md',
+      path: 'Skald/Memory.md',
     });
     expect(out).not.toContain('consolidation pass');
   });
@@ -85,10 +85,10 @@ describe('buildMemorySection', () => {
   it('injects the consolidation nudge when memory exceeds the threshold', async () => {
     // Build a body that's clearly past MEMORY_PRUNE_THRESHOLD_BYTES.
     const big = 'fact line.\n'.repeat(MEMORY_PRUNE_THRESHOLD_BYTES);
-    const app = mockApp({ 'Scribian/Memory.md': big });
+    const app = mockApp({ 'Skald/Memory.md': big });
     const out = await buildMemorySection(app, {
       enabled: true,
-      path: 'Scribian/Memory.md',
+      path: 'Skald/Memory.md',
     });
     expect(out).toContain('consolidation pass');
     expect(out).toMatch(/grown to \d+\.\d KB/);

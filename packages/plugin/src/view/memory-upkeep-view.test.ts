@@ -25,7 +25,7 @@ vi.mock('../provider-capabilities', () => ({
 }));
 
 import { runMemoryUpkeepView, UpkeepInFlightGate } from './memory-upkeep-view';
-import type { ScribianSettings } from '../settings';
+import type { SkaldSettings } from '../settings';
 import type { ChatSession } from '../chat-session';
 import type { ApprovalManager } from '../approval-manager';
 
@@ -63,7 +63,7 @@ function makeApprovals(decision: boolean) {
   };
 }
 
-function makeSettings(over: Partial<ScribianSettings> = {}): ScribianSettings {
+function makeSettings(over: Partial<SkaldSettings> = {}): SkaldSettings {
   return {
     provider: 'anthropic',
     anthropicApiKey: 'sk-ant-test',
@@ -73,7 +73,7 @@ function makeSettings(over: Partial<ScribianSettings> = {}): ScribianSettings {
     memoryEnabled: true,
     memoryPath: 'Memory.md',
     ...over,
-  } as ScribianSettings;
+  } as SkaldSettings;
 }
 
 function makeSession(

@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 
 const isDev = process.argv.includes('--dev');
-const outDir = process.env.SCRIBIAN_OUT_DIR ?? './dist';
+const outDir = process.env.SKALD_OUT_DIR ?? './dist';
 
 await fs.mkdir(outDir, { recursive: true });
 
@@ -18,7 +18,7 @@ const copyStatic = async () => {
 };
 
 const staticCopyPlugin = {
-  name: 'scribian-copy-static',
+  name: 'skald-copy-static',
   setup(build) {
     build.onEnd(async (result) => {
       if (result.errors.length === 0) {
@@ -44,9 +44,9 @@ const ctx = await esbuild.context({
 
 if (isDev) {
   await ctx.watch();
-  console.log(`scribian: watching, output → ${outDir}`);
+  console.log(`skald: watching, output → ${outDir}`);
 } else {
   await ctx.rebuild();
   await ctx.dispose();
-  console.log(`scribian: built → ${outDir}`);
+  console.log(`skald: built → ${outDir}`);
 }

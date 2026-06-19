@@ -7,11 +7,11 @@
 import { TokenRegistry } from '../auth';
 import type { Env } from '../env';
 
-export const DO_NAME = 'scribian-default';
+export const DO_NAME = 'skald-default';
 
 export function makeRegistry(): TokenRegistry {
   return new TokenRegistry({
-    SCRIBIAN_TOKENS: JSON.stringify([
+    SKALD_TOKENS: JSON.stringify([
       { label: 'plugin', token: 'tok-plugin', scopes: ['chat'] },
       { label: 'noscope', token: 'tok-empty', scopes: [] },
     ]),
@@ -30,7 +30,7 @@ export function makeDOStub() {
     },
   };
   const env = {
-    SCRIBIAN_SESSION: {
+    SKALD_SESSION: {
       idFromName: (name: string) => ({ name }),
       get: () => stub,
     },

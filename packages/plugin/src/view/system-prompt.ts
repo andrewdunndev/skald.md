@@ -2,7 +2,7 @@
  * System-prompt assembly for chat sessions.
  *
  * Four layers, composed in this order:
- *   1. Scribian baseline — operating context (mobile, vault-action
+ *   1. Skald baseline — operating context (mobile, vault-action
  *      default); always loaded so Claude knows what kind of
  *      session this is
  *   2. Persona (vault note) — voice/personality on top of baseline;
@@ -18,21 +18,21 @@
 import { TFile, TFolder, normalizePath, type App } from 'obsidian';
 import { buildMemorySection } from '../memory-prompt';
 import { buildPersonaSection } from '../persona-prompt';
-import { buildScribianBaseline } from './scribian-baseline';
+import { buildSkaldBaseline } from './skald-baseline';
 import { buildVaultMap } from './vault-map';
 import { modeCapabilities } from '../mode-capabilities';
-import type { ScribianSettings } from '../settings';
+import type { SkaldSettings } from '../settings';
 
 export async function loadSystemPrompt(
   app: App,
-  settings: ScribianSettings,
+  settings: SkaldSettings,
 ): Promise<string | undefined> {
   const parts: string[] = [];
 
   const caps = modeCapabilities(settings.connectionMode ?? 'direct');
 
   parts.push(
-    buildScribianBaseline({
+    buildSkaldBaseline({
       memoryPath: settings.memoryPath,
       semanticSearch: caps.semanticSearch,
     }),

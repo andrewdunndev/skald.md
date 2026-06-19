@@ -1,7 +1,7 @@
 /**
  * iOS share-sheet + URL-scheme capture (phase 8 / 8b).
  *
- * Trigger: `obsidian://scribian-capture?...` (fired by an Apple
+ * Trigger: `obsidian://skald-capture?...` (fired by an Apple
  * Shortcut). Flow: parseCaptureParams → CaptureService.run() →
  * mode dispatch:
  *   worker: POST /capture on the Worker → routeCapture
@@ -24,7 +24,7 @@ import {
 import {
   CAPTURE_DEFAULT_PROMPTS,
   type Provider,
-} from '@scribian/protocol';
+} from '@skald/protocol';
 import { modeCapabilities } from './mode-capabilities';
 import type { ConnectionMode } from './settings';
 import { workerCapture, directCapture } from './capture-provider';
@@ -166,7 +166,7 @@ export interface CaptureServiceConfig {
   /** 'auto-route' runs find_related on the generated note + appends
    * to the top match when score >= CAPTURE_ROUTE_THRESHOLD. 'inbox'
    * always creates in captureFolder. Default is 'auto-route' —
-   * intelligent triage is scribian's value-add over Obsidian's
+   * intelligent triage is skald's value-add over Obsidian's
    * native share-sheet handler. In direct mode, auto-route is
    * silently treated as inbox (Vectorize is not available). */
   mode: CaptureMode;
@@ -228,7 +228,7 @@ export async function routeCapture(
 }
 
 /** Rate limit on the capture protocol handler. The handler can be
- * fired by ANY page that crafts an `obsidian://scribian-capture`
+ * fired by ANY page that crafts an `obsidian://skald-capture`
  * URL — an iframe in a hostile webpage could fire it in a loop to
  * drain the user's Anthropic/OpenRouter spend. 5 captures per 60
  * seconds covers normal share-sheet bursts (forwarding a few
@@ -251,33 +251,33 @@ export class CaptureService {
   async handleProtocol(data: ObsidianProtocolData): Promise<void> {
     const params = parseCaptureParams(data);
     if (!params) {
-      new Notice('scribian: capture had no content to process.');
+      new Notice('skald: capture had no content to process.');
       return;
     }
     if (this.limiter.isExceeded()) {
       new Notice(
-        `scribian: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
+        `skald: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
         10_000,
       );
       console.warn(
-        `scribian: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
+        `skald: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
       );
       return;
     }
     this.limiter.record();
-    const progress = new Notice('scribian: capturing…', 0);
+    const progress = new Notice('skald: capturing…', 0);
     try {
       const note = await this.run(params);
       progress.hide();
       const verb = note.routedTo === 'append' ? 'routed to' : 'captured';
-      new Notice(`scribian: ${verb} → ${note.path}`, 5000);
+      new Notice(`skald: ${verb} → ${note.path}`, 5000);
       if (!params.silent) {
         await this.app.workspace.openLinkText(note.path, '', false);
       }
     } catch (err) {
       progress.hide();
       const msg = err instanceof Error ? err.message : String(err);
-      new Notice(`scribian: capture failed — ${msg}`, 8000);
+      new Notice(`skald: capture failed — ${msg}`, 8000);
     }
   }
 

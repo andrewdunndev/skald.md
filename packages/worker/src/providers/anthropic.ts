@@ -1,16 +1,16 @@
 /**
- * Anthropic-direct provider. The original scribian transport — direct
+ * Anthropic-direct provider. The original skald transport — direct
  * to api.anthropic.com (or AI Gateway when AI_GATEWAY_URL is set).
  * Native server tools (web_search_20260209 + web_fetch_20260209) work
  * unchanged; nothing to translate on outbound or inbound.
  */
-import type { ChatRequest } from '@scribian/protocol';
+import type { ChatRequest } from '@skald/protocol';
 
 export const ANTHROPIC_BASE_URL = 'https://api.anthropic.com';
 export const ANTHROPIC_MESSAGES_PATH = '/v1/messages';
 export const ANTHROPIC_VERSION = '2023-06-01';
 
-const SCRIBIAN_USER_AGENT = 'scribian/0.0.1 (https://gitlab.com/dunn.dev/scribian)';
+const SKALD_USER_AGENT = 'skald/0.0.1 (https://gitlab.com/dunn.dev/skald)';
 
 export interface AnthropicEnv {
   ANTHROPIC_API_KEY?: string;
@@ -36,11 +36,11 @@ export function anthropicHeaders(
     'x-api-key': apiKey,
     'anthropic-version': ANTHROPIC_VERSION,
     'content-type': 'application/json',
-    'user-agent': SCRIBIAN_USER_AGENT,
+    'user-agent': SKALD_USER_AGENT,
   };
   if (env.AI_GATEWAY_URL) {
     headers['cf-aig-metadata'] = JSON.stringify({
-      app: 'scribian',
+      app: 'skald',
       model,
       has_tools: hasTools,
     });
@@ -58,7 +58,7 @@ export function transformAnthropicRequest(req: ChatRequest): ChatRequest {
 
 /**
  * Identity translator for inbound SSE events. Anthropic's native
- * shape is scribian's canonical shape, so nothing to translate.
+ * shape is skald's canonical shape, so nothing to translate.
  */
 export function transformAnthropicEvent(
   event: string,

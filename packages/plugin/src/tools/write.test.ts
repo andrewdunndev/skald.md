@@ -35,11 +35,11 @@ describe('memory tool routing', () => {
       { fact: 'Bailey is allergic to chicken' },
       'tu_1',
       approve,
-      'Scribian/Memory.md',
+      'Skald/Memory.md',
     );
     expect(approve).toHaveBeenCalledOnce();
     const proposal = approve.mock.calls[0][0] as WriteProposal;
-    expect(proposal.path).toBe('Scribian/Memory.md');
+    expect(proposal.path).toBe('Skald/Memory.md');
     expect(proposal.kind).toBe('create');
     expect(proposal.after).toContain('Bailey is allergic to chicken');
   });
@@ -67,7 +67,7 @@ describe('memory tool routing', () => {
       { fact: '   ' },
       'tu_1',
       approve,
-      'Scribian/Memory.md',
+      'Skald/Memory.md',
     );
     expect(result.is_error).toBe(true);
     expect(result.content).toContain('empty fact');
@@ -76,7 +76,7 @@ describe('memory tool routing', () => {
 
   it('update_memory edits the configured memory path with search/replace', async () => {
     const app = makeApp({
-      'Scribian/Memory.md': 'Bailey is allergic to chicken.\nLikes hiking.',
+      'Skald/Memory.md': 'Bailey is allergic to chicken.\nLikes hiking.',
     });
     const approve = vi.fn().mockResolvedValue(false);
     await runUpdateMemory(
@@ -84,11 +84,11 @@ describe('memory tool routing', () => {
       { search: 'chicken', replace: 'poultry' },
       'tu_2',
       approve,
-      'Scribian/Memory.md',
+      'Skald/Memory.md',
     );
     expect(approve).toHaveBeenCalledOnce();
     const proposal = approve.mock.calls[0][0] as WriteProposal;
-    expect(proposal.path).toBe('Scribian/Memory.md');
+    expect(proposal.path).toBe('Skald/Memory.md');
     expect(proposal.kind).toBe('edit');
     expect(proposal.before).toContain('chicken');
     expect(proposal.after).toContain('poultry');
@@ -112,7 +112,7 @@ describe('memory tool routing', () => {
 
   it('forget_fact removes the fact from the memory note via empty replacement', async () => {
     const app = makeApp({
-      'Scribian/Memory.md':
+      'Skald/Memory.md':
         'Bailey is allergic to chicken.\nLikes hiking.',
     });
     const approve = vi.fn().mockResolvedValue(false);
@@ -121,11 +121,11 @@ describe('memory tool routing', () => {
       { fact: 'Bailey is allergic to chicken.' },
       'tu_3',
       approve,
-      'Scribian/Memory.md',
+      'Skald/Memory.md',
     );
     expect(approve).toHaveBeenCalledOnce();
     const proposal = approve.mock.calls[0][0] as WriteProposal;
-    expect(proposal.path).toBe('Scribian/Memory.md');
+    expect(proposal.path).toBe('Skald/Memory.md');
     expect(proposal.kind).toBe('edit');
     expect(proposal.before).toContain('Bailey is allergic');
     expect(proposal.after).not.toContain('Bailey is allergic');
@@ -148,7 +148,7 @@ describe('memory tool routing', () => {
 
   it('forget_fact errors clearly when the fact is not found in memory', async () => {
     const app = makeApp({
-      'Scribian/Memory.md': 'Likes hiking.',
+      'Skald/Memory.md': 'Likes hiking.',
     });
     const approve = vi.fn();
     const result = await runForgetFact(
@@ -156,7 +156,7 @@ describe('memory tool routing', () => {
       { fact: 'not present' },
       'tu_3',
       approve,
-      'Scribian/Memory.md',
+      'Skald/Memory.md',
     );
     expect(result.is_error).toBe(true);
     expect(result.content).toContain('not found');

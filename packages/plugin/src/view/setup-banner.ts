@@ -1,5 +1,5 @@
 import { App, Notice, setIcon } from 'obsidian';
-import type { Provider } from '@scribian/protocol';
+import type { Provider } from '@skald/protocol';
 import type { ConnectionMode } from '../settings';
 import { modeCapabilities } from '../mode-capabilities';
 
@@ -39,8 +39,8 @@ export function resolveBannerSpec(input: SetupBannerInput): BannerSpec | null {
     if (!input.workerUrl) missing.push('Worker URL');
     if (!input.workerToken) missing.push('Worker token');
     return {
-      title: 'Connect scribian to your Worker',
-      detail: `Missing: ${missing.join(' + ')}. See docs/deploying-the-worker.md, or paste an obsidian://scribian-setup link from your desktop.`,
+      title: 'Connect skald to your Worker',
+      detail: `Missing: ${missing.join(' + ')}. See docs/deploying-the-worker.md, or paste an obsidian://skald-setup link from your desktop.`,
     };
   }
 
@@ -55,12 +55,12 @@ export function resolveBannerSpec(input: SetupBannerInput): BannerSpec | null {
   if (input.provider === 'openrouter') {
     return {
       title: 'Add your API key',
-      detail: 'OpenRouter API key — Settings → Scribian. Get one at openrouter.ai/keys.',
+      detail: 'OpenRouter API key — Settings → Skald. Get one at openrouter.ai/keys.',
     };
   }
   return {
     title: 'Add your API key',
-    detail: 'Anthropic API key — Settings → Scribian. Get one at console.anthropic.com.',
+    detail: 'Anthropic API key — Settings → Skald. Get one at console.anthropic.com.',
   };
 }
 
@@ -81,20 +81,20 @@ export function maybeRenderSetupBanner(
   const spec = resolveBannerSpec(input);
   if (!spec) return null;
 
-  const banner = parent.createDiv({ cls: 'scribian-setup-banner' });
-  const icon = banner.createDiv({ cls: 'scribian-setup-banner-icon' });
+  const banner = parent.createDiv({ cls: 'skald-setup-banner' });
+  const icon = banner.createDiv({ cls: 'skald-setup-banner-icon' });
   setIcon(icon, 'plug-zap');
-  const body = banner.createDiv({ cls: 'scribian-setup-banner-body' });
+  const body = banner.createDiv({ cls: 'skald-setup-banner-body' });
   body.createDiv({
-    cls: 'scribian-setup-banner-title',
+    cls: 'skald-setup-banner-title',
     text: spec.title,
   });
   body.createDiv({
-    cls: 'scribian-setup-banner-detail',
+    cls: 'skald-setup-banner-detail',
     text: spec.detail,
   });
   const action = banner.createEl('button', {
-    cls: 'mod-cta scribian-setup-banner-action',
+    cls: 'mod-cta skald-setup-banner-action',
     text: 'Open settings',
   });
   action.addEventListener('click', () => openSettingsForPlugin(app));
@@ -114,12 +114,12 @@ function openSettingsForPlugin(app: App): void {
   if (setting && typeof setting.open === 'function') {
     setting.open();
     if (typeof setting.openTabById === 'function') {
-      setting.openTabById('scribian');
+      setting.openTabById('skald');
     }
     return;
   }
   new Notice(
-    'scribian: open Settings → Community plugins → Scribian to add your Worker URL + token.',
+    'skald: open Settings → Community plugins → Skald to add your Worker URL + token.',
     8000,
   );
 }

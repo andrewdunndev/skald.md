@@ -1,6 +1,6 @@
 /**
  * Minimal 'obsidian' mock for unit tests. Only the surface the pure
- * scribian modules actually use is implemented; anything else throws
+ * skald modules actually use is implemented; anything else throws
  * so a test inadvertently relying on an unmocked API fails loudly
  * rather than silently passing.
  *

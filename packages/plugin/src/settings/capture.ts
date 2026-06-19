@@ -4,13 +4,13 @@
  */
 
 import { Setting } from 'obsidian';
-import type ScribianPlugin from '../main';
+import type SkaldPlugin from '../main';
 import { modeCapabilities } from '../mode-capabilities';
 import { addFolderSetting } from './folder-setting';
 
 export function renderCaptureSection(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
 ): void {
   new Setting(containerEl).setName('Share-sheet capture').setHeading();
 
@@ -40,8 +40,8 @@ export function renderCaptureSection(
   addFolderSetting(containerEl, plugin, {
     name: 'Captures folder',
     desc:
-      "Where captured notes land (always for inbox mode; as fallback for auto-route when no good match exists). Created on first capture if it doesn't exist. Default: Scribian/Captures",
-    placeholder: 'Scribian/Captures',
+      "Where captured notes land (always for inbox mode; as fallback for auto-route when no good match exists). Created on first capture if it doesn't exist. Default: Skald/Captures",
+    placeholder: 'Skald/Captures',
     key: 'capturesFolder',
   });
 
@@ -51,7 +51,7 @@ export function renderCaptureSection(
       'Vault-relative path of a markdown note whose body overrides the default capture prompt. Empty uses kind-specific defaults baked into the plugin (separate prompts for url/text/image/pdf).',
     )
     .addText((t) => {
-      t.setPlaceholder('Scribian/Prompts/capture.md')
+      t.setPlaceholder('Skald/Prompts/capture.md')
         .setValue(plugin.settings.capturePromptPath)
         .onChange(async (v) => {
           plugin.settings.capturePromptPath = v.trim();
@@ -62,10 +62,10 @@ export function renderCaptureSection(
   new Setting(containerEl)
     .setName('Starter chips note')
     .setDesc(
-      'Vault note holding the empty-state starter chips. Format: markdown list `- :icon: Label — prompt text` per line. Empty uses the baked-in defaults. Default: Scribian/Starters.md',
+      'Vault note holding the empty-state starter chips. Format: markdown list `- :icon: Label — prompt text` per line. Empty uses the baked-in defaults. Default: Skald/Starters.md',
     )
     .addText((t) => {
-      t.setPlaceholder('Scribian/Starters.md')
+      t.setPlaceholder('Skald/Starters.md')
         .setValue(plugin.settings.startersPath)
         .onChange(async (v) => {
           plugin.settings.startersPath = v.trim();

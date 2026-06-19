@@ -34,7 +34,7 @@ describe('estimateTurnCost', () => {
   });
 
   it('applies the 1-hour cache_write rate (2x base) for cache_creation_input_tokens', () => {
-    // scribian writes its prefix with a 1-hour TTL: write = 2x base
+    // skald writes its prefix with a 1-hour TTL: write = 2x base
     // input. Sonnet base is $3/M, so 1M cache_write = $6.
     const cost = estimateTurnCost(
       {

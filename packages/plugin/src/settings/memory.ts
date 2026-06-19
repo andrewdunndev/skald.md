@@ -7,12 +7,12 @@
  */
 
 import { Setting } from 'obsidian';
-import type ScribianPlugin from '../main';
+import type SkaldPlugin from '../main';
 
 /** Core tier: just the enable toggle. */
 export function renderMemoryToggle(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
 ): void {
   new Setting(containerEl)
     .setName('Enable memory note')
@@ -30,7 +30,7 @@ export function renderMemoryToggle(
 /** Advanced tier: note path + reindex. */
 export function renderMemoryAdvanced(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
   usesWorker: boolean,
 ): void {
   new Setting(containerEl).setName('Memory').setHeading();
@@ -38,10 +38,10 @@ export function renderMemoryAdvanced(
   new Setting(containerEl)
     .setName('Memory note path')
     .setDesc(
-      'Vault-relative path of the memory note. Created on first write if it does not exist. Default: Scribian/Memory.md',
+      'Vault-relative path of the memory note. Created on first write if it does not exist. Default: Skald/Memory.md',
     )
     .addText((t) => {
-      t.setPlaceholder('Scribian/Memory.md')
+      t.setPlaceholder('Skald/Memory.md')
         .setValue(plugin.settings.memoryPath)
         .onChange(async (v) => {
           plugin.settings.memoryPath = v.trim();

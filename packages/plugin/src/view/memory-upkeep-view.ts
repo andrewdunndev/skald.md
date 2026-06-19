@@ -8,11 +8,11 @@
  */
 
 import { TFile, normalizePath, type App } from 'obsidian';
-import type { Provider } from '@scribian/protocol';
+import type { Provider } from '@skald/protocol';
 import type { ApprovalManager } from '../approval-manager';
 import { proposeMemoryUpkeep } from '../memory-upkeep';
 import { utilityModel } from '../provider-capabilities';
-import type { ScribianSettings } from '../settings';
+import type { SkaldSettings } from '../settings';
 import type { ChatSession } from '../chat-session';
 
 /**
@@ -25,7 +25,7 @@ import type { ChatSession } from '../chat-session';
  */
 export async function runMemoryUpkeepView(opts: {
   app: App;
-  settings: ScribianSettings;
+  settings: SkaldSettings;
   session: ChatSession | null;
   approvals: ApprovalManager;
   provider: Provider | undefined;

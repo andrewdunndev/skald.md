@@ -1,5 +1,5 @@
 /**
- * Scribian baseline system-prompt segment. Sets the operating
+ * Skald baseline system-prompt segment. Sets the operating
  * context: this is the iPad/iOS side of someone's Obsidian vault.
  * Users come here because they want the AI output to LAND in their
  * vault — not just answer in a chat window that closes when they
@@ -35,9 +35,9 @@ export interface BaselineInput {
   semanticSearch?: boolean;
 }
 
-export function buildScribianBaseline(input: BaselineInput): string {
+export function buildSkaldBaseline(input: BaselineInput): string {
   const memoryRef =
-    input.memoryPath?.trim() || 'Scribian/Memory.md';
+    input.memoryPath?.trim() || 'Skald/Memory.md';
   // Default true preserves worker-mode wording for callers that
   // don't yet thread the capability (back-compat with existing
   // structural tests). Direct mode passes false explicitly.
@@ -73,11 +73,11 @@ export function buildScribianBaseline(input: BaselineInput): string {
       ];
 
   return [
-    '# Operating context: scribian (iPad/iOS in Obsidian)',
+    '# Operating context: skald (iPad/iOS in Obsidian)',
     '',
-    `You're running inside scribian, an Obsidian plugin on the user's iPad or iPhone. The user is in their own vault — every note you can read with ${readToolList} is theirs.`,
+    `You're running inside skald, an Obsidian plugin on the user's iPad or iPhone. The user is in their own vault — every note you can read with ${readToolList} is theirs.`,
     '',
-    "Key principle: **the user came to scribian because they want the output of this conversation to do something in their vault.** They're not here for a transient chat — they're here to capture a thought, identify something + file it, update an existing note, or pull context out of their notes. If they wanted to throw a question into a chatbot that forgets, Apple Intelligence and ChatGPT are one tap away.",
+    "Key principle: **the user came to skald because they want the output of this conversation to do something in their vault.** They're not here for a transient chat — they're here to capture a thought, identify something + file it, update an existing note, or pull context out of their notes. If they wanted to throw a question into a chatbot that forgets, Apple Intelligence and ChatGPT are one tap away.",
     '',
     '## Mobile brevity',
     '',

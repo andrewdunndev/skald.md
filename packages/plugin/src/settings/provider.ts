@@ -6,12 +6,12 @@
  *
  * Privacy notice for OpenRouter lives inline here because it's
  * physically next to the toggle that activates the affected path.
- * Styles in plugin/styles.css (.scribian-privacy-notice).
+ * Styles in plugin/styles.css (.skald-privacy-notice).
  */
 
 import { Setting } from 'obsidian';
-import type { Provider } from '@scribian/protocol';
-import type ScribianPlugin from '../main';
+import type { Provider } from '@skald/protocol';
+import type SkaldPlugin from '../main';
 import { ModelSuggest } from '../model-suggest';
 
 export const ANTHROPIC_MODELS = [
@@ -23,7 +23,7 @@ export const ANTHROPIC_MODELS = [
 
 export function renderProviderSection(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
   redisplay: () => void,
 ): void {
   new Setting(containerEl).setName('Provider').setHeading();
@@ -53,7 +53,7 @@ export function renderProviderSection(
 
 function renderAnthropicBlock(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
 ): void {
   new Setting(containerEl).setName('Anthropic').setHeading();
 
@@ -88,12 +88,12 @@ function renderAnthropicBlock(
 
 function renderOpenRouterBlock(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
 ): void {
   new Setting(containerEl).setName('OpenRouter').setHeading();
 
   const notice = containerEl.createEl('div', {
-    cls: 'scribian-privacy-notice',
+    cls: 'skald-privacy-notice',
   });
   notice.createEl('strong', { text: 'Privacy notice. ' });
   notice.createSpan({
@@ -109,7 +109,7 @@ function renderOpenRouterBlock(
   });
   link.setAttr('target', '_blank');
   notice.createSpan({
-    text: ", and scribian's security model in docs/security-model.md.",
+    text: ", and skald's security model in docs/security-model.md.",
   });
 
   new Setting(containerEl)

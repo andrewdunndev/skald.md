@@ -1,4 +1,4 @@
-# scribian CI
+# skald CI
 #
 # Two stages: test (typecheck across the workspace) and build (compile the
 # Obsidian plugin + dry-run the Cloudflare Worker bundle). No deployment
@@ -50,9 +50,9 @@ build-plugin:
   stage: build
   needs: ['typecheck']
   script:
-    - pnpm --filter @scribian/plugin build
+    - pnpm --filter @skald/plugin build
   artifacts:
-    name: 'scribian-plugin-$CI_COMMIT_SHORT_SHA'
+    name: 'skald-plugin-$CI_COMMIT_SHORT_SHA'
     paths:
       - packages/plugin/dist/
     expire_in: 2 weeks
@@ -64,7 +64,7 @@ build-worker:
     - cd packages/worker
     - pnpm exec wrangler deploy --dry-run --outdir=dist
   artifacts:
-    name: 'scribian-worker-$CI_COMMIT_SHORT_SHA'
+    name: 'skald-worker-$CI_COMMIT_SHORT_SHA'
     paths:
       - packages/worker/dist/
     expire_in: 2 weeks

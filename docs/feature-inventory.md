@@ -1,6 +1,6 @@
-# scribian feature inventory — what to test
+# skald feature inventory — what to test
 
-Every feature scribian ships, organized by surface. Use as a
+Every feature skald ships, organized by surface. Use as a
 checklist — tap or `[x]` an item as you verify it. Pair with
 `docs/human-testing.md` for the time-ordered runbook.
 
@@ -20,7 +20,7 @@ a Worker URL configured stay on worker mode automatically.
     direct mode).
   - Verify: A banner shows at the top of the pane with a missing-
     field summary + an "Open settings" button that lands you on
-    the scribian settings tab.
+    the skald settings tab.
 
 - [ ] **Setup banner (worker mode)**
   - Trigger: Switch to worker mode; leave `workerUrl` OR `workerToken`
@@ -28,7 +28,7 @@ a Worker URL configured stay on worker mode automatically.
   - Verify: Banner shows the missing-field summary + "Open settings".
 
 - [ ] **Setup URI: confirmation modal**
-  - Trigger: Open `obsidian://scribian-setup?endpoint=<url>&token=<tok>`
+  - Trigger: Open `obsidian://skald-setup?endpoint=<url>&token=<tok>`
     (build the URI on desktop; AirDrop / Messages-to-self to the
     iPad; tap it).
   - Verify: A modal opens BEFORE any settings change. Endpoint
@@ -37,12 +37,12 @@ a Worker URL configured stay on worker mode automatically.
     you tap it. Cancel preserves prior config.
 
 - [ ] **Setup URI: scheme rejection**
-  - Trigger: Open `obsidian://scribian-setup?endpoint=javascript:alert(1)&token=x`.
-  - Verify: "scribian: setup link invalid" Notice. No modal. No
+  - Trigger: Open `obsidian://skald-setup?endpoint=javascript:alert(1)&token=x`.
+  - Verify: "skald: setup link invalid" Notice. No modal. No
     settings change.
 
 - [ ] **Test connection button (worker mode only)**
-  - Trigger: Switch to worker mode. Settings → Scribian → Worker
+  - Trigger: Switch to worker mode. Settings → Skald → Worker
     section → "Test connection".
   - Verify: Green Notice `Worker OK (v...)` when reachable; clear
     error Notice when not. (Direct mode has no test button — the
@@ -54,7 +54,7 @@ a Worker URL configured stay on worker mode automatically.
 
 - [ ] **Open chat pane**
   - Trigger: Ribbon speech-bubble icon OR command palette →
-    "Scribian: Open chat".
+    "Skald: Open chat".
   - Verify: Pane opens in the right sidebar.
 
 - [ ] **Send → streaming response**
@@ -108,8 +108,8 @@ a Worker URL configured stay on worker mode automatically.
     composer + the image attaches.
 
 - [ ] **Starters refresh from vault note**
-  - Trigger: Copy `examples/Starters.md` to `Scribian/Starters.md`,
-    edit one chip label, save, then tap "New chat" in scribian.
+  - Trigger: Copy `examples/Starters.md` to `Skald/Starters.md`,
+    edit one chip label, save, then tap "New chat" in skald.
   - Verify: The chip row reflects your edit. No reload needed.
 
 - [ ] **`[image]` flag in custom starter**
@@ -197,7 +197,7 @@ a Worker URL configured stay on worker mode automatically.
 
 - [ ] **Concurrent-edit safety (vault.process)**
   - Trigger: Open a note in another pane, start editing
-    (don't save). In scribian, ask Claude to append to that
+    (don't save). In skald, ask Claude to append to that
     note. Approve the diff.
   - Verify: Your unsaved editor edits are preserved (Obsidian
     reconciles); the append lands cleanly without clobbering.
@@ -211,7 +211,7 @@ a Worker URL configured stay on worker mode automatically.
     chicken."
   - Verify: Claude calls `remember_fact`. Diff card shows
     proposed append to your memory note (default
-    `Scribian/Memory.md`). Approve. Open the memory note —
+    `Skald/Memory.md`). Approve. Open the memory note —
     fact is there.
 
 - [ ] **`update_memory` flow**
@@ -286,15 +286,15 @@ Auto-route is worker-only; direct mode always routes to inbox.
 
 - [ ] **Apple Shortcut share-sheet (direct mode)**
   - Trigger: direct mode configured with an Anthropic or OpenRouter
-    key. In Safari, share an article via the scribian Shortcut.
-  - Verify: Obsidian foregrounds. "scribian: capturing…" progress
-    Notice → "scribian: captured → X.md". Note lands in the
+    key. In Safari, share an article via the skald Shortcut.
+  - Verify: Obsidian foregrounds. "skald: capturing…" progress
+    Notice → "skald: captured → X.md". Note lands in the
     captures folder (inbox; auto-route is unavailable in direct mode).
 
 - [ ] **Apple Shortcut share-sheet (worker mode)**
   - Trigger: worker mode configured. Share an article via the Shortcut.
-  - Verify: "scribian: capturing…" → "scribian: captured → X.md" OR
-    "scribian: routed to X.md" depending on routing mode + match.
+  - Verify: "skald: capturing…" → "skald: captured → X.md" OR
+    "skald: routed to X.md" depending on routing mode + match.
 
 - [ ] **Auto-route mode** (worker mode only)
   - Trigger: worker mode. Capture content that closely resembles a
@@ -308,7 +308,7 @@ Auto-route is worker-only; direct mode always routes to inbox.
 - [ ] **Inbox mode**
   - Trigger: Settings → Capture routing → "Always create in
     captures folder" (or direct mode, which always uses inbox).
-  - Verify: Always lands in `Scribian/Captures/` regardless
+  - Verify: Always lands in `Skald/Captures/` regardless
     of vault matches.
 
 - [ ] **Capture rate-limit**
@@ -358,8 +358,8 @@ Auto-route is worker-only; direct mode always routes to inbox.
 ## 10. Slash commands
 
 - [ ] **Run command from palette**
-  - Trigger: Command palette → "Scribian: Run command".
-  - Verify: Modal lists commands from `Scribian/Commands/`.
+  - Trigger: Command palette → "Skald: Run command".
+  - Verify: Modal lists commands from `Skald/Commands/`.
     Pick one. Rendered template lands in the chat input.
 
 - [ ] **`{{active_note}}` expansion**
@@ -372,7 +372,7 @@ Auto-route is worker-only; direct mode always routes to inbox.
   - Trigger: Open a note bigger than 80 KB, run a command that
     uses `{{active_note}}`.
   - Verify: The rendered prompt contains
-    `[scribian: truncated at N chars; original was M chars]`.
+    `[skald: truncated at N chars; original was M chars]`.
 
 ---
 
@@ -390,13 +390,13 @@ Auto-route is worker-only; direct mode always routes to inbox.
 ## 12. Conversation persistence
 
 - [ ] **Saved conversation file**
-  - Trigger: After any turn, check `Scribian/Chats/`.
+  - Trigger: After any turn, check `Skald/Chats/`.
   - Verify: A file named `<date>-<slug>-<id6>.md` exists with
     frontmatter (model, usage, estimated_cost_usd, etc) +
     `## You` / `## Claude` sections.
 
 - [ ] **Search conversations**
-  - Trigger: Command palette → "Scribian: Search conversations".
+  - Trigger: Command palette → "Skald: Search conversations".
   - Verify: Fuzzy modal lists saved conversations. Type a
     query → results ranked by match + recency. Pick one →
     opens the markdown file.
@@ -422,7 +422,7 @@ Auto-route is worker-only; direct mode always routes to inbox.
     X."
   - Verify: web_search results render correctly (the
     translator rewrites the OpenRouter response shape back
-    to scribian-canonical).
+    to skald-canonical).
 
 - [ ] **Cost surface in status row**
   - Trigger: Send a turn on a known-priced model
@@ -551,9 +551,9 @@ These are documented limitations, not bugs:
 ## Reporting
 
 For each failure: note the section + item number, then capture
-in `campaigns/factory/notes/scribian-followups.md` (or wherever
+in `campaigns/factory/notes/skald-followups.md` (or wherever
 you triage). Console errors live in:
 
 - **Desktop**: View → Toggle Developer Tools.
 - **iOS**: connect Safari Web Inspector via USB; or check
-  `Scribian/Logs/<date>.md` if logs folder is configured.
+  `Skald/Logs/<date>.md` if logs folder is configured.

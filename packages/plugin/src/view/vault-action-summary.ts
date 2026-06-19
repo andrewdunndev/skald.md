@@ -10,7 +10,7 @@
  * land?" as a follow-up.
  */
 
-import type { ContentBlock, Message } from '@scribian/protocol';
+import type { ContentBlock, Message } from '@skald/protocol';
 
 const READ_TOOLS = new Set([
   'read_note',

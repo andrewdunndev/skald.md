@@ -6,7 +6,7 @@
  * the single-huge-message edge case.
  */
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import type { Message } from '@scribian/protocol';
+import type { Message } from '@skald/protocol';
 import { windowHistory, compactStaleToolResults, COMPACTION_STUB } from './history-window';
 
 // ── helpers ────────────────────────────────────────────────────────────────
@@ -20,11 +20,11 @@ function assistant(text: string): Message {
 }
 
 function userBlocks(blocks: Record<string, unknown>[]): Message {
-  return { role: 'user', content: blocks as import('@scribian/protocol').ContentBlock[] };
+  return { role: 'user', content: blocks as import('@skald/protocol').ContentBlock[] };
 }
 
 function assistantBlocks(blocks: Record<string, unknown>[]): Message {
-  return { role: 'assistant', content: blocks as import('@scribian/protocol').ContentBlock[] };
+  return { role: 'assistant', content: blocks as import('@skald/protocol').ContentBlock[] };
 }
 
 function toolUseAssistant(id: string): Message {

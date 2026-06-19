@@ -1,12 +1,12 @@
 # Starter content
 
-Drop-in personas and slash commands so a fresh scribian install
+Drop-in personas and slash commands so a fresh skald install
 isn't an empty picker on first run.
 
 ## Personas
 
 `examples/personas/*.md` — four named voices Claude can adopt. Copy
-the ones you want into `Scribian/Personas/` in your vault, then pick
+the ones you want into `Skald/Personas/` in your vault, then pick
 one in Settings → Personas → Active persona.
 
 | Name | When to use |
@@ -23,8 +23,8 @@ system-prompt prefix.
 ## Slash commands
 
 `examples/commands/*.md` — four templates the slash-command palette
-picks up. Copy into `Scribian/Commands/` in your vault, then trigger
-via the "Scribian: Run command" command-palette entry.
+picks up. Copy into `Skald/Commands/` in your vault, then trigger
+via the "Skald: Run command" command-palette entry.
 
 | Name | Use |
 |---|---|
@@ -47,7 +47,7 @@ variables available:
 ## Starter chips
 
 `examples/Starters.md` — overrides the chat pane's empty-state
-starter chips. Copy into `Scribian/Starters.md` in your vault
+starter chips. Copy into `Skald/Starters.md` in your vault
 (or set a custom path via Settings → Share-sheet capture →
 Starter chips note).
 

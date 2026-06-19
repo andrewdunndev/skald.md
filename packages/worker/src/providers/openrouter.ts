@@ -8,7 +8,7 @@
  * which is the live surface as of 2026-05-14 — the older plugins[]
  * form is deprecated per https://openrouter.ai/docs/guides/features/plugins.
  *
- * The plugin sends scribian's canonical Anthropic-shaped server tool
+ * The plugin sends skald's canonical Anthropic-shaped server tool
  * declarations (web_search_20260209 + web_fetch_20260209). This module
  * rewrites them to OpenRouter's shape on outbound and rewrites the
  * response content blocks back to Anthropic-canonical names on
@@ -23,13 +23,13 @@
  * path; if smoke tests reveal annotations-on-message instead, extend
  * transformOpenRouterEvent to handle that case.
  */
-import type { ChatRequest, ToolDefinition } from '@scribian/protocol';
+import type { ChatRequest, ToolDefinition } from '@skald/protocol';
 
 export const OPENROUTER_BASE_URL = 'https://openrouter.ai/api';
 export const OPENROUTER_MESSAGES_PATH = '/v1/messages';
 
-const SCRIBIAN_REFERER = 'https://github.com/scribian/scribian';
-const SCRIBIAN_TITLE = 'scribian';
+const SKALD_REFERER = 'https://github.com/skald/skald';
+const SKALD_TITLE = 'skald';
 
 // Anthropic native server tool types (the strings the plugin emits).
 // Both the current 2026-02-09 pins and the older 2025-03/2025-09 pins
@@ -74,9 +74,9 @@ export function openrouterHeaders(apiKey: string): Record<string, string> {
     Authorization: `Bearer ${apiKey}`,
     'content-type': 'application/json',
     // Attribution headers — OpenRouter uses these for their rankings
-    // dashboard. Set so scribian gets credit in their UI.
-    'HTTP-Referer': SCRIBIAN_REFERER,
-    'X-OpenRouter-Title': SCRIBIAN_TITLE,
+    // dashboard. Set so skald gets credit in their UI.
+    'HTTP-Referer': SKALD_REFERER,
+    'X-OpenRouter-Title': SKALD_TITLE,
   };
 }
 

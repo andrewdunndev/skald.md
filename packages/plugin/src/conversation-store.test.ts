@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import type { Message } from '@scribian/protocol';
+import type { Message } from '@skald/protocol';
 import {
   renderConversationMarkdown,
   parseConversationMarkdown,
@@ -22,8 +22,8 @@ describe('renderConversationMarkdown', () => {
     const out = renderConversationMarkdown(META, [
       { role: 'user', content: 'hello' },
     ]);
-    expect(out).toContain('scribian-conversation-id: 00000000-0000-0000-0000-000000000abc');
-    expect(out).toContain('scribian-model: claude-sonnet-4-6');
+    expect(out).toContain('skald-conversation-id: 00000000-0000-0000-0000-000000000abc');
+    expect(out).toContain('skald-model: claude-sonnet-4-6');
     expect(out).toContain('created: 2026-05-15T08:30:00.000Z');
     expect(out).toContain('updated: 2026-05-15T08:35:00.000Z');
   });
@@ -231,7 +231,7 @@ describe('parseConversationMarkdown', () => {
     expect(parseConversationMarkdown('## You\n\nhello\n')).toBeNull();
   });
 
-  it('returns null for content without a scribian-conversation-id', () => {
+  it('returns null for content without a skald-conversation-id', () => {
     const content = '---\ntitle: something\n---\n\n## You\n\nhello\n';
     expect(parseConversationMarkdown(content)).toBeNull();
   });
@@ -242,7 +242,7 @@ describe('parseConversationMarkdown', () => {
   });
 
   it('returns null when there are no parseable messages', () => {
-    const content = `---\nscribian-conversation-id: abc\n---\n\n`;
+    const content = `---\nskald-conversation-id: abc\n---\n\n`;
     expect(parseConversationMarkdown(content)).toBeNull();
   });
 

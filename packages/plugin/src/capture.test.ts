@@ -10,18 +10,18 @@ import type { SearchHit } from './memory-client';
 
 describe('parseCaptureParams', () => {
   it('returns null when payload is missing', () => {
-    expect(parseCaptureParams({ action: 'scribian-capture' })).toBeNull();
+    expect(parseCaptureParams({ action: 'skald-capture' })).toBeNull();
   });
 
   it('returns null when payload is empty', () => {
     expect(
-      parseCaptureParams({ action: 'scribian-capture', payload: '' }),
+      parseCaptureParams({ action: 'skald-capture', payload: '' }),
     ).toBeNull();
   });
 
   it('parses a URL kind with a URL-encoded payload', () => {
     const out = parseCaptureParams({
-      action: 'scribian-capture',
+      action: 'skald-capture',
       kind: 'url',
       payload: encodeURIComponent('https://example.com/foo?bar=baz'),
     });
@@ -38,7 +38,7 @@ describe('parseCaptureParams', () => {
     const original = 'Hello — éclair!\nLine 2';
     const encoded = btoa(unescape(encodeURIComponent(original))); // utf-8 safe btoa
     const out = parseCaptureParams({
-      action: 'scribian-capture',
+      action: 'skald-capture',
       kind: 'text',
       payload: encoded,
       b64: 'true',
@@ -50,7 +50,7 @@ describe('parseCaptureParams', () => {
 
   it('defaults kind to "text" when unrecognized', () => {
     const out = parseCaptureParams({
-      action: 'scribian-capture',
+      action: 'skald-capture',
       kind: 'mystery-kind',
       payload: 'hi',
     });
@@ -59,15 +59,15 @@ describe('parseCaptureParams', () => {
 
   it('preserves title + prompt hints + silent flag', () => {
     const out = parseCaptureParams({
-      action: 'scribian-capture',
+      action: 'skald-capture',
       kind: 'url',
       payload: encodeURIComponent('https://example.com'),
       title: 'Example dot com',
-      prompt: 'Scribian/Prompts/url.md',
+      prompt: 'Skald/Prompts/url.md',
       silent: 'true',
     });
     expect(out?.title).toBe('Example dot com');
-    expect(out?.prompt).toBe('Scribian/Prompts/url.md');
+    expect(out?.prompt).toBe('Skald/Prompts/url.md');
     expect(out?.silent).toBe(true);
   });
 });
@@ -129,8 +129,8 @@ describe('captureFilename', () => {
 
   it('builds a YYYY-MM-DD-<slug>.md path inside the configured folder', () => {
     expect(
-      captureFilename('Scribian/Captures', 'A great article', fixedDate),
-    ).toBe('Scribian/Captures/2026-05-14-a-great-article.md');
+      captureFilename('Skald/Captures', 'A great article', fixedDate),
+    ).toBe('Skald/Captures/2026-05-14-a-great-article.md');
   });
 
   it('strips path separators + .. from the title for the slug', () => {
@@ -184,11 +184,11 @@ describe('routeCapture', () => {
         mode: 'inbox',
         title: 'A tulip',
         body: 'red petals, six chambers',
-        captureFolder: 'Scribian/Captures',
+        captureFolder: 'Skald/Captures',
       },
     );
     expect(route.kind).toBe('create');
-    expect(route.path).toMatch(/^Scribian\/Captures\//);
+    expect(route.path).toMatch(/^Skald\/Captures\//);
     expect(route.candidates).toEqual([]);
   });
 
@@ -199,7 +199,7 @@ describe('routeCapture', () => {
         mode: 'auto-route',
         title: 'A tulip',
         body: 'red petals',
-        captureFolder: 'Scribian/Captures',
+        captureFolder: 'Skald/Captures',
       },
     );
     expect(route.kind).toBe('append');
@@ -219,11 +219,11 @@ describe('routeCapture', () => {
         mode: 'auto-route',
         title: 'A tulip',
         body: 'red petals',
-        captureFolder: 'Scribian/Captures',
+        captureFolder: 'Skald/Captures',
       },
     );
     expect(route.kind).toBe('create');
-    expect(route.path).toMatch(/^Scribian\/Captures\//);
+    expect(route.path).toMatch(/^Skald\/Captures\//);
     expect(route.candidates).toHaveLength(1);
     expect(route.candidates[0].score).toBe(0.8);
   });
@@ -233,7 +233,7 @@ describe('routeCapture', () => {
       mode: 'auto-route',
       title: 'A tulip',
       body: 'red petals',
-      captureFolder: 'Scribian/Captures',
+      captureFolder: 'Skald/Captures',
     });
     expect(route.kind).toBe('create');
     expect(route.candidates).toEqual([]);
@@ -248,7 +248,7 @@ describe('routeCapture', () => {
         mode: 'auto-route',
         title: 'A tulip',
         body: 'red petals',
-        captureFolder: 'Scribian/Captures',
+        captureFolder: 'Skald/Captures',
       },
     );
     expect(route.kind).toBe('create');
@@ -263,7 +263,7 @@ describe('routeCapture', () => {
         mode: 'auto-route',
         title: 'X',
         body: 'Y',
-        captureFolder: 'Scribian/Captures',
+        captureFolder: 'Skald/Captures',
         threshold: 0.5,
       },
     );
@@ -283,7 +283,7 @@ describe('routeCapture', () => {
         mode: 'auto-route',
         title: 'long capture',
         body: longBody,
-        captureFolder: 'Scribian/Captures',
+        captureFolder: 'Skald/Captures',
       },
     );
     // Title + 2 newlines + ≤ 500 body chars

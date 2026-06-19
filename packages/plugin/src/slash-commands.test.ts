@@ -37,7 +37,7 @@ function mockAppWithActiveBody(activePath: string, body: string) {
 describe('loadSlashCommands', () => {
   it('returns an empty array when the folder is empty / unset', async () => {
     expect(await loadSlashCommands(mockApp([]), '')).toEqual([]);
-    expect(await loadSlashCommands(mockApp([]), 'Scribian/Commands')).toEqual(
+    expect(await loadSlashCommands(mockApp([]), 'Skald/Commands')).toEqual(
       [],
     );
   });
@@ -45,11 +45,11 @@ describe('loadSlashCommands', () => {
   it('parses command notes inside the configured folder', async () => {
     const app = mockApp([
       {
-        path: 'Scribian/Commands/summarize.md',
+        path: 'Skald/Commands/summarize.md',
         body: '---\nname: Summarize\ndescription: bullets the active note\nincludes_active_note: true\n---\n\nSummarize this in 3 bullets:\n\n{{active_note}}',
       },
       {
-        path: 'Scribian/Commands/tag.md',
+        path: 'Skald/Commands/tag.md',
         body: '---\nname: Suggest tags\n---\n\nSuggest tags for {{active_note.title}}.',
       },
       {
@@ -57,7 +57,7 @@ describe('loadSlashCommands', () => {
         body: 'not a command',
       },
     ]);
-    const cmds = await loadSlashCommands(app, 'Scribian/Commands');
+    const cmds = await loadSlashCommands(app, 'Skald/Commands');
     expect(cmds).toHaveLength(2);
     expect(cmds.map((c) => c.id).sort()).toEqual(['summarize', 'tag']);
     const summarize = cmds.find((c) => c.id === 'summarize')!;
@@ -69,9 +69,9 @@ describe('loadSlashCommands', () => {
 
   it('accepts notes without frontmatter, defaulting name to id', async () => {
     const app = mockApp([
-      { path: 'Scribian/Commands/plain.md', body: 'just a body, no fm' },
+      { path: 'Skald/Commands/plain.md', body: 'just a body, no fm' },
     ]);
-    const cmds = await loadSlashCommands(app, 'Scribian/Commands');
+    const cmds = await loadSlashCommands(app, 'Skald/Commands');
     expect(cmds).toHaveLength(1);
     expect(cmds[0].name).toBe('plain');
     expect(cmds[0].description).toBe('');
@@ -198,13 +198,13 @@ describe('truncateForInject', () => {
     } as unknown as import('obsidian').App;
     const out = await renderCommand(app, {
       id: 'summarize',
-      path: 'Scribian/Commands/summarize.md',
+      path: 'Skald/Commands/summarize.md',
       name: 'summarize',
       description: '',
       includesActiveNote: true,
       template: 'Summarize: {{active_note}}',
     });
-    expect(out).toContain('scribian: truncated at');
+    expect(out).toContain('skald: truncated at');
     expect(out).toContain(`original was ${big.length} chars`);
   });
 });

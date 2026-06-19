@@ -1,5 +1,5 @@
 /**
- * Resume a saved Scribian conversation in the chat pane.
+ * Resume a saved Skald conversation in the chat pane.
  *
  * Reads the conversation file, parses it back into Message[], hydrates a
  * fresh ChatSession, and re-paints the message list so the user can

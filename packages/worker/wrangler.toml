@@ -1,4 +1,4 @@
-name = "scribian"
+name = "skald"
 main = "src/index.ts"
 compatibility_date = "2026-05-14"
 workers_dev = true
@@ -7,12 +7,12 @@ workers_dev = true
 # Hibernation API holds the WS while the JS context sleeps between
 # messages, freeing CPU budget for actual work.
 [[durable_objects.bindings]]
-name = "SCRIBIAN_SESSION"
-class_name = "ScribianSession"
+name = "SKALD_SESSION"
+class_name = "SkaldSession"
 
 [[migrations]]
 tag = "v1"
-new_sqlite_classes = ["ScribianSession"]
+new_sqlite_classes = ["SkaldSession"]
 
 # Workers AI binding for vault-as-memory (phase 6).
 # Used for generating embeddings of vault notes via @cf/baai/bge-base-en-v1.5
@@ -24,17 +24,17 @@ binding = "AI"
 
 # Vectorize index for vault embeddings (phase 6).
 # Create once per Worker deployment:
-#   wrangler vectorize create scribian-vault --dimensions=768 --metric=cosine
+#   wrangler vectorize create skald-vault --dimensions=768 --metric=cosine
 # Stored vectors are namespaced by kind ("note-summary" vs "section") so
 # topK queries can target the right granularity. ~6M dims for a 1000-note
 # vault including section chunks — well inside the 10M Paid allotment.
 [[vectorize]]
 binding = "VECTORIZE"
-index_name = "scribian-vault"
+index_name = "skald-vault"
 
 # Secrets (set via `wrangler secret put`):
-#   SCRIBIAN_TOKEN      — legacy single bearer token (still supported)
-#   SCRIBIAN_TOKENS     — preferred: JSON array of per-client tokens
+#   SKALD_TOKEN      — legacy single bearer token (still supported)
+#   SKALD_TOKENS     — preferred: JSON array of per-client tokens
 #                         with scopes (label/token/scopes)
 #   ANTHROPIC_API_KEY   — optional fallback; plugin-supplied key takes
 #                         precedence when sent

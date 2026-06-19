@@ -4,12 +4,12 @@
  */
 
 import { Setting } from 'obsidian';
-import type ScribianPlugin from '../main';
+import type SkaldPlugin from '../main';
 import { addFolderSetting } from './folder-setting';
 
 export function renderVaultSection(
   containerEl: HTMLElement,
-  plugin: ScribianPlugin,
+  plugin: SkaldPlugin,
 ): void {
   new Setting(containerEl).setName('Vault integration').setHeading();
 
@@ -25,7 +25,7 @@ export function renderVaultSection(
     name: 'Chats folder',
     desc:
       'Conversations save here as markdown after each turn. Searchable via Obsidian. Empty to disable saving.',
-    placeholder: 'Scribian/Chats',
+    placeholder: 'Skald/Chats',
     key: 'chatsFolder',
   });
 
@@ -33,7 +33,7 @@ export function renderVaultSection(
     name: 'Saved notes folder',
     desc:
       'Where the "Save as note" button creates new notes from chat messages.',
-    placeholder: 'Scribian/Saved',
+    placeholder: 'Skald/Saved',
     key: 'savedNotesFolder',
   });
 
@@ -41,7 +41,7 @@ export function renderVaultSection(
     name: 'Logs folder',
     desc:
       'Plugin logs (connection events, errors, tool failures) are appended to a daily file here. Empty to log to console only.',
-    placeholder: 'Scribian/Logs',
+    placeholder: 'Skald/Logs',
     key: 'logsFolder',
   });
 }

@@ -17,7 +17,7 @@ import {
   setTooltip,
   type App,
 } from 'obsidian';
-import type { Message } from '@scribian/protocol';
+import type { Message } from '@skald/protocol';
 import {
   formatSummary,
   hasAnyAction,
@@ -46,11 +46,11 @@ export function renderMessageActions(
   renderVaultActionBadge(row, msg);
   renderSourcesFooter(row, msg, cfg.app);
   renderWriteNudges(row, msg, cfg);
-  const actions = row.createDiv({ cls: 'scribian-msg-actions' });
+  const actions = row.createDiv({ cls: 'skald-msg-actions' });
   const text = messageText(msg);
 
   const copyBtn = actions.createEl('button', {
-    cls: 'clickable-icon scribian-msg-action',
+    cls: 'clickable-icon skald-msg-action',
     attr: { 'aria-label': 'Copy message' },
   });
   setIcon(copyBtn, 'copy');
@@ -58,7 +58,7 @@ export function renderMessageActions(
   copyBtn.addEventListener('click', () => void copyMessage(text, copyBtn));
 
   const saveBtn = actions.createEl('button', {
-    cls: 'clickable-icon scribian-msg-action',
+    cls: 'clickable-icon skald-msg-action',
     attr: { 'aria-label': 'Save as note' },
   });
   setIcon(saveBtn, 'file-plus');
@@ -66,7 +66,7 @@ export function renderMessageActions(
   saveBtn.addEventListener('click', () => void saveAsNote(cfg, text));
 
   const appendBtn = actions.createEl('button', {
-    cls: 'clickable-icon scribian-msg-action',
+    cls: 'clickable-icon skald-msg-action',
     attr: { 'aria-label': 'Append to current note' },
   });
   setIcon(appendBtn, 'file-down');
@@ -111,7 +111,7 @@ async function saveAsNote(
     new Notice('Nothing to save');
     return;
   }
-  const folder = cfg.savedNotesFolder.trim() || 'Scribian/Saved';
+  const folder = cfg.savedNotesFolder.trim() || 'Skald/Saved';
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
   const path = normalizePath(`${folder}/${ts}.md`);
   try {
@@ -148,10 +148,10 @@ function renderWriteNudges(
   const mentioned = extractMentionedPaths(text);
   const unwritten = unwrittenMentions(mentioned, summary.writes);
   if (unwritten.length === 0) return;
-  const wrap = row.createDiv({ cls: 'scribian-write-nudges' });
+  const wrap = row.createDiv({ cls: 'skald-write-nudges' });
   for (const path of unwritten) {
     const chip = wrap.createEl('button', {
-      cls: 'scribian-write-nudge',
+      cls: 'skald-write-nudge',
       attr: { type: 'button' },
       text: `Propose write to ${path}`,
     });
@@ -180,7 +180,7 @@ function renderSourcesFooter(
   const shown = paths.slice(0, CAP);
   const overflow = paths.length - CAP;
 
-  const footer = row.createDiv({ cls: 'scribian-sources-footer' });
+  const footer = row.createDiv({ cls: 'skald-sources-footer' });
   footer.createSpan({ text: 'Sources: ' });
 
   shown.forEach((path, i) => {
@@ -213,13 +213,13 @@ function renderSourcesFooter(
  */
 function renderVaultActionBadge(row: HTMLElement, msg: Message): void {
   const summary = summarizeVaultActions(msg);
-  const badge = row.createDiv({ cls: 'scribian-vault-badge' });
+  const badge = row.createDiv({ cls: 'skald-vault-badge' });
   if (hasAnyAction(summary)) {
     badge.setText(formatSummary(summary));
-    badge.addClass('scribian-vault-badge-active');
+    badge.addClass('skald-vault-badge-active');
   } else {
     badge.setText('💭 no vault action');
-    badge.addClass('scribian-vault-badge-idle');
+    badge.addClass('skald-vault-badge-idle');
     setTooltip(
       badge,
       "Claude answered without reading or writing to your vault. If you want this in a note, ask: 'where should this land?'",

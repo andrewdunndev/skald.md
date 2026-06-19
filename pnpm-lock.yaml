@@ -20,7 +20,7 @@ importers:
 
   packages/plugin:
     dependencies:
-      '@scribian/protocol':
+      '@skald/protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:
@@ -38,7 +38,7 @@ importers:
 
   packages/worker:
     dependencies:
-      '@scribian/protocol':
+      '@skald/protocol':
         specifier: workspace:*
         version: link:../protocol
     devDependencies:

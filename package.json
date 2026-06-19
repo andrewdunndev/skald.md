@@ -1,5 +1,5 @@
 {
-  "name": "scribian",
+  "name": "skald",
   "version": "0.0.10",
   "private": true,
   "type": "module",
@@ -18,20 +18,20 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://gitlab.com/dunn.dev/scribian.git"
+    "url": "https://gitlab.com/dunn.dev/skald.git"
   },
   "scripts": {
-    "dev:plugin": "pnpm --filter @scribian/plugin dev",
-    "dev:worker": "pnpm --filter @scribian/worker dev",
+    "dev:plugin": "pnpm --filter @skald/plugin dev",
+    "dev:worker": "pnpm --filter @skald/worker dev",
     "build": "pnpm -r build",
-    "deploy:worker": "pnpm --filter @scribian/worker deploy",
+    "deploy:worker": "pnpm --filter @skald/worker deploy",
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
     "check:size": "node scripts/check-size.mjs",
     "check:lint": "node scripts/check-plugin-lint.mjs",
     "check:cdp": "node scripts/cdp-walkthrough.mjs",
-    "check": "pnpm typecheck && pnpm test && pnpm check:size && pnpm check:lint && pnpm --filter @scribian/plugin build"
+    "check": "pnpm typecheck && pnpm test && pnpm check:size && pnpm check:lint && pnpm --filter @skald/plugin build"
   },
   "packageManager": "pnpm@11.1.1",
   "devDependencies": {

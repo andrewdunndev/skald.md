@@ -30,14 +30,14 @@ export class ActiveNoteIndicator {
     private readonly app: App,
     private readonly hooks: ActiveNoteHooks,
   ) {
-    this.wrapEl = parent.createDiv({ cls: 'scribian-active-note' });
-    const icon = this.wrapEl.createSpan({ cls: 'scribian-active-note-icon' });
+    this.wrapEl = parent.createDiv({ cls: 'skald-active-note' });
+    const icon = this.wrapEl.createSpan({ cls: 'skald-active-note-icon' });
     setIcon(icon, 'file-text');
     this.labelEl = this.wrapEl.createSpan({
-      cls: 'scribian-active-note-label',
+      cls: 'skald-active-note-label',
     });
     this.attachBtn = this.wrapEl.createEl('button', {
-      cls: 'clickable-icon scribian-active-note-attach',
+      cls: 'clickable-icon skald-active-note-attach',
       attr: { 'aria-label': 'Attach active note to next turn' },
     });
     setIcon(this.attachBtn, 'paperclip');

@@ -41,9 +41,9 @@ export class Logger {
     // routes to console.info (not console.log) so it doesn't trip
     // the plugin-submission lint that forbids console.log in
     // production source.
-    if (level === 'error') console.error('scribian:', line);
-    else if (level === 'warn') console.warn('scribian:', line);
-    else console.info('scribian:', line);
+    if (level === 'error') console.error('skald:', line);
+    else if (level === 'warn') console.warn('skald:', line);
+    else console.info('skald:', line);
 
     const folder = this.folderGetter().trim();
     if (!folder) return;
@@ -51,7 +51,7 @@ export class Logger {
     // Serialize file writes to avoid concurrent append races.
     this.writeChain = this.writeChain.then(() =>
       this.appendToDailyFile(folder, line).catch((err) => {
-        console.error('scribian: log write failed', err);
+        console.error('skald: log write failed', err);
       }),
     );
   }

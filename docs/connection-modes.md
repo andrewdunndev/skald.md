@@ -13,7 +13,7 @@ as an exhaustive switch on `ConnectionMode`. Adding a mode means:
 
 1. Extend the `ConnectionMode` union in `settings.ts`.
 2. Add a `case` to `modeCapabilities()` — the compiler errors on the missing arm.
-3. Provide a transport that implements `ScribianTransport` (see `transport-interface.ts`).
+3. Provide a transport that implements `SkaldTransport` (see `transport-interface.ts`).
 4. Add the transport constructor arm to the `switch` in `view/connect-session.ts`.
 
 No other files need mode-string comparisons. Every decision is expressed as a
@@ -28,7 +28,7 @@ No other files need mode-string comparisons. Every decision is expressed as a
 
 ## Transports
 
-Both transports implement `ScribianTransport` from `transport-interface.ts`.
+Both transports implement `SkaldTransport` from `transport-interface.ts`.
 `ChatSession` depends only on the interface; it is not aware of mode.
 
 ## Forward compatibility

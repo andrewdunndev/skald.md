@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import type { ToolDefinition } from '@scribian/protocol';
+import type { ToolDefinition } from '@skald/protocol';
 import {
   safePath,
   type ApproveFn,

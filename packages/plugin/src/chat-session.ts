@@ -7,11 +7,11 @@ import type {
   ServerMessage,
   ToolDefinition,
   Usage,
-} from '@scribian/protocol';
+} from '@skald/protocol';
 import { sumUsage } from './pricing';
 import { windowHistory, compactStaleToolResults } from './history-window';
 import { isReadOnlyTool } from './tools';
-import type { ScribianTransport } from './transport-interface';
+import type { SkaldTransport } from './transport-interface';
 import { buildDocumentBlock, parseCitationLocation } from './citations';
 
 export interface InFlight {
@@ -56,7 +56,7 @@ export class ChatSession {
   readonly documentRegistry = new Map<number, string>();
 
   constructor(
-    private readonly transport: ScribianTransport,
+    private readonly transport: SkaldTransport,
     private readonly modelProvider: () => string,
     private readonly systemProvider: () => Promise<string | undefined>,
     private readonly providerConfigProvider: () => ProviderConfig,

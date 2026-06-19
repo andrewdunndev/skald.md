@@ -2,8 +2,8 @@
 
 exports[`renderConversationMarkdown > full render snapshot (representative conversation) 1`] = `
 "---
-scribian-conversation-id: 00000000-0000-0000-0000-000000000abc
-scribian-model: claude-sonnet-4-6
+skald-conversation-id: 00000000-0000-0000-0000-000000000abc
+skald-model: claude-sonnet-4-6
 created: 2026-05-15T08:30:00.000Z
 updated: 2026-05-15T08:35:00.000Z
 input_tokens: 482

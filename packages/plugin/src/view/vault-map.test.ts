@@ -32,13 +32,13 @@ describe('buildVaultMap: folder tree + counts', () => {
   it('renders one-level-deep subfolders indented under their parent', () => {
     const out = buildVaultMap(
       mockApp([
-        '2_projects/scribian/a.md',
-        '2_projects/scribian/b.md',
+        '2_projects/skald/a.md',
+        '2_projects/skald/b.md',
         '2_projects/top.md',
       ]),
     );
     expect(out).toContain('2_projects/ (3 notes)');
-    expect(out).toContain('  2_projects/scribian/ (2 notes)');
+    expect(out).toContain('  2_projects/skald/ (2 notes)');
   });
 
   it('groups root-level notes under a "/ (root)" line', () => {

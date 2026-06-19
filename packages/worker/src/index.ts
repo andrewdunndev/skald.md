@@ -2,7 +2,7 @@ import type {
   ClientMessage,
   Provider,
   ServerMessage,
-} from '@scribian/protocol';
+} from '@skald/protocol';
 import { TokenRegistry } from './auth';
 import { renderAdminPage } from './admin';
 import type { AuditEvent } from './session-state';
@@ -19,7 +19,7 @@ export type { Env } from './env';
 const MAX_RECENT_EVENTS = 50;
 
 // Single-vault DO name.
-const SESSION_DO_NAME = 'scribian-default';
+const SESSION_DO_NAME = 'skald-default';
 
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
@@ -44,7 +44,7 @@ export default {
 
     if (!registry.hasAny()) {
       return new Response(
-        'server misconfigured: set SCRIBIAN_TOKENS (preferred) or SCRIBIAN_TOKEN',
+        'server misconfigured: set SKALD_TOKENS (preferred) or SKALD_TOKEN',
         { status: 500 },
       );
     }
@@ -75,7 +75,7 @@ const AUDIT_STORAGE_KEY = 'recentEvents';
  * pressure on the DO from a misbehaving (or compromised) client. */
 const WS_MAX_MESSAGE_BYTES = 1024 * 1024;
 
-export class ScribianSession {
+export class SkaldSession {
   private readonly state: DurableObjectState;
   private readonly env: Env;
   private readonly activeChats: Map<string, AbortController> = new Map();
@@ -138,15 +138,15 @@ export class ScribianSession {
   private handleAdmin(req: Request): Response {
     const tokenSummaries = safeParseHeader<
       Array<{ label: string; scopes: string[] }>
-    >(req.headers.get('x-scribian-admin-token-summaries'), []);
+    >(req.headers.get('x-skald-admin-token-summaries'), []);
     const envSnap = safeParseHeader<{
       anthropic?: boolean;
       openrouter?: boolean;
       aigw?: boolean;
-    }>(req.headers.get('x-scribian-admin-env-snapshot'), {});
+    }>(req.headers.get('x-skald-admin-env-snapshot'), {});
     const html = renderAdminPage({
       version: 7,
-      workerName: 'scribian',
+      workerName: 'skald',
       anthropicKeyPresent: !!envSnap.anthropic,
       openrouterKeyPresent: !!envSnap.openrouter,
       aiGatewayConfigured: !!envSnap.aigw,

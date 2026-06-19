@@ -19,7 +19,7 @@
  */
 
 import { Notice } from 'obsidian';
-import type { ContentBlock } from '@scribian/protocol';
+import type { ContentBlock } from '@skald/protocol';
 
 export type ImageMediaType =
   | 'image/jpeg'
@@ -268,9 +268,9 @@ function canvasToBlob(
 function notifyOversizeSkip(blob: Blob, reason: string): void {
   const name = (blob as Blob & { name?: string }).name || 'image';
   console.warn(
-    `scribian: skipped attachment "${name}" (${humanByteCount(blob.size)}): ${reason}.`,
+    `skald: skipped attachment "${name}" (${humanByteCount(blob.size)}): ${reason}.`,
   );
-  new Notice(`scribian: skipped image (${reason})`, 6000);
+  new Notice(`skald: skipped image (${reason})`, 6000);
 }
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {

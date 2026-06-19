@@ -3,7 +3,7 @@
  *   - resolve the per-provider upstream URL + auth headers
  *   - transform the outbound ChatRequest for provider-specific shape
  *     differences (currently: OpenRouter server tools)
- *   - transform inbound SSE events back to scribian's canonical shape
+ *   - transform inbound SSE events back to skald's canonical shape
  *     so the plugin renderer never branches on provider
  *
  * Provider routing is decided at the ClientMessage level (not inside
@@ -15,7 +15,7 @@
  * covers the entire long tail behind one Anthropic-compatible
  * endpoint, so the dispatch shape stays narrow.
  */
-import type { ChatRequest, Provider } from '@scribian/protocol';
+import type { ChatRequest, Provider } from '@skald/protocol';
 import {
   anthropicHeaders,
   anthropicUrl,
@@ -42,7 +42,7 @@ export interface ProviderDispatch {
   headers: Record<string, string>;
   /** ChatRequest after outbound translation. */
   request: ChatRequest;
-  /** Translate inbound SSE events back to scribian-canonical shape. */
+  /** Translate inbound SSE events back to skald-canonical shape. */
   translateEvent: (
     event: string,
     data: unknown,

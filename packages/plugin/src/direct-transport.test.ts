@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { ServerMessage } from '@scribian/protocol';
+import type { ServerMessage } from '@skald/protocol';
 import { DirectTransport } from './direct-transport';
 
 function makeHandlers() {

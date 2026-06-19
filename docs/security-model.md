@@ -1,6 +1,6 @@
 # Security model
 
-Honest framing first: **scribian is not end-to-end encrypted.**
+Honest framing first: **skald is not end-to-end encrypted.**
 Anthropic reads your prompts to generate responses; any LLM client
 claiming E2EE is lying. What we *can* offer is a transparent
 zero-knowledge-relay deployment shape: encrypted in transit, encrypted
@@ -8,7 +8,7 @@ at rest between your devices, no central operator.
 
 ## Connection modes
 
-scribian has two connection modes with different trust postures.
+skald has two connection modes with different trust postures.
 
 **Direct mode (default for new installs):** the plugin calls Anthropic
 or OpenRouter directly from inside Obsidian using native `fetch` with
@@ -70,7 +70,7 @@ not travel in Obsidian Sync.
 
 ### Anthropic key exfiltration via a malicious plugin
 
-In **direct mode**, the Anthropic key lives in scribian's plugin data
+In **direct mode**, the Anthropic key lives in skald's plugin data
 (`data.json`), which is filesystem-readable to any other plugin you
 install. Obsidian plugins are not sandboxed from each other.
 
@@ -99,7 +99,7 @@ sessions on your CF account, billing your Anthropic key.
 
 ```sh
 TOKEN=$(openssl rand -hex 32)
-printf "%s" "$TOKEN" | pnpm exec wrangler secret put SCRIBIAN_TOKEN
+printf "%s" "$TOKEN" | pnpm exec wrangler secret put SKALD_TOKEN
 # Update plugin settings on each device
 ```
 
@@ -142,9 +142,9 @@ self-host on hardware you control.
 
 ## OpenRouter as an alternative provider
 
-scribian supports OpenRouter as an opt-in fallback provider so users
+skald supports OpenRouter as an opt-in fallback provider so users
 can route to non-Anthropic models (OpenAI, Gemini, Llama, Qwen,
-Mistral, etc.) without scribian needing per-provider integration code.
+Mistral, etc.) without skald needing per-provider integration code.
 This carries a privacy trade-off worth surfacing explicitly.
 
 **What changes when you select OpenRouter:**
@@ -162,14 +162,14 @@ This carries a privacy trade-off worth surfacing explicitly.
 **What stays the same:**
 
 - TLS protects every hop. Wire snooping isn't a risk.
-- Per-provider key isolation: scribian stores your OpenRouter key
+- Per-provider key isolation: skald stores your OpenRouter key
   separately from your Anthropic key. The Worker never mixes them.
 - OpenRouter is opt-in — you explicitly switch providers in settings.
   No silent failover on Anthropic errors.
 - Anthropic-direct stays the default. If you don't touch the provider
   setting, your prompts go to Anthropic only, exactly like before.
 
-**What scribian does to keep this honest:**
+**What skald does to keep this honest:**
 
 - The plugin shows an inline privacy notice in settings when you
   select OpenRouter, with a direct link to their privacy policy.
@@ -187,12 +187,12 @@ Anthropic's — the data trade-off is the same as above.
 
 ## Honest README framing
 
-If you write about scribian publicly:
+If you write about skald publicly:
 
 - ✅ "encrypted at rest between your devices, audited in transit,
   minimized in flight"
 - ✅ "your prompts go to Anthropic; nothing else stores or reads them"
-- ✅ "BYO key — no scribian-side account or backend"
+- ✅ "BYO key — no skald-side account or backend"
 - ✅ (worker mode) "zero-knowledge relay — the Worker is stateless and
   you deploy it yourself"
 - ❌ "end-to-end encrypted"

@@ -38,7 +38,7 @@ export interface VectorMetadata {
   // re-reading the live vault on the plugin side.
 }
 
-export interface ScribianVector {
+export interface SkaldVector {
   id: string;
   kind: ChunkKind;
   vector: number[];

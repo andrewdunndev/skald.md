@@ -1,11 +1,11 @@
 #!/usr/bin/env node
 /**
- * File-size check for the scribian workspace.
+ * File-size check for the skald workspace.
  *
  * Rationale: small modules keep the surface an LLM (or a reviewer)
  * has to scan small. The yotoshelf project landed on 250 LOC for Go,
  * 400 for TypeScript as the threshold where modules start hiding too
- * much. Adopting 400 LOC for scribian's TS workspace.
+ * much. Adopting 400 LOC for skald's TS workspace.
  *
  * What this counts: total lines (including comments + blanks). Total
  * is the most honest measure of "how much do I have to scroll

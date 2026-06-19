@@ -13,7 +13,7 @@
  *   Vault folders, Memory path + reindex (reindex hidden in direct mode),
  *   Personas, Slash commands, Capture section.
  *
- * The ScribianSettings + DEFAULT_SETTINGS surface stays here as the
+ * The SkaldSettings + DEFAULT_SETTINGS surface stays here as the
  * canonical interface every other module imports.
  *
  * MODELS is re-exported from settings/provider.ts (ANTHROPIC_MODELS)
@@ -22,8 +22,8 @@
  */
 
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import type { Provider } from '@scribian/protocol';
-import type ScribianPlugin from './main';
+import type { Provider } from '@skald/protocol';
+import type SkaldPlugin from './main';
 import { ANTHROPIC_MODELS, renderProviderSection } from './settings/provider';
 import { renderConnectionModeSection } from './settings/connection-mode';
 import { renderWorkerSection } from './settings/worker';
@@ -42,7 +42,7 @@ import { modeCapabilities } from './mode-capabilities';
  * (see migrateConnectionMode in settings/connection-mode.ts). */
 export type ConnectionMode = 'direct' | 'worker';
 
-export interface ScribianSettings {
+export interface SkaldSettings {
   /** Connection mode — whether to use the Worker or call APIs directly. */
   connectionMode: ConnectionMode;
   workerUrl: string;
@@ -77,7 +77,7 @@ export interface ScribianSettings {
    *   at the start of every chat. Claude can read + (with approval)
    *   write to this note across sessions for long-term state.
    * memoryPath: the single note holding Claude's memory. Defaults
-   *   to Scribian/Memory.md.
+   *   to Skald/Memory.md.
    */
   memoryEnabled: boolean;
   memoryPath: string;
@@ -97,7 +97,7 @@ export interface ScribianSettings {
   commandsFolder: string;
   /**
    * Phase 8: iOS share-sheet capture.
-   * capturesFolder: where captured notes land. Default Scribian/Captures.
+   * capturesFolder: where captured notes land. Default Skald/Captures.
    * capturePromptPath: optional vault-relative path to a custom
    *   prompt-template note. Empty → use the kind-default prompt
    *   baked into the capture module.
@@ -131,7 +131,7 @@ export interface ScribianSettings {
 /** Re-export for backwards-compatible imports. */
 export const MODELS = ANTHROPIC_MODELS;
 
-export const DEFAULT_SETTINGS: ScribianSettings = {
+export const DEFAULT_SETTINGS: SkaldSettings = {
   connectionMode: 'direct',
   workerUrl: '',
   workerToken: '',
@@ -143,28 +143,28 @@ export const DEFAULT_SETTINGS: ScribianSettings = {
   // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
   utilityModel: '',
   harnessFolder: '.claude',
-  savedNotesFolder: 'Scribian/Saved',
-  chatsFolder: 'Scribian/Chats',
+  savedNotesFolder: 'Skald/Saved',
+  chatsFolder: 'Skald/Chats',
   logsFolder: '',
   memoryEnabled: true,
-  memoryPath: 'Scribian/Memory.md',
-  personasFolder: 'Scribian/Personas',
+  memoryPath: 'Skald/Memory.md',
+  personasFolder: 'Skald/Personas',
   activePersona: '',
-  commandsFolder: 'Scribian/Commands',
-  capturesFolder: 'Scribian/Captures',
+  commandsFolder: 'Skald/Commands',
+  capturesFolder: 'Skald/Captures',
   capturePromptPath: '',
   captureMode: 'auto-route',
-  startersPath: 'Scribian/Starters.md',
+  startersPath: 'Skald/Starters.md',
   thinkingEnabled: false,
 };
 
-export class ScribianSettingTab extends PluginSettingTab {
-  plugin: ScribianPlugin;
+export class SkaldSettingTab extends PluginSettingTab {
+  plugin: SkaldPlugin;
   /** Whether the Advanced section is expanded. Instance state only —
    * intentionally not persisted to data.json. Resets on tab re-open. */
   private _advancedExpanded = false;
 
-  constructor(app: App, plugin: ScribianPlugin) {
+  constructor(app: App, plugin: SkaldPlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }

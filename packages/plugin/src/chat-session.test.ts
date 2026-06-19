@@ -12,7 +12,7 @@ import type {
   ChatRequest,
   ServerMessage,
   ToolDefinition,
-} from '@scribian/protocol';
+} from '@skald/protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 interface RecordingTransport {

@@ -3,7 +3,7 @@ import type {
   Provider,
   ServerMessage,
   Usage,
-} from '@scribian/protocol';
+} from '@skald/protocol';
 import type { Env } from '../env';
 import { TokenRegistry, hasScope } from '../auth';
 import { dispatchFor } from '../providers';
@@ -35,8 +35,8 @@ export async function handleChatRoute(
     return new Response('token lacks chat scope', { status: 403 });
   }
   console.log(`ws auth ok: label=${auth.result.label}`);
-  const stub = env.SCRIBIAN_SESSION.get(
-    env.SCRIBIAN_SESSION.idFromName(sessionDoName),
+  const stub = env.SKALD_SESSION.get(
+    env.SKALD_SESSION.idFromName(sessionDoName),
   );
   return stub.fetch(req);
 }
@@ -151,7 +151,7 @@ export async function runChat(
         if (!parsed.event) continue;
 
         // Per-provider event translation. Anthropic is identity;
-        // OpenRouter rewrites server-tool names back to scribian
+        // OpenRouter rewrites server-tool names back to skald
         // canonical so the plugin renderer doesn't branch.
         const translated = dispatch.translateEvent(parsed.event, parsed.data);
 

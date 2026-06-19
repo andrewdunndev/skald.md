@@ -1,5 +1,5 @@
 {
-  "name": "@scribian/worker",
+  "name": "@skald/worker",
   "version": "0.0.10",
   "private": true,
   "type": "module",
@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribian/protocol": "workspace:*"
+    "@skald/protocol": "workspace:*"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260317.1",

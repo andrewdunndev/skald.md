@@ -10,8 +10,8 @@
  *
  * echo/ping: synchronous. cancel: aborts via AbortController.
  */
-import type { ClientMessage, Provider, ServerMessage, Usage } from '@scribian/protocol';
-import type { ScribianTransport, TransportHandlers } from './transport-interface';
+import type { ClientMessage, Provider, ServerMessage, Usage } from '@skald/protocol';
+import type { SkaldTransport, TransportHandlers } from './transport-interface';
 import { SSEParser } from './sse-parser';
 import { applyAnthropicCaching } from './anthropic-caching';
 import { providerCapabilities } from './provider-capabilities';
@@ -23,8 +23,8 @@ const ANTHROPIC_WEB_SEARCH_TYPES = ['web_search_20260209', 'web_search_20250305'
 const ANTHROPIC_WEB_FETCH_TYPES = ['web_fetch_20260209', 'web_fetch_20250910'];
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/messages';
-const OPENROUTER_REFERER = 'https://github.com/scribian/scribian';
-const OPENROUTER_TITLE = 'scribian';
+const OPENROUTER_REFERER = 'https://github.com/skald/skald';
+const OPENROUTER_TITLE = 'skald';
 const OR_WEB_SEARCH = 'openrouter:web_search';
 const OR_WEB_FETCH = 'openrouter:web_fetch';
 
@@ -41,7 +41,7 @@ export interface DirectTransportConfig {
 
 // ── DirectTransport ───────────────────────────────────────────────────────
 
-export class DirectTransport implements ScribianTransport {
+export class DirectTransport implements SkaldTransport {
   /** One AbortController per in-flight chat turn, keyed by turn id. */
   private readonly activeChats = new Map<string, AbortController>();
   private connected = false;
@@ -112,7 +112,7 @@ export class DirectTransport implements ScribianTransport {
       this.handlers.onMessage({
         type: 'error',
         id,
-        error: `No ${which} API key configured — add it in Settings → Scribian.`,
+        error: `No ${which} API key configured — add it in Settings → Skald.`,
         retryable: false,
       });
       return;
@@ -150,7 +150,7 @@ export class DirectTransport implements ScribianTransport {
         });
       } else {
         // Log the raw error for debugging; surface only a human sentence.
-        console.warn('[scribian] network error:', err);
+        console.warn('[skald] network error:', err);
         this.handlers.onMessage({
           type: 'error',
           id,
@@ -164,7 +164,7 @@ export class DirectTransport implements ScribianTransport {
     if (!resp.ok) {
       this.activeChats.delete(id);
       // Log raw status for debugging; surface only a human sentence.
-      console.warn(`[scribian] HTTP ${resp.status} from ${provider}`);
+      console.warn(`[skald] HTTP ${resp.status} from ${provider}`);
       const { error, retryable } = httpErrorMessage(
         resp.status,
         resp.headers.get('retry-after'),
@@ -239,7 +239,7 @@ export class DirectTransport implements ScribianTransport {
         return;
       }
       // Log raw error for debugging; surface only a human sentence.
-      console.warn('[scribian] stream error:', err);
+      console.warn('[skald] stream error:', err);
       this.handlers.onMessage({
         type: 'error',
         id,
@@ -264,7 +264,7 @@ type TranslateEvent = (
 interface DispatchContext {
   url: string;
   headers: Record<string, string>;
-  requestBody: import('@scribian/protocol').ChatRequest;
+  requestBody: import('@skald/protocol').ChatRequest;
   translateEvent: TranslateEvent;
 }
 
@@ -275,7 +275,7 @@ const THINKING_BUDGET_TOKENS = 8192;
 function buildDispatch(
   provider: Provider,
   apiKey: string,
-  req: import('@scribian/protocol').ChatRequest,
+  req: import('@skald/protocol').ChatRequest,
   thinkingEnabled: boolean,
 ): DispatchContext {
   if (provider === 'openrouter') {
@@ -317,7 +317,7 @@ function buildDispatch(
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
-    requestBody: requestBody as import('@scribian/protocol').ChatRequest,
+    requestBody: requestBody as import('@skald/protocol').ChatRequest,
     translateEvent: identityEvent,
   };
 }
@@ -332,8 +332,8 @@ function identityEvent(
 // ── OpenRouter tool rewriting (mirrors worker/src/providers/openrouter.ts) ─
 
 function rewriteOpenRouterTools(
-  req: import('@scribian/protocol').ChatRequest,
-): import('@scribian/protocol').ChatRequest {
+  req: import('@skald/protocol').ChatRequest,
+): import('@skald/protocol').ChatRequest {
   if (!req.tools) return req;
   const tools = req.tools.map((t) => {
     const type =

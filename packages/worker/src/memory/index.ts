@@ -15,10 +15,10 @@
  * the bindings exist, the helpers compile, the chat path doesn't yet
  * depend on any of it.
  *
- * Design doc: campaigns/factory/notes/scribian-memory.md (in storr).
+ * Design doc: campaigns/factory/notes/skald-memory.md (in storr).
  */
 
-import type { ChunkKind, EmbedQueryArgs, EmbedDocumentArgs, MemoryEnv, ScribianVector, SimilarHit } from './types';
+import type { ChunkKind, EmbedQueryArgs, EmbedDocumentArgs, MemoryEnv, SkaldVector, SimilarHit } from './types';
 
 export const DEFAULT_EMBEDDING_MODEL = '@cf/baai/bge-base-en-v1.5';
 export const EMBEDDING_DIMS = 768;
@@ -30,7 +30,7 @@ export const MAX_INPUT_TOKENS = 512;
  *
  * Strings longer than ~2KB will be silently truncated by the model.
  * Caller is responsible for chunking; see the chunking helpers in
- * the scribian-memory design doc.
+ * the skald-memory design doc.
  */
 export async function embedDocument(
   env: MemoryEnv,
@@ -62,7 +62,7 @@ export async function embedQuery(
 }
 
 /**
- * Upsert one or more vectors into the scribian-vault index. Each
+ * Upsert one or more vectors into the skald-vault index. Each
  * vector includes the path, kind (note-summary or section), and
  * metadata for downstream filtering / rendering.
  *
@@ -72,7 +72,7 @@ export async function embedQuery(
  */
 export async function upsertChunks(
   env: MemoryEnv,
-  vectors: ScribianVector[],
+  vectors: SkaldVector[],
 ): Promise<void> {
   if (vectors.length === 0) return;
   // Vectorize bindings accept the {id, values, metadata, namespace}

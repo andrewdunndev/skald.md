@@ -1,5 +1,5 @@
 import { App, normalizePath, TFile } from 'obsidian';
-import type { Message, Usage } from '@scribian/protocol';
+import type { Message, Usage } from '@skald/protocol';
 
 export interface ConversationMeta {
   id: string;
@@ -65,8 +65,8 @@ export function renderConversationMarkdown(
 ): string {
   const lines: string[] = [];
   lines.push('---');
-  lines.push(`scribian-conversation-id: ${meta.id}`);
-  lines.push(`scribian-model: ${meta.model}`);
+  lines.push(`skald-conversation-id: ${meta.id}`);
+  lines.push(`skald-model: ${meta.model}`);
   lines.push(`created: ${meta.created}`);
   lines.push(`updated: ${meta.updated}`);
   if (meta.usage) {
@@ -253,7 +253,7 @@ export async function saveConversation(
   // the resolved path MUST live inside the configured folder.
   if (!path.startsWith(`${normalizedFolder}/`)) {
     console.error(
-      `scribian: refusing to save outside folder (resolved="${path}" folder="${normalizedFolder}")`,
+      `skald: refusing to save outside folder (resolved="${path}" folder="${normalizedFolder}")`,
     );
     return null;
   }
@@ -267,7 +267,7 @@ export async function saveConversation(
     }
     return await app.vault.create(path, body);
   } catch (err) {
-    console.error('scribian: saveConversation failed', err);
+    console.error('skald: saveConversation failed', err);
     return null;
   }
 }
@@ -297,10 +297,10 @@ export function parseConversationMarkdown(
     if (!fmMatch) return null;
     const fm = fmMatch[1];
 
-    const id = fmValue(fm, 'scribian-conversation-id');
-    if (!id) return null; // no id = not a scribian conversation
+    const id = fmValue(fm, 'skald-conversation-id');
+    if (!id) return null; // no id = not a skald conversation
 
-    const model = fmValue(fm, 'scribian-model') ?? undefined;
+    const model = fmValue(fm, 'skald-model') ?? undefined;
     const created = fmValue(fm, 'created') ?? undefined;
     const updated = fmValue(fm, 'updated') ?? undefined;
 
@@ -359,7 +359,7 @@ export function parseConversationMarkdown(
 
 /** Strip display-only blockquote artifacts from a section body. */
 function stripDisplayArtifacts(text: string): string {
-  // Drop any line that is a scribian-emitted blockquote decoration.
+  // Drop any line that is a skald-emitted blockquote decoration.
   const ARTIFACT = /^> (📎 \[\[|🖼 |🔧 |🌐 |⚠️ tool error|✓ tool result)/;
   return text
     .split('\n')

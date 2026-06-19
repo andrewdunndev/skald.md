@@ -7,23 +7,23 @@ describe('extractTags', () => {
   });
 
   it('extracts a single tag', () => {
-    expect(extractTags('checking #scribian status')).toEqual(['scribian']);
+    expect(extractTags('checking #skald status')).toEqual(['skald']);
   });
 
   it('extracts multiple tags', () => {
-    expect(extractTags('working on #scribian and #obsidian')).toEqual([
-      'scribian',
+    expect(extractTags('working on #skald and #obsidian')).toEqual([
+      'skald',
       'obsidian',
     ]);
   });
 
   it('dedupes repeated tags', () => {
-    expect(extractTags('#scribian and #scribian again')).toEqual(['scribian']);
+    expect(extractTags('#skald and #skald again')).toEqual(['skald']);
   });
 
   it('supports nested tags with slashes', () => {
-    expect(extractTags('working on #projects/scribian/2026')).toEqual([
-      'projects/scribian/2026',
+    expect(extractTags('working on #projects/skald/2026')).toEqual([
+      'projects/skald/2026',
     ]);
   });
 

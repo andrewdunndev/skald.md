@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'vitest';
 import { TokenRegistry, hasScope, type Scope } from './auth';
 
-describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
+describe('TokenRegistry: SKALD_TOKENS (multi-token)', () => {
   it('rejects an empty registry', () => {
     const r = new TokenRegistry({});
     expect(r.hasAny()).toBe(false);
@@ -18,7 +18,7 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
 
   it('authenticates a configured chat-scope token', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'hex-token-1', scopes: ['chat'] },
       ]),
     });
@@ -31,7 +31,7 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
 
   it('returns null for an unknown candidate', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'hex-token-1', scopes: ['chat'] },
       ]),
     });
@@ -40,7 +40,7 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
 
   it('returns null for an empty candidate even with records present', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'hex-token-1', scopes: ['chat'] },
       ]),
     });
@@ -49,7 +49,7 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
 
   it('routes distinct tokens to distinct labels/scopes', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'token-a', scopes: ['chat'] },
         { label: 'reader', token: 'token-b', scopes: ['chat'] },
       ]),
@@ -66,7 +66,7 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
 
   it('keeps timing-safe-compare semantics (length mismatch returns null without partial leak)', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'token-a', scopes: ['chat'] },
       ]),
     });
@@ -74,21 +74,21 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
     expect(r.authenticate('toke')).toBeNull();
   });
 
-  it('falls back gracefully when SCRIBIAN_TOKENS is not valid JSON', () => {
-    const r = new TokenRegistry({ SCRIBIAN_TOKENS: 'not-json' });
+  it('falls back gracefully when SKALD_TOKENS is not valid JSON', () => {
+    const r = new TokenRegistry({ SKALD_TOKENS: 'not-json' });
     expect(r.hasAny()).toBe(false);
   });
 
-  it('falls back when SCRIBIAN_TOKENS is JSON but not an array', () => {
+  it('falls back when SKALD_TOKENS is JSON but not an array', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify({ label: 'x', token: 'y', scopes: ['chat'] }),
+      SKALD_TOKENS: JSON.stringify({ label: 'x', token: 'y', scopes: ['chat'] }),
     });
     expect(r.hasAny()).toBe(false);
   });
 
   it('drops malformed records but keeps valid ones', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'good', token: 'tok', scopes: ['chat'] },
         { label: 'no-token' }, // missing token + scopes
         { token: 'orphan', scopes: ['chat'] }, // missing label
@@ -103,9 +103,9 @@ describe('TokenRegistry: SCRIBIAN_TOKENS (multi-token)', () => {
   });
 });
 
-describe('TokenRegistry: SCRIBIAN_TOKEN (legacy single token)', () => {
-  it('treats SCRIBIAN_TOKEN as a default record with chat scope', () => {
-    const r = new TokenRegistry({ SCRIBIAN_TOKEN: 'legacy-secret' });
+describe('TokenRegistry: SKALD_TOKEN (legacy single token)', () => {
+  it('treats SKALD_TOKEN as a default record with chat scope', () => {
+    const r = new TokenRegistry({ SKALD_TOKEN: 'legacy-secret' });
     expect(r.hasAny()).toBe(true);
     expect(r.authenticate('legacy-secret')).toEqual({
       label: 'default',
@@ -113,12 +113,12 @@ describe('TokenRegistry: SCRIBIAN_TOKEN (legacy single token)', () => {
     });
   });
 
-  it('does not duplicate when both SCRIBIAN_TOKENS + SCRIBIAN_TOKEN name the same token', () => {
+  it('does not duplicate when both SKALD_TOKENS + SKALD_TOKEN name the same token', () => {
     const env = {
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'explicit', token: 'shared', scopes: ['chat'] },
       ]),
-      SCRIBIAN_TOKEN: 'shared',
+      SKALD_TOKEN: 'shared',
     };
     const r = new TokenRegistry(env);
     // Explicit registry wins; legacy fallback is skipped on collision.
@@ -130,10 +130,10 @@ describe('TokenRegistry: SCRIBIAN_TOKEN (legacy single token)', () => {
 
   it('supports BOTH registry tokens AND a distinct legacy token', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'explicit', token: 'token-a', scopes: ['chat'] },
       ]),
-      SCRIBIAN_TOKEN: 'legacy-b',
+      SKALD_TOKEN: 'legacy-b',
     });
     expect(r.authenticate('token-a')).toEqual({
       label: 'explicit',
@@ -149,7 +149,7 @@ describe('TokenRegistry: SCRIBIAN_TOKEN (legacy single token)', () => {
 describe('TokenRegistry: tokenSummaries', () => {
   it('returns label+scopes but never the secret value', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'super-secret', scopes: ['chat'] },
       ]),
     });
@@ -165,7 +165,7 @@ describe('TokenRegistry: tokenSummaries', () => {
 
   it('returns the scopes array as a copy (mutation safe)', () => {
     const r = new TokenRegistry({
-      SCRIBIAN_TOKENS: JSON.stringify([
+      SKALD_TOKENS: JSON.stringify([
         { label: 'plugin', token: 'x', scopes: ['chat'] },
       ]),
     });

@@ -10,7 +10,7 @@ are honored — once they pass, this repo reports non-conformant again.
 - `design-system/grep:global.css` — no `@import "@dunn.dev/reference/tokens/..."` in any global.css
 - `design-system/grep:package.json` — no `"@dunn.dev/reference"` in any package.json
 
-**Why:** scribian is an Obsidian community plugin, not a web project.
+**Why:** skald is an Obsidian community plugin, not a web project.
 It runs inside Obsidian's renderer and uses Obsidian's CSS variables
 (`--background-primary`, `--text-normal`, `--interactive-accent`, etc.)
 so it respects whatever theme the user has installed. Importing
@@ -20,8 +20,8 @@ community plugin for token customization) is the right path if we ever
 want operator overrides, not a build-time CSS import.
 
 **Closure:** never. This deviation is permanent for the plugin
-package. If a future scribian web surface (e.g., the marketing site at
-scribian.dev — see `campaigns/factory/notes/scribian-website.md` in
+package. If a future skald web surface (e.g., the marketing site at
+skald.dev — see `campaigns/factory/notes/skald-website.md` in
 the storr repo) ships, *it* will conform to the design-system contract
 without exception. The plugin stays Obsidian-native.
 
@@ -31,28 +31,28 @@ without exception. The plugin stays Obsidian-native.
 - `pipeline/file-contains:.gitlab-ci.yml` — does not reference any
   `gitlab.com/dunn.dev/pipeline/<component>@X.Y.Z` catalog component
 
-**Why:** scribian's `.gitlab-ci.yml` is hand-rolled (typecheck +
+**Why:** skald's `.gitlab-ci.yml` is hand-rolled (typecheck +
 plugin esbuild + worker `wrangler deploy --dry-run`) because the
 `dunn.dev/pipeline` catalog has no TypeScript/Node build component
 yet. The estate is heavy on Go and Rust primitives; a Node primitive
-needs to land upstream before scribian can consume it. The closest
+needs to land upstream before skald can consume it. The closest
 existing component, `cloudflare-worker.yml`, deploys via wrangler —
-which scribian intentionally doesn't do from CI (Worker is
-BYO-deployed per user, not shipped from scribian's CI). Adopting it
+which skald intentionally doesn't do from CI (Worker is
+BYO-deployed per user, not shipped from skald's CI). Adopting it
 would conflict with that design.
 
 **Closure path:** propose a `typescript-build` (or similar) component
 upstream in `dunn.dev/pipeline`: pnpm install with lockfile cache +
-recursive typecheck + optional build artifact emission. scribian
+recursive typecheck + optional build artifact emission. skald
 becomes the first consumer once the component lands. See
-`campaigns/factory/notes/scribian-roadmap.md` Open question #1.
+`campaigns/factory/notes/skald-roadmap.md` Open question #1.
 
 **Closure expires:** 2026-08-14 (~90 days from filing). Estate-level
-work; scribian doesn't block on it for shipping.
+work; skald doesn't block on it for shipping.
 
 ## architecture: direct-mode pivot (2026-06-12)
 
-**What changed:** scribian's headline deployment shape flipped from
+**What changed:** skald's headline deployment shape flipped from
 Worker-mandatory to direct-mode-default. Prior to this date, the
 architecture was: plugin → Cloudflare Worker (required) → Anthropic.
 The Worker was the only supported path; direct-to-API was not exposed.
@@ -84,7 +84,7 @@ decision for community-plugin distribution (no infra barrier to entry).
 
 ## file-size: per-file LOC cap with documented exceptions
 
-**What fails:** scribian-local rule (no reference contract yet). The
+**What fails:** skald-local rule (no reference contract yet). The
 `pnpm check:size` script enforces a 400-line cap on every TS file under
 `packages/*/src` (test files included). Cap is total lines; the
 yotoshelf project's experience converged on 250 for Go / 400 for TS as
@@ -110,8 +110,8 @@ catches stale deviations — a file that drops under the cap fails as
 `STALE-DEVIATION` until removed from the exception list.
 
 **Reference-upstream candidacy:** the rule is intentionally
-scribian-local for v1. After one full refactor cycle on the cap, we
+skald-local for v1. After one full refactor cycle on the cap, we
 re-evaluate whether `code-size` belongs as a `dunn.dev/reference`
 contract (or as a `dunn.dev/pipeline` catalog component). Cross-
-project pattern needs at least two consumers (scribian + yotoshelf)
+project pattern needs at least two consumers (skald + yotoshelf)
 to qualify per the reference's "principles earn a slot" test.

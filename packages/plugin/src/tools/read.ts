@@ -1,9 +1,9 @@
 import { App, TFile } from 'obsidian';
-import type { ToolDefinition } from '@scribian/protocol';
+import type { ToolDefinition } from '@skald/protocol';
 import { safePath, type ToolExecutionResult } from './context';
 import { rerankCandidates } from './rerank';
 import { providerCapabilities, utilityModel as resolveUtilityModel } from '../provider-capabilities';
-import type { ScribianSettings } from '../settings';
+import type { SkaldSettings } from '../settings';
 
 // ---------------------------------------------------------------------------
 // Omnisearch interop — narrow types; no external @omnisearch package needed.
@@ -130,7 +130,7 @@ export const READ_ONLY_TOOLS: ToolDefinition[] = [
   {
     name: 'find_related',
     description:
-      'Find vault notes semantically related to a free-text query. Returns ranked matches with vault-relative paths, similarity scores, and short excerpts. Use this when the user asks about a topic and you want to surface related notes the user might not remember exists. Requires the user to have indexed their vault at least once via the "Scribian: Reindex vault" command.',
+      'Find vault notes semantically related to a free-text query. Returns ranked matches with vault-relative paths, similarity scores, and short excerpts. Use this when the user asks about a topic and you want to surface related notes the user might not remember exists. Requires the user to have indexed their vault at least once via the "Skald: Reindex vault" command.',
     input_schema: {
       type: 'object',
       properties: {
@@ -209,8 +209,8 @@ export async function runSearchVault(
   app: App,
   args: Record<string, unknown>,
   anthropicApiKey?: string,
-  provider?: import('@scribian/protocol').Provider,
-  settings?: ScribianSettings,
+  provider?: import('@skald/protocol').Provider,
+  settings?: SkaldSettings,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
   if (!rawQuery) {

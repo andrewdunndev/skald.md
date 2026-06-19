@@ -13,7 +13,7 @@ import { authBearer, authBearerOrQuery, authSubprotocol } from './auth-helpers';
 
 function registryWith(token: string, scopes: string[] = ['chat']) {
   return new TokenRegistry({
-    SCRIBIAN_TOKENS: JSON.stringify([
+    SKALD_TOKENS: JSON.stringify([
       { label: 'plugin', token, scopes },
     ]),
   });

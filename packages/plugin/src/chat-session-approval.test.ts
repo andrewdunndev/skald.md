@@ -18,7 +18,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
-import type { ClientMessage, Message } from '@scribian/protocol';
+import type { ClientMessage, Message } from '@skald/protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 import { executeTool } from './tools';
 import type { ApproveFn } from './tools/context';

@@ -83,10 +83,10 @@ describe('resolveBannerSpec: direct mode, anthropic provider', () => {
     expect(spec?.detail).toContain('console.anthropic.com');
   });
 
-  it('banner detail mentions Settings → Scribian', () => {
+  it('banner detail mentions Settings → Skald', () => {
     const spec = resolveBannerSpec(directInput({ anthropicApiKey: '' }));
     expect(spec?.detail).toContain('Settings');
-    expect(spec?.detail).toContain('Scribian');
+    expect(spec?.detail).toContain('Skald');
   });
 });
 

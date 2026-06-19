@@ -1,12 +1,12 @@
 # Installing the plugin
 
-Until scribian lands in the Obsidian community plugins directory,
+Until skald lands in the Obsidian community plugins directory,
 installation is manual. Three paths exist, ordered easiest-first.
 
 ## Path 1: BRAT (when releases are published)
 
 Status: **coming soon.** When the first BRAT-friendly release is cut,
-add `scribian/scribian` (the GitHub mirror) to
+add `skald/skald` (the GitHub mirror) to
 [BRAT (Beta Reviewers Auto-update Tester)](https://github.com/TfTHacker/obsidian42-brat)
 and accept updates as they ship.
 
@@ -17,10 +17,10 @@ For now, the manual route:
 1. Build the plugin once:
 
    ```sh
-   git clone https://gitlab.com/dunn.dev/scribian.git
-   cd scribian
+   git clone https://gitlab.com/dunn.dev/skald.git
+   cd skald
    pnpm install
-   pnpm --filter @scribian/plugin build
+   pnpm --filter @skald/plugin build
    ```
 
    This produces `packages/plugin/dist/{manifest.json, main.js,
@@ -29,11 +29,11 @@ For now, the manual route:
 2. Copy those four files into your vault at:
 
    ```
-   <vault>/.obsidian/plugins/scribian/
+   <vault>/.obsidian/plugins/skald/
    ```
 
 3. In Obsidian: Settings → Community plugins → "Turn on community
-   plugins" → toggle Scribian on.
+   plugins" → toggle Skald on.
 
 If you have Obsidian Sync with "Sync community plugins" enabled, the
 plugin files propagate automatically to your iPhone / iPad. You only
@@ -41,23 +41,23 @@ need to install on one device.
 
 ## Path 3: Develop in your vault (contributors)
 
-If you're working on scribian itself, point the build at a vault
+If you're working on skald itself, point the build at a vault
 directly:
 
 ```sh
-SCRIBIAN_OUT_DIR="$HOME/path/to/your/vault/.obsidian/plugins/scribian" \
+SKALD_OUT_DIR="$HOME/path/to/your/vault/.obsidian/plugins/skald" \
   pnpm dev:plugin
 ```
 
 esbuild watches for changes and writes new `main.js` to that
 directory. Install [pjeby's Hot Reload plugin](https://github.com/pjeby/hot-reload)
 in the same vault and drop a `.hotreload` sentinel file into
-`.obsidian/plugins/scribian/` so Hot Reload picks up changes
+`.obsidian/plugins/skald/` so Hot Reload picks up changes
 automatically. No more disable/enable cycles.
 
 ## Configure
 
-After install, open Obsidian → Settings → Scribian.
+After install, open Obsidian → Settings → Skald.
 
 **Direct mode (default — no server needed):**
 
@@ -69,7 +69,7 @@ After install, open Obsidian → Settings → Scribian.
 4. **Memory** — toggle on to enable the long-term memory note.
 
 That's it. Open the chat pane via the speech-bubble ribbon icon or
-**Scribian: Open chat** from the command palette.
+**Skald: Open chat** from the command palette.
 
 **Worker mode (optional — adds semantic search + capture auto-routing):**
 
@@ -87,7 +87,7 @@ In direct mode, the API key syncs automatically via plugin data (via
 Obsidian Sync) — no setup URI needed.
 
 For worker mode, the plugin registers a protocol handler at
-`obsidian://scribian-setup?endpoint=<worker-url>&token=<worker-token>`.
+`obsidian://skald-setup?endpoint=<worker-url>&token=<worker-token>`.
 Tap a link in that shape on a configured Obsidian device and the
 plugin writes both fields into settings without keyboard entry.
 
@@ -97,7 +97,7 @@ The intended flow:
    minted a token, build the URI:
 
    ```
-   obsidian://scribian-setup?endpoint=wss://scribian.you.workers.dev&token=<hex>
+   obsidian://skald-setup?endpoint=wss://skald.you.workers.dev&token=<hex>
    ```
 
    URL-encode the token if it contains anything beyond hex (the
@@ -107,16 +107,16 @@ The intended flow:
 2. Send the URI to yourself (Apple Notes, Messages-to-self,
    AirDrop). Open it on the target device.
 
-3. Obsidian foregrounds, scribian's protocol handler parses the
+3. Obsidian foregrounds, skald's protocol handler parses the
    URI, and a confirmation modal appears showing the endpoint
-   and a masked preview of the token (`abcd…wxyz`). If scribian
+   and a masked preview of the token (`abcd…wxyz`). If skald
    was already configured, the modal also warns that current
    settings will be overwritten.
 
 4. Review and tap **Apply setup**. You'll see a Notice:
 
    ```
-   scribian: configured against wss://… . Don't share that link
+   skald: configured against wss://… . Don't share that link
    — it contains your Worker token.
    ```
 
@@ -129,7 +129,7 @@ treat it the same as the raw secret. The plugin:
 - rejects URIs whose `endpoint` isn't `http`/`https`
   (`file://` and `javascript:` payloads can't reach settings)
 - never silently rewrites settings — every setup URI goes
-  through the confirmation modal even when scribian was
+  through the confirmation modal even when skald was
   unconfigured
 
 ## Vault sync setup (for the wife-test)
@@ -141,14 +141,14 @@ goal is "one config, all devices."
    - Settings → Sync → "Sync community plugins" → **on**
    - Settings → Sync → "Sync plugin data" → **on**
 
-2. Configure scribian once on the primary device. Both the plugin
+2. Configure skald once on the primary device. Both the plugin
    code and the configuration (`data.json`) replicate to other
    devices.
 
 3. New device:
    - Open the synced vault on the device
    - Wait for Obsidian Sync to pull
-   - Enable scribian once in Settings → Community plugins (Sync
+   - Enable skald once in Settings → Community plugins (Sync
      doesn't auto-enable plugins)
    - Open the chat pane — config is already there
 
@@ -169,7 +169,7 @@ note flags a protocol change, redeploy the Worker first
 
 ## Uninstall
 
-Settings → Community plugins → Scribian → toggle off → trash icon to
+Settings → Community plugins → Skald → toggle off → trash icon to
 remove the plugin folder. The Worker stays deployed in your CF
 account until you remove it from the Workers dashboard.
 
@@ -179,7 +179,7 @@ account until you remove it from the Workers dashboard.
   from the left edge). The command palette is the small `…` button
   at the bottom-right.
 - **WebSocket reconnect:** if you background Obsidian, the connection
-  drops; on foreground, scribian auto-reconnects within a second.
-- **Settings tab on phone:** Settings → swipe → Scribian. The
+  drops; on foreground, skald auto-reconnects within a second.
+- **Settings tab on phone:** Settings → swipe → Skald. The
   layout is the same as desktop (connection mode + provider + API key +
   memory toggle, with Advanced below).

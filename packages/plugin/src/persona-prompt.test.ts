@@ -23,7 +23,7 @@ describe('buildPersonaSection', () => {
   it('returns null when the file does not exist', async () => {
     const app = mockApp({});
     expect(
-      await buildPersonaSection(app, { path: 'Scribian/Personas/x.md' }),
+      await buildPersonaSection(app, { path: 'Skald/Personas/x.md' }),
     ).toBeNull();
   });
 

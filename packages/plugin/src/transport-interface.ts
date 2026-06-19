@@ -1,5 +1,5 @@
 /**
- * ScribianTransport: the shared interface that both WorkerTransport
+ * SkaldTransport: the shared interface that both WorkerTransport
  * (WebSocket → Cloudflare Worker) and DirectTransport (fetch → Anthropic
  * / OpenRouter) satisfy.
  *
@@ -12,7 +12,7 @@
  * lets tests and ChatSession import the type without pulling in Obsidian
  * or browser globals.
  */
-import type { ClientMessage, ServerMessage } from '@scribian/protocol';
+import type { ClientMessage, ServerMessage } from '@skald/protocol';
 
 export interface TransportHandlers {
   onOpen: () => void;
@@ -21,7 +21,7 @@ export interface TransportHandlers {
   onError: (err: string) => void;
 }
 
-export interface ScribianTransport {
+export interface SkaldTransport {
   /** Open the connection (or mark as immediately ready for DirectTransport). */
   connect(): void;
   /** Send a protocol message to the remote or handle it locally. */

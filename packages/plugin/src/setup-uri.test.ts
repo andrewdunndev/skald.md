@@ -4,13 +4,13 @@ import { parseSetupParams } from './setup-uri';
 describe('parseSetupParams', () => {
   it('accepts a valid endpoint + token pair', () => {
     const out = parseSetupParams({
-      endpoint: 'https://scribian.example.workers.dev',
+      endpoint: 'https://skald.example.workers.dev',
       token: 'abcdef123456',
     });
     expect(out).toEqual({
       ok: true,
       params: {
-        endpoint: 'https://scribian.example.workers.dev',
+        endpoint: 'https://skald.example.workers.dev',
         token: 'abcdef123456',
       },
     });

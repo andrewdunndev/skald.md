@@ -1,4 +1,4 @@
-import type { ContentBlock } from '@scribian/protocol';
+import type { ContentBlock } from '@skald/protocol';
 
 /**
  * Walk a finalized assistant message's content blocks and collect

@@ -8,7 +8,7 @@
  * auth subprotocol/token wiring, and the error path.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { ServerMessage } from '@scribian/protocol';
+import type { ServerMessage } from '@skald/protocol';
 import { Transport } from './transport';
 
 // ── WebSocket mock ─────────────────────────────────────────────────────────

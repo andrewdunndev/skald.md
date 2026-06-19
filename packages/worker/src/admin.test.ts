@@ -10,7 +10,7 @@ import { renderAdminPage, type AdminViewModel } from './admin';
 
 const BASE_VM: AdminViewModel = {
   version: 7,
-  workerName: 'scribian',
+  workerName: 'skald',
   anthropicKeyPresent: true,
   openrouterKeyPresent: false,
   aiGatewayConfigured: false,
@@ -22,10 +22,10 @@ const BASE_VM: AdminViewModel = {
 describe('renderAdminPage', () => {
   it('renders static page chrome: heading w/ name+version, rotation instructions, persistence footer', () => {
     const html = renderAdminPage(BASE_VM);
-    expect(html).toContain('<h1>scribian');
+    expect(html).toContain('<h1>skald');
     expect(html).toContain('v7');
     // Token-rotation pre-block instructions.
-    expect(html).toContain('wrangler secret put SCRIBIAN_TOKENS');
+    expect(html).toContain('wrangler secret put SKALD_TOKENS');
     expect(html).toContain('openssl rand -hex 32');
     // Events footer mentions DO-storage persistence (post-hibernation
     // -persist fix); the old "lost across hibernation" copy is gone.

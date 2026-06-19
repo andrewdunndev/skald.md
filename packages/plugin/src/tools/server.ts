@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@scribian/protocol';
+import type { ToolDefinition } from '@skald/protocol';
 
 /**
  * Anthropic-executed server tools. These are passed in the tools

@@ -3,8 +3,8 @@
  *
  * A slash command is a markdown note whose body is a prompt
  * template. Users author them in a configurable folder (default
- * Scribian/Commands/) and pick one from a modal triggered by the
- * "Scribian: Run command" command-palette entry. The selected
+ * Skald/Commands/) and pick one from a modal triggered by the
+ * "Skald: Run command" command-palette entry. The selected
  * template is variable-expanded and dropped into the chat input
  * for the user to review + send.
  *
@@ -122,7 +122,7 @@ export async function renderCommand(
   if (activeFile && cmd.includesActiveNote && activeBody) {
     const { body, truncatedAt } = truncateForInject(activeBody);
     const truncMarker = truncatedAt
-      ? `\n\n[scribian: truncated at ${truncatedAt} chars; original was ${activeBody.length} chars]`
+      ? `\n\n[skald: truncated at ${truncatedAt} chars; original was ${activeBody.length} chars]`
       : '';
     variables.active_note =
       `<context>\n  <file path="${activeFile.path}">\n${body}${truncMarker}\n  </file>\n</context>`;
@@ -164,7 +164,7 @@ function renderTemplate(
     const [name, fallback] = raw.split('|').map((s) => s.trim());
     if (name in variables) return variables[name];
     if (fallback !== undefined) return fallback;
-    console.warn(`scribian: slash command '${cmdId}' referenced unknown variable '${name}'`);
+    console.warn(`skald: slash command '${cmdId}' referenced unknown variable '${name}'`);
     return '';
   });
 }
@@ -183,7 +183,7 @@ export class SlashCommandModal extends SuggestModal<SlashCommand> {
     ]);
     if (commands.length === 0) {
       new Notice(
-        'No commands found. Author markdown notes in the configured commands folder (default Scribian/Commands).',
+        'No commands found. Author markdown notes in the configured commands folder (default Skald/Commands).',
       );
     }
   }
@@ -201,11 +201,11 @@ export class SlashCommandModal extends SuggestModal<SlashCommand> {
 
   override renderSuggestion(cmd: SlashCommand, el: HTMLElement): void {
     el.empty();
-    el.addClass('scribian-slash-suggest');
-    el.createDiv({ cls: 'scribian-slash-suggest-name', text: cmd.name });
+    el.addClass('skald-slash-suggest');
+    el.createDiv({ cls: 'skald-slash-suggest-name', text: cmd.name });
     if (cmd.description) {
       el.createDiv({
-        cls: 'scribian-slash-suggest-desc',
+        cls: 'skald-slash-suggest-desc',
         text: cmd.description,
       });
     }
@@ -222,7 +222,7 @@ interface ParsedFrontmatter {
 }
 
 /**
- * Lightweight YAML-frontmatter parser — sufficient for scribian's
+ * Lightweight YAML-frontmatter parser — sufficient for skald's
  * command notes which only carry key: value pairs (no nesting, no
  * arrays). Returns the body content with the frontmatter block
  * stripped.

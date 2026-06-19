@@ -101,7 +101,7 @@ export class NotePicker {
     if (!this.pickerEl) {
       this.pickerEl = this.insertAfter.insertAdjacentElement(
         'afterend',
-        createDiv({ cls: 'scribian-picker' }),
+        createDiv({ cls: 'skald-picker' }),
       ) as HTMLDivElement;
     }
     this.render();
@@ -112,18 +112,18 @@ export class NotePicker {
     this.pickerEl.empty();
     if (this.results.length === 0) {
       this.pickerEl
-        .createDiv({ cls: 'scribian-picker-empty' })
+        .createDiv({ cls: 'skald-picker-empty' })
         .setText('No matching notes');
       return;
     }
     this.results.forEach((file, idx) => {
       const row = this.pickerEl!.createDiv({
-        cls: `scribian-picker-row${idx === this.selectedIdx ? ' is-selected' : ''}`,
+        cls: `skald-picker-row${idx === this.selectedIdx ? ' is-selected' : ''}`,
       });
-      row.createSpan({ cls: 'scribian-picker-name', text: file.basename });
+      row.createSpan({ cls: 'skald-picker-name', text: file.basename });
       const folder = file.parent?.path;
       if (folder && folder !== '/') {
-        row.createSpan({ cls: 'scribian-picker-folder', text: folder });
+        row.createSpan({ cls: 'skald-picker-folder', text: folder });
       }
       row.addEventListener('click', (e) => {
         e.preventDefault();

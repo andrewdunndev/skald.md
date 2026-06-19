@@ -10,7 +10,7 @@
  * provider, and these wiring assertions catch it.
  */
 import { describe, expect, it } from 'vitest';
-import type { ChatRequest } from '@scribian/protocol';
+import type { ChatRequest } from '@skald/protocol';
 import { dispatchFor, resolveProviderKey } from './index';
 
 const BASE_REQUEST: ChatRequest = {

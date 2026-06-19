@@ -18,7 +18,7 @@
  *      begins with tool_result blocks — that means we dropped the matching
  *      assistant tool_use without dropping the tool_result response.
  */
-import type { Message, ContentBlock } from '@scribian/protocol';
+import type { Message, ContentBlock } from '@skald/protocol';
 
 /** Characters per token (conservative proxy). */
 const CHARS_PER_TOKEN = 4;
@@ -148,7 +148,7 @@ export function windowHistory(
 function warnIfOverCeiling(estimatedTokens: number): void {
   if (estimatedTokens > CONTEXT_CEILING_TOKENS) {
     console.warn(
-      `[scribian] windowed payload ≈${estimatedTokens} tokens exceeds the ` +
+      `[skald] windowed payload ≈${estimatedTokens} tokens exceeds the ` +
         `~${CONTEXT_CEILING_TOKENS}-token context ceiling; the request may be ` +
         `rejected. A single large note or turn is the likely cause.`,
     );

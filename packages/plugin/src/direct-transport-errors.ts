@@ -37,7 +37,7 @@ export function httpErrorMessage(
   }
   if (status === 401 || status === 403) {
     return {
-      error: 'Your API key was rejected — check it in Settings → Scribian.',
+      error: 'Your API key was rejected — check it in Settings → Skald.',
       retryable: false,
     };
   }

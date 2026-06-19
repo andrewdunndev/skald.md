@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * Pre-submission lint for the Obsidian plugin. Enforces the
- * community-plugin guidelines that scribian needs to clear before
+ * community-plugin guidelines that skald needs to clear before
  * the developer-dashboard submission (and that catch real bugs
  * regardless).
  *

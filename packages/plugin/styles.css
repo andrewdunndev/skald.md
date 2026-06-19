@@ -1,4 +1,4 @@
-.scribian-root {
+.skald-root {
   display: flex;
   flex-direction: column;
   height: 100%;
@@ -6,13 +6,13 @@
   padding: var(--size-4-2);
 }
 
-.scribian-header {
+.skald-header {
   display: flex;
   align-items: center;
   gap: var(--size-2-2);
 }
 
-.scribian-model {
+.skald-model {
   flex: 1;
   font: inherit;
   padding: var(--size-2-1) var(--size-4-2);
@@ -25,7 +25,7 @@
 /* Generic icon button — small, native Obsidian feel.
    Obsidian's .clickable-icon already gives us 4px padding + hover state;
    we just nudge sizing for our chrome. */
-.scribian-icon-btn {
+.skald-icon-btn {
   --icon-size: var(--icon-s);
   flex: 0 0 auto;
   display: inline-flex;
@@ -33,13 +33,13 @@
   justify-content: center;
 }
 
-.scribian-status-row {
+.skald-status-row {
   display: flex;
   align-items: center;
   gap: var(--size-2-2);
 }
 
-.scribian-chip-row {
+.skald-chip-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -47,7 +47,7 @@
   min-height: 1.75rem;
 }
 
-.scribian-chip {
+.skald-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--size-2-1);
@@ -60,7 +60,7 @@
   overflow: hidden;
 }
 
-.scribian-chip-label {
+.skald-chip-label {
   cursor: pointer;
   color: var(--text-accent);
   white-space: nowrap;
@@ -68,22 +68,22 @@
   text-overflow: ellipsis;
 }
 
-.scribian-chip-label::before {
+.skald-chip-label::before {
   content: '📎 ';
   margin-right: var(--size-2-1);
 }
 
-.scribian-chip-label:hover {
+.skald-chip-label:hover {
   text-decoration: underline;
 }
 
-.scribian-chip-dismiss {
+.skald-chip-dismiss {
   --icon-size: var(--icon-xs);
   padding: 2px;
   border-radius: 999px;
 }
 
-.scribian-chip-attach {
+.skald-chip-attach {
   background: transparent;
   border: 1px dashed var(--background-modifier-border);
   color: var(--text-muted);
@@ -94,23 +94,23 @@
   cursor: pointer;
 }
 
-.scribian-chip-attach:hover {
+.skald-chip-attach:hover {
   background: var(--background-modifier-hover);
   color: var(--text-normal);
 }
 
-.scribian-chip-empty {
+.skald-chip-empty {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   font-style: italic;
   padding: var(--size-2-1) var(--size-4-2);
 }
 
-.scribian-chip-active {
+.skald-chip-active {
   background: var(--background-modifier-success-rgb, var(--background-modifier-hover));
 }
 
-.scribian-picker {
+.skald-picker {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--background-modifier-border);
@@ -120,7 +120,7 @@
   overflow-y: auto;
 }
 
-.scribian-picker-row {
+.skald-picker-row {
   display: flex;
   align-items: baseline;
   gap: var(--size-2-2);
@@ -129,26 +129,26 @@
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.scribian-picker-row:last-child {
+.skald-picker-row:last-child {
   border-bottom: none;
 }
 
-.scribian-picker-row.is-selected,
-.scribian-picker-row:hover {
+.skald-picker-row.is-selected,
+.skald-picker-row:hover {
   background: var(--background-modifier-hover);
 }
 
-.scribian-picker-name {
+.skald-picker-name {
   font-size: var(--font-ui-small);
   color: var(--text-normal);
 }
 
-.scribian-picker-folder {
+.skald-picker-folder {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
 }
 
-.scribian-picker-empty {
+.skald-picker-empty {
   padding: var(--size-2-2) var(--size-4-2);
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
@@ -156,7 +156,7 @@
 }
 
 /* Diff card — pending-approval write proposal */
-.scribian-diff {
+.skald-diff {
   display: flex;
   flex-direction: column;
   border: 2px solid var(--interactive-accent);
@@ -170,7 +170,7 @@
   touch-action: pan-y;
 }
 
-.scribian-diff-header {
+.skald-diff-header {
   display: flex;
   align-items: baseline;
   gap: var(--size-2-2);
@@ -179,19 +179,19 @@
   border-bottom: 1px solid var(--background-modifier-border);
 }
 
-.scribian-diff-kind {
+.skald-diff-kind {
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-semibold);
   color: var(--interactive-accent);
 }
 
-.scribian-diff-path {
+.skald-diff-path {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   font-family: var(--font-monospace);
 }
 
-.scribian-diff-trace {
+.skald-diff-trace {
   padding: var(--size-2-1) var(--size-4-2);
   background: var(--background-secondary);
   border-bottom: 1px solid var(--background-modifier-border);
@@ -200,16 +200,16 @@
   word-break: break-word;
 }
 
-.scribian-diff-trace-label {
+.skald-diff-trace-label {
   font-weight: var(--font-semibold);
 }
 
-.scribian-diff-trace-source {
+.skald-diff-trace-source {
   font-family: var(--font-monospace);
   color: var(--text-normal);
 }
 
-.scribian-diff-body {
+.skald-diff-body {
   display: flex;
   flex-direction: column;
   max-height: 20rem;
@@ -219,7 +219,7 @@
   line-height: 1.45;
 }
 
-.scribian-diff-line {
+.skald-diff-line {
   display: flex;
   gap: var(--size-2-2);
   padding: 0 var(--size-4-2);
@@ -227,46 +227,46 @@
   word-break: break-word;
 }
 
-.scribian-diff-marker {
+.skald-diff-marker {
   width: 1ch;
   flex-shrink: 0;
   color: var(--text-muted);
   user-select: none;
 }
 
-.scribian-diff-text {
+.skald-diff-text {
   flex: 1;
   min-width: 0;
 }
 
-.scribian-diff-same {
+.skald-diff-same {
   color: var(--text-muted);
 }
 
-.scribian-diff-add {
+.skald-diff-add {
   background: rgba(76, 175, 80, 0.15);
   color: var(--text-normal);
 }
 
-.scribian-diff-add .scribian-diff-marker {
+.skald-diff-add .skald-diff-marker {
   color: rgb(76, 175, 80);
   font-weight: var(--font-semibold);
 }
 
-.scribian-diff-remove {
+.skald-diff-remove {
   background: rgba(244, 67, 54, 0.15);
   color: var(--text-normal);
   text-decoration: line-through;
   text-decoration-color: rgba(244, 67, 54, 0.5);
 }
 
-.scribian-diff-remove .scribian-diff-marker {
+.skald-diff-remove .skald-diff-marker {
   color: rgb(244, 67, 54);
   font-weight: var(--font-semibold);
   text-decoration: none;
 }
 
-.scribian-diff-actions {
+.skald-diff-actions {
   display: flex;
   gap: var(--size-2-1);
   justify-content: flex-end;
@@ -275,15 +275,15 @@
   border-top: 1px solid var(--background-modifier-border);
 }
 
-.scribian-diff-approve {
+.skald-diff-approve {
   --icon-color: var(--text-success);
 }
 
-.scribian-diff-reject {
+.skald-diff-reject {
   --icon-color: var(--text-error);
 }
 
-.scribian-status {
+.skald-status {
   flex: 1;
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
@@ -292,16 +292,16 @@
   background: var(--background-secondary);
 }
 
-.scribian-status.connected {
+.skald-status.connected {
   color: var(--text-success);
 }
 
-.scribian-status.error {
+.skald-status.error {
   color: var(--text-error);
 }
 
 
-.scribian-messages {
+.skald-messages {
   flex: 1;
   overflow-y: auto;
   display: flex;
@@ -313,7 +313,7 @@
   background: var(--background-primary);
 }
 
-.scribian-msg {
+.skald-msg {
   font-size: var(--font-ui-small);
   line-height: 1.5;
   word-wrap: break-word;
@@ -325,17 +325,17 @@
   background: var(--background-primary);
 }
 
-.scribian-msg-user {
+.skald-msg-user {
   background: var(--background-modifier-hover);
 }
 
-.scribian-msg-streaming {
+.skald-msg-streaming {
   border-left: 2px solid var(--interactive-accent);
   padding-left: var(--size-4-2);
-  animation: scribian-streaming-pulse 1.4s ease-in-out infinite;
+  animation: skald-streaming-pulse 1.4s ease-in-out infinite;
 }
 
-@keyframes scribian-streaming-pulse {
+@keyframes skald-streaming-pulse {
   0%, 100% {
     border-left-color: var(--interactive-accent);
   }
@@ -344,7 +344,7 @@
   }
 }
 
-.scribian-msg-who {
+.skald-msg-who {
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-semibold);
   color: var(--text-muted);
@@ -352,11 +352,11 @@
   letter-spacing: 0.05em;
 }
 
-.scribian-msg-user .scribian-msg-who {
+.skald-msg-user .skald-msg-who {
   color: var(--text-accent);
 }
 
-.scribian-msg-body {
+.skald-msg-body {
   display: flex;
   flex-direction: column;
   gap: var(--size-2-2);
@@ -364,7 +364,7 @@
 
 /* Per-message action row at the bottom of finalized assistant turns.
    Always visible (no hover) — mobile-friendly. */
-.scribian-msg-actions {
+.skald-msg-actions {
   display: flex;
   gap: var(--size-2-1);
   margin-top: var(--size-2-2);
@@ -372,11 +372,11 @@
   transition: opacity 0.15s ease;
 }
 
-.scribian-msg:hover .scribian-msg-actions {
+.skald-msg:hover .skald-msg-actions {
   opacity: 1;
 }
 
-.scribian-msg-action {
+.skald-msg-action {
   --icon-size: var(--icon-xs);
   padding: 4px;
   border-radius: var(--radius-s);
@@ -384,37 +384,37 @@
 
 /* Let MarkdownRenderer output breathe — its default styles assume
    it's the only thing in a container, but we wrap each text block. */
-.scribian-msg-body > .scribian-text > * {
+.skald-msg-body > .skald-text > * {
   margin-block: var(--size-2-1);
 }
 
-.scribian-msg-body > .scribian-text > *:first-child {
+.skald-msg-body > .skald-text > *:first-child {
   margin-block-start: 0;
 }
 
-.scribian-msg-body > .scribian-text > *:last-child {
+.skald-msg-body > .skald-text > *:last-child {
   margin-block-end: 0;
 }
 
 /* Code blocks within rendered chat content */
-.scribian-msg-body pre {
+.skald-msg-body pre {
   margin: 0;
   max-width: 100%;
   overflow-x: auto;
 }
 
-.scribian-msg-body img {
+.skald-msg-body img {
   max-width: 100%;
   height: auto;
 }
 
-.scribian-msg-body table {
+.skald-msg-body table {
   display: block;
   overflow-x: auto;
   max-width: 100%;
 }
 
-.scribian-thinking {
+.skald-thinking {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   font-style: italic;
@@ -424,8 +424,8 @@
   border-radius: var(--radius-s);
 }
 
-.scribian-tool-use,
-.scribian-tool-call {
+.skald-tool-use,
+.skald-tool-call {
   display: flex;
   align-items: center;
   gap: var(--size-2-2);
@@ -437,12 +437,12 @@
   color: var(--text-muted);
 }
 
-.scribian-tool-call .scribian-tool-name {
+.skald-tool-call .skald-tool-name {
   color: var(--text-normal);
   font-weight: normal;
 }
 
-.scribian-tool-summary {
+.skald-tool-summary {
   cursor: pointer;
   list-style: none;
   display: flex;
@@ -450,29 +450,29 @@
   gap: var(--size-2-2);
 }
 
-.scribian-tool-summary::-webkit-details-marker {
+.skald-tool-summary::-webkit-details-marker {
   display: none;
 }
 
-.scribian-tool-summary::before {
+.skald-tool-summary::before {
   content: '▸';
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   transition: transform 0.1s ease;
 }
 
-.scribian-tool-use[open] > .scribian-tool-summary::before,
-.scribian-tool-result[open] > .scribian-tool-summary::before {
+.skald-tool-use[open] > .skald-tool-summary::before,
+.skald-tool-result[open] > .skald-tool-summary::before {
   transform: rotate(90deg);
 }
 
-.scribian-tool-name {
+.skald-tool-name {
   font-size: var(--font-ui-smaller);
   color: var(--text-accent);
   font-weight: var(--font-semibold);
 }
 
-.scribian-tool-input {
+.skald-tool-input {
   font-size: var(--font-ui-smaller);
   margin: var(--size-2-2) 0 0 0;
   padding: var(--size-2-2);
@@ -481,7 +481,7 @@
   overflow-x: auto;
 }
 
-.scribian-tool-result {
+.skald-tool-result {
   display: flex;
   flex-direction: column;
   gap: var(--size-2-1);
@@ -491,21 +491,21 @@
   border-radius: var(--radius-s);
 }
 
-.scribian-tool-result-error {
+.skald-tool-result-error {
   border-color: var(--background-modifier-error);
 }
 
-.scribian-tool-result-label {
+.skald-tool-result-label {
   font-size: var(--font-ui-smaller);
   color: var(--text-success);
   font-weight: var(--font-semibold);
 }
 
-.scribian-tool-result-error .scribian-tool-result-label {
+.skald-tool-result-error .skald-tool-result-label {
   color: var(--text-error);
 }
 
-.scribian-tool-result-body {
+.skald-tool-result-body {
   font-size: var(--font-ui-smaller);
   margin: var(--size-2-2) 0 0 0;
   padding: var(--size-2-2);
@@ -515,7 +515,7 @@
   overflow: auto;
 }
 
-.scribian-tool-result-row {
+.skald-tool-result-row {
   display: flex;
   align-items: center;
   gap: var(--size-2-2);
@@ -526,23 +526,23 @@
   font-size: var(--font-ui-smaller);
 }
 
-.scribian-tool-result-body pre {
+.skald-tool-result-body pre {
   margin: 0;
   white-space: pre-wrap;
 }
 
-.scribian-tool-web .scribian-tool-result-label {
+.skald-tool-web .skald-tool-result-label {
   color: var(--text-accent);
 }
 
-.scribian-block-unknown {
+.skald-block-unknown {
   font-size: var(--font-ui-smaller);
   font-style: italic;
   padding: var(--size-2-1) var(--size-4-2);
   color: var(--text-muted);
 }
 
-.scribian-input-wrap {
+.skald-input-wrap {
   display: flex;
   align-items: flex-end;
   gap: var(--size-2-2);
@@ -552,11 +552,11 @@
   background: var(--background-primary);
 }
 
-.scribian-input-wrap:focus-within {
+.skald-input-wrap:focus-within {
   border-color: var(--interactive-accent);
 }
 
-.scribian-input {
+.skald-input {
   flex: 1;
   resize: none;
   min-height: 2rem;
@@ -574,35 +574,35 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.scribian-input:focus {
+.skald-input:focus {
   box-shadow: none;
 }
 
-.scribian-button-row {
+.skald-button-row {
   display: flex;
   gap: var(--size-2-1);
   flex-shrink: 0;
 }
 
-.scribian-send {
+.skald-send {
   --icon-color: var(--interactive-accent);
 }
 
-.scribian-send:not(:disabled):hover {
+.skald-send:not(:disabled):hover {
   --icon-color: var(--interactive-accent-hover);
 }
 
-.scribian-send:disabled {
+.skald-send:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
 
-.scribian-stop {
+.skald-stop {
   --icon-color: var(--text-error);
 }
 
 /* ── Settings: provider privacy notice (phase 5) ─────────────────── */
-.scribian-privacy-notice {
+.skald-privacy-notice {
   padding: 0.75rem;
   margin-bottom: 1rem;
   background: var(--background-modifier-info, var(--background-secondary));
@@ -614,29 +614,29 @@
 /* Chat-header label shown when provider=openrouter; the model
    picker lives in settings since the catalog has hundreds of
    entries. */
-.scribian-model-label {
+.skald-model-label {
   font-family: var(--font-monospace);
   font-size: 0.85rem;
   color: var(--text-muted);
 }
 
-.scribian-model-hidden {
+.skald-model-hidden {
   display: none;
 }
 
 /* ── Phase 7: image attachments ──────────────────────────────────── */
-.scribian-chip-image .scribian-chip-icon {
+.skald-chip-image .skald-chip-icon {
   margin-right: 0.35rem;
   display: inline-flex;
   align-items: center;
   opacity: 0.8;
 }
 
-.scribian-image {
+.skald-image {
   margin: 0.5rem 0;
 }
 
-.scribian-image-thumb {
+.skald-image-thumb {
   max-width: 320px;
   max-height: 280px;
   border-radius: 6px;
@@ -645,25 +645,25 @@
 }
 
 /* ── Phase 10b: conversation search modal ────────────────────────── */
-.scribian-conv-suggest {
+.skald-conv-suggest {
   padding: 0.5rem 0.75rem;
 }
-.scribian-conv-suggest-head {
+.skald-conv-suggest-head {
   display: flex;
   justify-content: space-between;
   gap: 0.5rem;
   align-items: baseline;
 }
-.scribian-conv-suggest-title {
+.skald-conv-suggest-title {
   font-weight: 600;
 }
-.scribian-conv-suggest-date {
+.skald-conv-suggest-date {
   font-size: 0.75rem;
   color: var(--text-muted);
   font-family: var(--font-monospace);
   flex-shrink: 0;
 }
-.scribian-conv-suggest-excerpt {
+.skald-conv-suggest-excerpt {
   font-size: 0.85rem;
   color: var(--text-muted);
   margin-top: 0.25rem;
@@ -671,20 +671,20 @@
 }
 
 /* ── Phase 9a: slash command modal ───────────────────────────────── */
-.scribian-slash-suggest {
+.skald-slash-suggest {
   padding: 0.5rem 0.75rem;
 }
-.scribian-slash-suggest-name {
+.skald-slash-suggest-name {
   font-weight: 600;
 }
-.scribian-slash-suggest-desc {
+.skald-slash-suggest-desc {
   font-size: 0.82rem;
   color: var(--text-muted);
   margin-top: 0.2rem;
 }
 
 /* ── Polish sweep: empty-state welcome ───────────────────────────── */
-.scribian-empty {
+.skald-empty {
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -696,25 +696,25 @@
   color: var(--text-muted);
 }
 
-.scribian-empty-icon {
+.skald-empty-icon {
   --icon-size: var(--icon-l);
   color: var(--text-accent);
   opacity: 0.7;
 }
 
-.scribian-empty-title {
+.skald-empty-title {
   font-size: var(--font-ui-medium);
   font-weight: var(--font-semibold);
   color: var(--text-normal);
 }
 
-.scribian-empty-subtitle {
+.skald-empty-subtitle {
   font-size: var(--font-ui-small);
   max-width: 28rem;
   line-height: 1.4;
 }
 
-.scribian-empty-chips {
+.skald-empty-chips {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
@@ -722,7 +722,7 @@
   margin-top: var(--size-2-2);
 }
 
-.scribian-empty-chip {
+.skald-empty-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--size-2-1);
@@ -737,13 +737,13 @@
   transition: background 0.12s ease, border-color 0.12s ease;
 }
 
-.scribian-empty-chip:hover {
+.skald-empty-chip:hover {
   background: var(--background-modifier-hover);
   border-color: var(--interactive-accent);
   color: var(--text-normal);
 }
 
-.scribian-empty-chip-icon {
+.skald-empty-chip-icon {
   --icon-size: var(--icon-xs);
   display: inline-flex;
   align-items: center;
@@ -751,31 +751,31 @@
 }
 
 /* ── Polish sweep: typing indicator ──────────────────────────────── */
-.scribian-typing {
+.skald-typing {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   padding: var(--size-2-1) var(--size-2-2);
 }
 
-.scribian-typing-dot {
+.skald-typing-dot {
   width: 6px;
   height: 6px;
   border-radius: 50%;
   background: var(--text-muted);
   opacity: 0.4;
-  animation: scribian-typing-bounce 1.2s ease-in-out infinite;
+  animation: skald-typing-bounce 1.2s ease-in-out infinite;
 }
 
-.scribian-typing-dot:nth-child(2) {
+.skald-typing-dot:nth-child(2) {
   animation-delay: 0.15s;
 }
 
-.scribian-typing-dot:nth-child(3) {
+.skald-typing-dot:nth-child(3) {
   animation-delay: 0.3s;
 }
 
-@keyframes scribian-typing-bounce {
+@keyframes skald-typing-bounce {
   0%, 60%, 100% {
     opacity: 0.4;
     transform: translateY(0);
@@ -787,13 +787,13 @@
 }
 
 /* ── Polish sweep: avatar icons on message rows ──────────────────── */
-.scribian-msg-who {
+.skald-msg-who {
   display: inline-flex;
   align-items: center;
   gap: var(--size-2-1);
 }
 
-.scribian-msg-avatar {
+.skald-msg-avatar {
   --icon-size: var(--icon-xs);
   display: inline-flex;
   align-items: center;
@@ -801,23 +801,23 @@
   opacity: 0.85;
 }
 
-.scribian-msg-user .scribian-msg-avatar {
+.skald-msg-user .skald-msg-avatar {
   color: var(--text-accent);
 }
 
-.scribian-msg-label {
-  /* Inherits the .scribian-msg-who size + weight set above */
+.skald-msg-label {
+  /* Inherits the .skald-msg-who size + weight set above */
 }
 
 /* ── Mid-turn write nudge chips ──────────────────────────────────── */
-.scribian-write-nudges {
+.skald-write-nudges {
   display: flex;
   flex-wrap: wrap;
   gap: var(--size-2-1);
   margin-top: var(--size-2-2);
 }
 
-.scribian-write-nudge {
+.skald-write-nudge {
   font: inherit;
   font-size: var(--font-ui-smaller);
   padding: var(--size-2-1) var(--size-4-2);
@@ -829,12 +829,12 @@
   transition: background 0.12s ease;
 }
 
-.scribian-write-nudge:hover {
+.skald-write-nudge:hover {
   background: var(--background-modifier-hover);
 }
 
 /* ── Vault-action badge (per assistant turn) ─────────────────────── */
-.scribian-vault-badge {
+.skald-vault-badge {
   font-size: var(--font-ui-smaller);
   margin-top: var(--size-2-2);
   padding: var(--size-2-1) var(--size-4-2);
@@ -843,19 +843,19 @@
   word-break: break-word;
 }
 
-.scribian-vault-badge-active {
+.skald-vault-badge-active {
   color: var(--text-success);
   border-left: 2px solid var(--text-success);
 }
 
-.scribian-vault-badge-idle {
+.skald-vault-badge-idle {
   color: var(--text-muted);
   font-style: italic;
   border-left: 2px solid var(--background-modifier-border);
 }
 
 /* ── Active-note indicator ───────────────────────────────────────── */
-.scribian-active-note {
+.skald-active-note {
   display: flex;
   align-items: center;
   gap: var(--size-2-1);
@@ -869,38 +869,38 @@
   align-self: flex-start;
 }
 
-.scribian-active-note-icon {
+.skald-active-note-icon {
   --icon-size: var(--icon-xs);
   display: inline-flex;
   align-items: center;
   color: var(--text-muted);
 }
 
-.scribian-active-note-label {
+.skald-active-note-label {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: var(--text-normal);
 }
 
-.scribian-active-note-attach {
+.skald-active-note-attach {
   --icon-size: var(--icon-xs);
   padding: 2px;
   border-radius: 999px;
 }
 
 /* ── Security: setup confirm modal ───────────────────────────────── */
-.scribian-setup-confirm h2 {
+.skald-setup-confirm h2 {
   margin-top: 0;
 }
 
-.scribian-confirm-intro {
+.skald-confirm-intro {
   margin: 0 0 var(--size-4-2) 0;
   font-size: var(--font-ui-small);
   line-height: 1.45;
 }
 
-.scribian-confirm-replace {
+.skald-confirm-replace {
   display: flex;
   align-items: flex-start;
   gap: var(--size-2-2);
@@ -913,14 +913,14 @@
   line-height: 1.4;
 }
 
-.scribian-confirm-icon {
+.skald-confirm-icon {
   --icon-size: var(--icon-s);
   color: var(--text-error);
   flex-shrink: 0;
   margin-top: 1px;
 }
 
-.scribian-confirm-fields {
+.skald-confirm-fields {
   display: flex;
   flex-direction: column;
   gap: var(--size-2-2);
@@ -930,13 +930,13 @@
   border-radius: var(--radius-s);
 }
 
-.scribian-confirm-field {
+.skald-confirm-field {
   display: flex;
   align-items: baseline;
   gap: var(--size-4-2);
 }
 
-.scribian-confirm-field-label {
+.skald-confirm-field-label {
   flex: 0 0 5rem;
   font-size: var(--font-ui-smaller);
   font-weight: var(--font-semibold);
@@ -945,7 +945,7 @@
   letter-spacing: 0.05em;
 }
 
-.scribian-confirm-field-value {
+.skald-confirm-field-value {
   font-size: var(--font-ui-small);
   font-family: var(--font-monospace);
   word-break: break-all;
@@ -953,14 +953,14 @@
   padding: 0;
 }
 
-.scribian-confirm-actions {
+.skald-confirm-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--size-2-2);
 }
 
 /* ── Live cost footer (session running token + USD total) ───────── */
-.scribian-usage-footer {
+.skald-usage-footer {
   font-size: var(--font-ui-smaller);
   font-family: var(--font-monospace);
   color: var(--text-faint, var(--text-muted));
@@ -970,7 +970,7 @@
 }
 
 /* ── Polish sweep: first-run setup banner ────────────────────────── */
-.scribian-setup-banner {
+.skald-setup-banner {
   display: flex;
   align-items: flex-start;
   gap: var(--size-4-2);
@@ -982,14 +982,14 @@
   border-radius: var(--radius-s);
 }
 
-.scribian-setup-banner-icon {
+.skald-setup-banner-icon {
   --icon-size: var(--icon-m);
   color: var(--interactive-accent);
   flex-shrink: 0;
   margin-top: 2px;
 }
 
-.scribian-setup-banner-body {
+.skald-setup-banner-body {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -997,26 +997,26 @@
   min-width: 0;
 }
 
-.scribian-setup-banner-title {
+.skald-setup-banner-title {
   font-size: var(--font-ui-small);
   font-weight: var(--font-semibold);
   color: var(--text-normal);
 }
 
-.scribian-setup-banner-detail {
+.skald-setup-banner-detail {
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   line-height: 1.4;
 }
 
-.scribian-setup-banner-action {
+.skald-setup-banner-action {
   flex-shrink: 0;
   align-self: center;
   font-size: var(--font-ui-smaller);
 }
 
 /* ── Sources footer (per assistant turn) ─────────────────────────── */
-.scribian-sources-footer {
+.skald-sources-footer {
   color: var(--text-faint);
   font-size: var(--font-smaller);
   margin-top: 4px;

@@ -1,5 +1,5 @@
 {
-  "name": "@scribian/plugin",
+  "name": "@skald/plugin",
   "version": "0.0.10",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@scribian/protocol": "workspace:*"
+    "@skald/protocol": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

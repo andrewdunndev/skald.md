@@ -2,13 +2,13 @@
  * Token registry + scope enforcement.
  *
  * Two storage modes:
- * - SCRIBIAN_TOKENS  JSON array (preferred). Each entry:
+ * - SKALD_TOKENS  JSON array (preferred). Each entry:
  *     { "label": "plugin",      "token": "<hex>", "scopes": ["chat"] }
  *   Tokens are revocable individually (drop one entry, push the secret again).
  *
- * - SCRIBIAN_TOKEN   legacy single hex token. Implicitly has all scopes.
+ * - SKALD_TOKEN   legacy single hex token. Implicitly has all scopes.
  *   Kept for backward compatibility with deployments that pre-date the
- *   multi-token model. New deploys should use SCRIBIAN_TOKENS.
+ *   multi-token model. New deploys should use SKALD_TOKENS.
  */
 
 export type Scope = 'chat';
@@ -27,10 +27,10 @@ export interface AuthResult {
 export class TokenRegistry {
   private records: TokenRecord[] = [];
 
-  constructor(env: { SCRIBIAN_TOKENS?: string; SCRIBIAN_TOKEN?: string }) {
-    if (env.SCRIBIAN_TOKENS) {
+  constructor(env: { SKALD_TOKENS?: string; SKALD_TOKEN?: string }) {
+    if (env.SKALD_TOKENS) {
       try {
-        const parsed = JSON.parse(env.SCRIBIAN_TOKENS) as unknown;
+        const parsed = JSON.parse(env.SKALD_TOKENS) as unknown;
         if (Array.isArray(parsed)) {
           for (const r of parsed) {
             if (this.isValidRecord(r)) this.records.push(r);
@@ -43,10 +43,10 @@ export class TokenRegistry {
     // Legacy fallback: treat the single secret as a "default" record with
     // full capabilities. Always evaluated AFTER explicit records so the
     // explicit registry wins on conflicts.
-    if (env.SCRIBIAN_TOKEN && !this.records.some((r) => r.token === env.SCRIBIAN_TOKEN)) {
+    if (env.SKALD_TOKEN && !this.records.some((r) => r.token === env.SKALD_TOKEN)) {
       this.records.push({
         label: 'default',
-        token: env.SCRIBIAN_TOKEN,
+        token: env.SKALD_TOKEN,
         scopes: ['chat'],
       });
     }
