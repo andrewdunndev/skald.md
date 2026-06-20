@@ -1,6 +1,10 @@
 node_modules/
 dist/
 *.log
+
+# Obsidian plugin settings — holds the user's API key. Lives in the
+# vault, never the repo; ignored here so a stray dev copy can't be committed.
+data.json
 .DS_Store
 *.tsbuildinfo
 scripts/cdp-out/
