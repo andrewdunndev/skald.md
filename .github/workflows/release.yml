@@ -1,0 +1,49 @@
+name: Release
+
+# Skald is developed on GitLab (dunn.dev/skald); this GitHub repo is the
+# mirror. Tags pushed on GitLab auto-mirror here and trigger this workflow,
+# which builds the plugin and publishes the three Obsidian release assets
+# (manifest.json, main.js, styles.css) so BRAT and the community-plugins
+# directory can install the release.
+#
+# Obsidian convention: tags are bare semver with NO leading "v", and the
+# manifest version must equal the tag.
+
+on:
+  push:
+    tags:
+      - "[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "11.1.1"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @skald/plugin build
+
+      - name: Publish GitHub release with the Obsidian assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$TAG" \
+            packages/plugin/dist/manifest.json \
+            packages/plugin/dist/main.js \
+            packages/plugin/dist/styles.css \
+            --title "$TAG" \
+            --notes "Skald $TAG. Docs and changelog at https://skald.md."
