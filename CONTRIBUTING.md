@@ -4,7 +4,7 @@
 
 GitLab is canonical: [dunn.dev/skald](https://gitlab.com/dunn.dev/skald). CI, code review, and the roadmap all live there.
 
-GitHub ([andrewdunndev/skald](https://github.com/andrewdunndev/skald)) is a mirror for discoverability. Issues and pull requests are welcome there and get triaged onto GitLab. GitHub Discussions are off -- Issues are the single community funnel.
+GitHub ([andrewdunndev/skald.md](https://github.com/andrewdunndev/skald.md)) is a mirror for discoverability. Issues and pull requests are welcome there and get triaged onto GitLab. GitHub Discussions are off -- Issues are the single community funnel.
 
 ## The roadmap
 
