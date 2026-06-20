@@ -64,7 +64,7 @@ async function walk(dir) {
 }
 
 async function checkVersionParity() {
-  const manifestPath = path.join(ROOT, 'packages/plugin/manifest.json');
+  const manifestPath = path.join(ROOT, 'manifest.json');
   const pkgPath = path.join(ROOT, 'packages/plugin/package.json');
   const rootPkgPath = path.join(ROOT, 'package.json');
   const manifest = JSON.parse(await fs.readFile(manifestPath, 'utf-8'));
@@ -89,7 +89,7 @@ async function checkVersionParity() {
   if (manifest.isDesktopOnly !== false) {
     findings.push({
       rule: 'mobile-flag',
-      file: 'packages/plugin/manifest.json',
+      file: 'manifest.json',
       lineNo: 0,
       line: `expected "isDesktopOnly": false (got ${JSON.stringify(manifest.isDesktopOnly)})`,
     });

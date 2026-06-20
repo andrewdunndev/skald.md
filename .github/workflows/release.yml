@@ -45,5 +45,6 @@ jobs:
             packages/plugin/dist/manifest.json \
             packages/plugin/dist/main.js \
             packages/plugin/dist/styles.css \
+            packages/plugin/dist/versions.json \
             --title "$TAG" \
             --notes "Skald $TAG. Docs and changelog at https://skald.md."

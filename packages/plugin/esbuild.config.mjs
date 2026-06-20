@@ -8,9 +8,18 @@ const outDir = process.env.SKALD_OUT_DIR ?? './dist';
 await fs.mkdir(outDir, { recursive: true });
 
 const copyStatic = async () => {
-  for (const f of ['manifest.json', 'styles.css', 'versions.json']) {
+  // manifest.json + versions.json are canonical at the repo root (BRAT and
+  // the Obsidian community-plugins directory read them from there at HEAD);
+  // styles.css is local to the plugin package. All three ship as release
+  // assets in dist. Paths are relative to the build cwd (packages/plugin).
+  const copies = [
+    ['../../manifest.json', 'manifest.json'],
+    ['../../versions.json', 'versions.json'],
+    ['styles.css', 'styles.css'],
+  ];
+  for (const [src, name] of copies) {
     try {
-      await fs.copyFile(f, path.join(outDir, f));
+      await fs.copyFile(src, path.join(outDir, name));
     } catch (err) {
       if (err?.code !== 'ENOENT') throw err;
     }
