@@ -52,14 +52,6 @@ body:
         - Anthropic
         - OpenRouter
 
-  - type: dropdown
-    id: connection_mode
-    attributes:
-      label: Connection mode
-      options:
-        - direct
-        - worker
-
   - type: input
     id: obsidian_version
     attributes:

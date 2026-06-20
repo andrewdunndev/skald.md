@@ -60,7 +60,7 @@ function renderAnthropicBlock(
   new Setting(containerEl)
     .setName('API key')
     .setDesc(
-      'sk-ant-… key from console.anthropic.com. Stored in plugin data, synced across your devices via Obsidian Sync. Leave blank to fall back to the Worker secret ANTHROPIC_API_KEY.',
+      'sk-ant-… key from console.anthropic.com. Required — Skald sends requests directly to Anthropic using this key. Stored in plugin data, synced across your devices via Obsidian Sync.',
     )
     .addText((t) => {
       t.inputEl.type = 'password';
@@ -115,7 +115,7 @@ function renderOpenRouterBlock(
   new Setting(containerEl)
     .setName('API key')
     .setDesc(
-      'OpenRouter API key from openrouter.ai. Stored in plugin data, synced across your devices via Obsidian Sync. Leave blank to fall back to the Worker secret OPENROUTER_API_KEY.',
+      'OpenRouter API key from openrouter.ai. Required — Skald sends requests directly to OpenRouter using this key. Stored in plugin data, synced across your devices via Obsidian Sync.',
     )
     .addText((t) => {
       t.inputEl.type = 'password';
