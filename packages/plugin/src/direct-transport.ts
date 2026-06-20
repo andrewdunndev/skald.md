@@ -34,8 +34,8 @@ export interface DirectTransportConfig {
   getAnthropicKey: () => string;
   /** Returns the current OpenRouter API key from settings. */
   getOpenRouterKey: () => string;
-  /** Optional — defaults to false. Extended thinking ("deep mode"). TODO(wiring):
-   * pass `() => plugin.settings.thinkingEnabled` from view/connect-session.ts ~L92. */
+  /** Optional — defaults to false. Extended thinking ("deep mode") is wired
+   * through dispatch but not yet exposed (no settings toggle); see the roadmap. */
   getThinkingEnabled?: () => boolean;
 }
 

@@ -10,8 +10,8 @@ import type { ContentBlock } from '@skald/protocol';
  * when a real path is resolvable (the "(active note)" placeholder is
  * excluded — we have no path to link to).
  *
- * Excludes: search queries (find_related / search_vault), write
- * tools, and anything that isn't a vault read.
+ * Excludes: search queries (search_vault), write tools, and anything
+ * that isn't a vault read.
  *
  * Returns deduped paths in discovery order. Returns [] when no note
  * paths were found.
@@ -27,7 +27,7 @@ export function notesReadInTurn(blocks: readonly ContentBlock[]): string[] {
       if (typeof input.path === 'string') out.push(input.path);
     }
     // current_note has no real path in its input — skip it.
-    // find_related / search_vault are queries, not note reads — skip.
+    // search_vault is a query, not a note read — skip.
   }
   return Array.from(new Set(out));
 }
@@ -45,7 +45,7 @@ export function notesReadInTurn(blocks: readonly ContentBlock[]): string[] {
  * Sources we surface:
  *   - read_note / metadata → the explicit path
  *   - current_note → "(active note)" (no path in the input)
- *   - find_related / search_vault → "search: <query>" (capped)
+ *   - search_vault → "search: <query>" (capped)
  *
  * Returns deduped paths preserving discovery order.
  */
