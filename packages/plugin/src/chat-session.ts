@@ -36,9 +36,9 @@ export interface ToolExecutor {
 
 /**
  * Resolved per-turn provider configuration. `apiKey` is the
- * plugin-supplied key for the active provider; if absent the Worker
- * falls back to its own secret. `provider` selects which upstream
- * the Worker dispatches to.
+ * plugin-supplied key for the active provider, sent directly to the
+ * upstream API. `provider` selects which upstream to call
+ * (Anthropic or OpenRouter).
  */
 export interface ProviderConfig {
   provider: Provider;

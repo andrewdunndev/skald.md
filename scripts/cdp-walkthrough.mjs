@@ -204,9 +204,9 @@ async function sceneSetupBanner(client) {
     record('setup-banner', 'pass', `title="${probe.title}"`);
     await screenshot(client, '03-setup-banner');
   } else {
-    // Banner is hidden when both workerUrl + workerToken are
-    // configured — that's the happy path, not a failure.
-    record('setup-banner', 'pass', 'not shown (worker already configured)');
+    // Banner is hidden when the active provider's API key is set —
+    // that's the happy path, not a failure.
+    record('setup-banner', 'pass', 'not shown (API key already configured)');
   }
 }
 
@@ -264,54 +264,11 @@ async function sceneStarterPick(client) {
   await screenshot(client, '05-starter-filled');
 }
 
-async function sceneSetupURI(client) {
-  // Trigger the skald-setup protocol handler directly with a
-  // fake endpoint + token, verify the confirmation modal renders
-  // with masked token preview.
-  await evaluate(
-    client,
-    `(function() {
-       const data = {
-         action: 'skald-setup',
-         endpoint: 'https://test.example.workers.dev',
-         token: 'abcd1234efgh5678ijkl9012'
-       };
-       app.plugins.plugins.skald.handleSetupUri(data);
-     })()`,
-  );
-  await delay(400);
-  const probe = await evaluate(
-    client,
-    `(function() {
-       const modal = document.querySelector('.skald-setup-confirm');
-       if (!modal) return { present: false };
-       const fields = Array.from(modal.querySelectorAll('.skald-confirm-field-value'))
-         .map(e => e.textContent);
-       return { present: true, fields };
-     })()`,
-  );
-  if (!probe.present) {
-    record('setup-uri-modal', 'fail', 'confirmation modal did not render');
-    return;
-  }
-  const tokenField = probe.fields[1] ?? '';
-  const masked = tokenField.includes('…') && !tokenField.includes('efgh5678');
-  record(
-    'setup-uri-modal',
-    masked ? 'pass' : 'warn',
-    masked
-      ? `fields=${probe.fields.join(' | ')}`
-      : `token shown unmasked: "${tokenField}"`,
-  );
-  await screenshot(client, '06-setup-confirm-modal');
-  // Close the modal so the next scenes have a clean DOM
-  await evalVoid(
-    client,
-    `document.querySelector('.skald-setup-confirm')
-       ?.closest('.modal-container')?.querySelector('.modal-close-button')?.click()`,
-  );
-  await delay(200);
-}
+// sceneSetupURI was removed: the Worker setup flow (handleSetupUri,
+// skald-setup protocol handler, *.workers.dev endpoint) no longer
+// exists. Skald is direct-only — users configure their API key
+// directly in Settings → Skald. The setup banner scene above covers
+// the first-run experience.
 
 async function sceneVaultActionBadge(client) {
   // Inject a finalized assistant turn into the chat session +
@@ -585,7 +542,6 @@ try {
   await sceneSetupBanner(client);
   await sceneActiveNote(client);
   await sceneStarterPick(client);
-  await sceneSetupURI(client);
   await sceneVaultActionBadge(client);
   await sceneWriteNudge(client);
   await sceneIdleBadge(client);

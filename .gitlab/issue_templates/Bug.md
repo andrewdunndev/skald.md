@@ -20,7 +20,6 @@
 - [ ] Platform: <!-- iOS / iPadOS / Desktop -->
 - [ ] Skald version:
 - [ ] Provider: <!-- Anthropic / OpenRouter -->
-- [ ] Connection mode: <!-- direct / worker -->
 
 ### Console logs / screenshots
 
