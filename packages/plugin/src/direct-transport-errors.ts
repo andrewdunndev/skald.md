@@ -44,7 +44,14 @@ export function httpErrorMessage(
   if (status === 400) {
     return {
       error:
-        "Claude couldn't process that request. If it keeps happening, try a new chat.",
+        "The request was rejected by the provider. If you attached an image, try a smaller one. Otherwise try a new chat.",
+      retryable: false,
+    };
+  }
+  if (status === 413) {
+    return {
+      error:
+        "That image may be too large for the selected model or provider — try a smaller image.",
       retryable: false,
     };
   }

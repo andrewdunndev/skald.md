@@ -13,9 +13,10 @@
  * Vision is per-model: the underlying model must support image
  * inputs (Anthropic, OpenAI, Google, xAI, MoonshotAI families on
  * OpenRouter). If a non-vision model is selected, the upstream
- * provider returns an error which the existing transport surfaces
- * verbatim — we don't pre-gate on capability since the catalog
- * metadata isn't always loaded.
+ * provider returns an error — we don't pre-gate on capability since
+ * the catalog metadata isn't always loaded. On OpenRouter, provider
+ * errors for oversize or unsupported images may be generic (e.g. 400
+ * or 413); httpErrorMessage maps these to actionable copy.
  */
 
 import { Notice } from 'obsidian';
@@ -60,6 +61,15 @@ const SUPPORTED_MEDIA_TYPES: ReadonlySet<string> = new Set<string>([
  * animation frames — so oversize GIFs are rejected with a Notice.
  */
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+
+/**
+ * Per-turn image count ceiling. OpenRouter's combined-images limit is
+ * 20 across all providers; Anthropic's own limit is lower (20 per
+ * message) but the practical cap here is OpenRouter's combined limit.
+ * Exceeding it produces a request-level error before any model sees
+ * the payload, so we refuse extras up-front with a visible Notice.
+ */
+export const MAX_IMAGES_PER_TURN = 20;
 
 /**
  * One image attached to the in-flight user turn. Held in plugin
@@ -134,6 +144,16 @@ export async function attachmentsFromFiles(
 async function blobsToAttachments(blobs: Blob[]): Promise<ImageAttachment[]> {
   const out: ImageAttachment[] = [];
   for (const original of blobs) {
+    // Enforce per-turn image count cap before processing further blobs.
+    // Extras are dropped with a visible Notice; the user sees the cap
+    // rather than hitting an opaque provider-level error later.
+    if (out.length >= MAX_IMAGES_PER_TURN) {
+      new Notice(
+        `skald: only ${MAX_IMAGES_PER_TURN} images per message — extra images dropped.`,
+        6000,
+      );
+      break;
+    }
     try {
       let blob = original;
       let downsized = false;
@@ -173,7 +193,7 @@ async function blobToAttachment(
     id: crypto.randomUUID(),
     mediaType: blob.type as ImageMediaType,
     label: downsized
-      ? `${baseLabel} (downsized ${humanByteCount(original.size)} → ${humanByteCount(blob.size)})`
+      ? `${baseLabel} (downsized from ${humanByteCount(original.size)})`
       : baseLabel,
     base64,
     byteLength: blob.size,

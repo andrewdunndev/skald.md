@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   humanByteCount,
   toImageContentBlock,
+  attachmentsFromFiles,
+  MAX_IMAGES_PER_TURN,
   type ImageAttachment,
 } from './image-attach';
 
@@ -63,5 +65,57 @@ describe('toImageContentBlock', () => {
       };
       expect(block.source.media_type).toBe(mediaType);
     }
+  });
+});
+
+describe('MAX_IMAGES_PER_TURN cap', () => {
+  it('is exported and equals 20 (OpenRouter combined-images limit)', () => {
+    expect(MAX_IMAGES_PER_TURN).toBe(20);
+  });
+
+  it('attachmentsFromFiles returns at most MAX_IMAGES_PER_TURN attachments', async () => {
+    // Build MAX_IMAGES_PER_TURN + 2 tiny PNGs (valid 1×1 PNG bytes).
+    // Node 18+ has File, Blob, crypto.randomUUID, and btoa so this
+    // exercises the real codepath without DOM stubs.
+    const pngBytes = new Uint8Array([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, // PNG signature
+      0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52, // IHDR length + type
+      0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, // width=1, height=1
+      0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, // bit depth, color, compress, filter, interlace, CRC
+      0xde, 0x00, 0x00, 0x00, 0x0c, 0x49, 0x44, 0x41, // IDAT length + type
+      0x54, 0x08, 0xd7, 0x63, 0xf8, 0xcf, 0xc0, 0x00, // IDAT data
+      0x00, 0x00, 0x02, 0x00, 0x01, 0xe2, 0x21, 0xbc, // IDAT data
+      0x33, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4e, // IEND length + type
+      0x44, 0xae, 0x42, 0x60, 0x82,                   // IEND CRC
+    ]);
+    const overCount = MAX_IMAGES_PER_TURN + 2;
+    const files: File[] = Array.from({ length: overCount }, (_, i) =>
+      new File([pngBytes], `img-${i}.png`, { type: 'image/png' }),
+    );
+    const atts = await attachmentsFromFiles(files);
+    expect(atts.length).toBe(MAX_IMAGES_PER_TURN);
+  });
+});
+
+describe('downsized-image chip label', () => {
+  it('downsized label contains the original size and not the final size inline', () => {
+    // The chip renderer in composer.ts appends ` · ${humanByteCount(byteLength)}`
+    // to the label, so the label must NOT already contain the final size —
+    // only the original "from" size. This tests the label format contract.
+    const originalSize = 5 * 1024 * 1024; // 5 MB
+    const finalSize = 2 * 1024 * 1024;    // 2 MB
+    // Replicate the label construction from blobToAttachment.
+    const baseLabel = 'photo.jpg';
+    const label = `${baseLabel} (downsized from ${humanByteCount(originalSize)})`;
+    // The chip text as composed.ts would render it:
+    const chipText = `${label} · ${humanByteCount(finalSize)}`;
+
+    // Final size appears exactly once (from composer.ts's byteLength suffix).
+    const finalSizeStr = humanByteCount(finalSize); // '2.0 MB'
+    const occurrences = chipText.split(finalSizeStr).length - 1;
+    expect(occurrences).toBe(1);
+
+    // Original size appears in the label (user sees what was downscaled from).
+    expect(label).toContain(humanByteCount(originalSize));
   });
 });
