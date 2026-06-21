@@ -20,6 +20,22 @@ describe('rerankCandidates', () => {
     vi.restoreAllMocks();
   });
 
+  it('does not send an anthropic-beta header (prompt-caching is GA)', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue({
+      status: 200,
+      json: { content: [{ type: 'text', text: '[0]' }] },
+      text: '',
+    } as ReturnType<typeof obsidian.requestUrl> extends Promise<infer R> ? R : never);
+
+    await rerankCandidates('query', CANDIDATES, API_KEY, { topK: 3 }, 'claude-haiku-4-5');
+    const call = vi.mocked(obsidian.requestUrl).mock.calls[0][0];
+    const headers = (call as { headers: Record<string, string> }).headers;
+    // Sending the old beta header can silently downgrade cache behaviour;
+    // 1h-TTL caching is GA and must not opt into the beta endpoint.
+    expect(headers).not.toHaveProperty('anthropic-beta');
+    expect(Object.values(headers).join(' ')).not.toContain('prompt-caching');
+  });
+
   it('sends a 1-hour cache_control TTL on the rerank system block', async () => {
     vi.mocked(obsidian.requestUrl).mockResolvedValue({
       status: 200,

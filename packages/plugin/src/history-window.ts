@@ -181,6 +181,16 @@ const DEFAULT_KEEP_RECENT_TURNS = 3;
  *
  * 40 000 tokens (~160 KB at 4 chars/token) is well under the 150 000
  * windowing budget — compaction kicks in long before truncation does.
+ *
+ * COST CLIFF: once history exceeds this threshold, compaction stubs one
+ * or more tool_result blocks every turn, which changes the cached
+ * prefix every turn. That means the incremental prompt-cache breakpoint
+ * (anthropic-caching.ts) triggers a cache-CREATION charge on each turn
+ * rather than the much cheaper cache-READ. Below the threshold the
+ * prefix is stable and cache reads dominate; above it cache-creation
+ * re-fires continuously. This is an intentional tradeoff (token saving
+ * from stubbing outweighs cache-creation cost at that scale), but it is
+ * a real spend cliff — bear it in mind if adjusting the threshold.
  */
 export const COMPACTION_TOKEN_THRESHOLD = 40_000;
 

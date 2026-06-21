@@ -10,8 +10,12 @@ await fs.mkdir(outDir, { recursive: true });
 const copyStatic = async () => {
   // manifest.json + versions.json are canonical at the repo root (BRAT and
   // the Obsidian community-plugins directory read them from there at HEAD);
-  // styles.css is local to the plugin package. All three ship as release
-  // assets in dist. Paths are relative to the build cwd (packages/plugin).
+  // styles.css is local to the plugin package. All three ship as required
+  // release assets in dist. Paths are relative to the build cwd (packages/plugin).
+  //
+  // All three are REQUIRED — a missing asset means the release would be
+  // incomplete. Throw loudly so the build fails rather than producing a
+  // green build with absent release assets.
   const copies = [
     ['../../manifest.json', 'manifest.json'],
     ['../../versions.json', 'versions.json'],
@@ -21,7 +25,13 @@ const copyStatic = async () => {
     try {
       await fs.copyFile(src, path.join(outDir, name));
     } catch (err) {
-      if (err?.code !== 'ENOENT') throw err;
+      if (err?.code === 'ENOENT') {
+        throw new Error(
+          `[skald] build error: required release asset "${src}" not found — ` +
+            `all three canonical assets (manifest.json, versions.json, styles.css) must exist`,
+        );
+      }
+      throw err;
     }
   }
 };

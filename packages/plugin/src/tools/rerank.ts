@@ -74,7 +74,9 @@ export async function rerankCandidates(
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': ANTHROPIC_VERSION,
-        'anthropic-beta': 'prompt-caching-2024-07-31',
+        // No anthropic-beta header: 1h-TTL prompt caching is GA as of
+        // 2024-11 and needs no beta opt-in. Sending the old beta header
+        // risks a silent downgrade to the older caching behaviour.
         'content-type': 'application/json',
       },
       body: JSON.stringify({

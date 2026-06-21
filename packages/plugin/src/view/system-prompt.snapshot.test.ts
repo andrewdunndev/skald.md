@@ -13,8 +13,8 @@
  */
 
 import { describe, expect, it } from 'vitest';
-import { TFile } from '../../../../tests/obsidian-mock';
-import { loadSystemPrompt } from './system-prompt';
+import { TFile, TFolder } from '../../../../tests/obsidian-mock';
+import { loadSystemPrompt, MAX_HARNESS_BYTES } from './system-prompt';
 
 interface MockFiles {
   [path: string]: string;
@@ -109,6 +109,74 @@ describe('loadSystemPrompt: optional sections gate on their inputs', () => {
     expect(out).toContain('this is a writing assistant');
     // Sections are joined by the --- separator.
     expect(out).toContain('\n\n---\n\n');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Harness-context byte-cap tests (fix #1: MAX_HARNESS_BYTES)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a mock app that returns a TFile for CLAUDE.md and an optional
+ * TFolder for the skills/ directory (with a single .md child).
+ */
+function mockAppWithHarness(claudeMdContent: string, skillContent?: string) {
+  const files: MockFiles = {};
+  files['.claude/CLAUDE.md'] = claudeMdContent;
+
+  const skillsFolder = new TFolder('.claude/skills');
+  if (skillContent !== undefined) {
+    const skillFile = new TFile('.claude/skills/big-skill.md', 'big-skill', 'md');
+    files['.claude/skills/big-skill.md'] = skillContent;
+    skillsFolder.children.push(skillFile);
+  }
+
+  return {
+    vault: {
+      getAbstractFileByPath: (p: string) => {
+        if (p === '.claude/CLAUDE.md') return new TFile(p);
+        if (p === '.claude/skills') return skillsFolder;
+        return null;
+      },
+      read: async (f: TFile) => files[f.path] ?? '',
+      cachedRead: async (f: TFile) => files[f.path] ?? '',
+      getMarkdownFiles: () => [],
+    },
+  } as unknown as import('obsidian').App;
+}
+
+describe('loadSystemPrompt: harness context byte cap', () => {
+  it('passes small harness context through unchanged (no truncation)', async () => {
+    const smallContent = 'This is a small CLAUDE.md under the cap.';
+    const app = mockAppWithHarness(smallContent);
+    const out =
+      (await loadSystemPrompt(app, direct({ harnessFolder: '.claude' }))) ?? '';
+
+    expect(out).toContain(smallContent);
+    expect(out).not.toContain('[... harness context truncated');
+  });
+
+  it('truncates harness context larger than MAX_HARNESS_BYTES and appends elision marker', async () => {
+    // Build content clearly larger than the 16 384-byte cap.
+    const bigContent = 'x'.repeat(MAX_HARNESS_BYTES + 1000);
+    const app = mockAppWithHarness(bigContent);
+    const out =
+      (await loadSystemPrompt(app, direct({ harnessFolder: '.claude' }))) ?? '';
+
+    expect(out).toContain('[... harness context truncated to cap injected tokens]');
+    // The harness section in the assembled prompt must not include the
+    // full over-cap content.
+    expect(out).not.toContain('x'.repeat(MAX_HARNESS_BYTES + 1000));
+  });
+
+  it('returns null (no harness section) when harnessFolder is empty', async () => {
+    // With no harnessFolder configured the harness section is omitted
+    // entirely — baseline/persona/memory still assemble normally.
+    const app = mockAppWithHarness('some harness content');
+    const out =
+      (await loadSystemPrompt(app, direct({ harnessFolder: '' }))) ?? '';
+
+    expect(out).not.toContain('some harness content');
   });
 });
 
