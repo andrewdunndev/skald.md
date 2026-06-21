@@ -250,23 +250,23 @@ export class SkaldView extends ItemView {
     this.composer.clearInput();
     this.composer.setBusy(true);
 
-    // Build the user turn: text-only when there are no images, or
-    // a multi-modal content-block array when images are attached.
-    // Image blocks come first so Claude sees the visual context
-    // before the question (matches Anthropic's recommended ordering
-    // in the Vision guide).
-    if (pickedImages.length === 0) {
-      const augmented = await this.augmentUserText(text);
-      void this.session.sendUserText(augmented);
-    } else {
-      const blocks: ContentBlock[] = [];
-      for (const att of pickedImages) {
-        blocks.push(toImageContentBlock(att));
+    // Fix 5: wrap augment+dispatch in try/catch so a context-augmentation
+    // error doesn't leave the composer locked.
+    try {
+      if (pickedImages.length === 0) {
+        const augmented = await this.augmentUserText(text);
+        await this.session.sendUserText(augmented);
+      } else {
+        const blocks: ContentBlock[] = [];
+        for (const att of pickedImages) blocks.push(toImageContentBlock(att));
+        const augmented = await this.augmentUserText(text);
+        if (augmented) blocks.push({ type: 'text', text: augmented });
+        this.composer.clearImages();
+        await this.session.sendUserMessage(blocks);
       }
-      const augmented = await this.augmentUserText(text);
-      if (augmented) blocks.push({ type: 'text', text: augmented });
-      this.composer.clearImages();
-      void this.session.sendUserMessage(blocks);
+    } catch (err) {
+      this.composer.setBusy(false);
+      this.setStatus(err instanceof Error ? err.message : 'Send failed.', 'error');
     }
   }
 

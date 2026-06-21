@@ -1,14 +1,8 @@
 /**
  * DirectTransport: call Anthropic / OpenRouter directly from the plugin.
- * Uses native fetch with the
- * `anthropic-dangerous-direct-browser-access: true` header. Never uses
- * Obsidian's requestUrl — that path doesn't set the required Origin header.
- *
- * Provider dispatch: Anthropic is the default; OpenRouter is the opt-in
- * fallback, with its own tool-type translation helpers at the bottom of
- * this file.
- *
+ * Uses native fetch with `anthropic-dangerous-direct-browser-access: true`.
  * echo/ping: synchronous. cancel: aborts via AbortController.
+ * Timeouts: REQUEST_TIMEOUT_MS to first byte; STREAM_IDLE_TIMEOUT_MS per chunk.
  */
 import type { ClientMessage, Provider, ServerMessage, Usage } from '@skald/protocol';
 import type { SkaldTransport, TransportHandlers } from './transport-interface';
@@ -16,6 +10,7 @@ import { SSEParser } from './sse-parser';
 import { applyAnthropicCaching } from './anthropic-caching';
 import { providerCapabilities } from './provider-capabilities';
 import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
+import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS, composeSignal } from './transport-timeouts';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -30,16 +25,11 @@ const OR_WEB_FETCH = 'openrouter:web_fetch';
 
 /** Config threaded in by view.ts at construction time. */
 export interface DirectTransportConfig {
-  /** Returns the current Anthropic API key from settings. */
   getAnthropicKey: () => string;
-  /** Returns the current OpenRouter API key from settings. */
   getOpenRouterKey: () => string;
-  /** Optional — defaults to false. Extended thinking ("deep mode") is wired
-   * through dispatch but not yet exposed (no settings toggle); see the roadmap. */
+  /** Optional — defaults to false. */
   getThinkingEnabled?: () => boolean;
 }
-
-// ── DirectTransport ───────────────────────────────────────────────────────
 
 export class DirectTransport implements SkaldTransport {
   /** One AbortController per in-flight chat turn, keyed by turn id. */
@@ -95,13 +85,8 @@ export class DirectTransport implements SkaldTransport {
     }
   }
 
-  // ── Chat dispatch ───────────────────────────────────────────────────────
-
   private async runChat(msg: Extract<ClientMessage, { type: 'chat' }>): Promise<void> {
     const { id, payload, provider = 'anthropic' } = msg;
-
-    // Resolve which API key to use: per-turn key from the message wins;
-    // fall back to the setting value.
     const apiKey =
       provider === 'openrouter'
         ? (msg.openrouter_api_key?.trim() || this.config.getOpenRouterKey().trim())
@@ -129,11 +114,13 @@ export class DirectTransport implements SkaldTransport {
     const ac = new AbortController();
     this.activeChats.set(id, ac);
 
+    const fetchSignal = composeSignal(ac.signal, REQUEST_TIMEOUT_MS);
+
     let resp: Response;
     try {
       resp = await fetch(url, {
         method: 'POST',
-        signal: ac.signal,
+        signal: fetchSignal,
         headers,
         body: JSON.stringify({ ...requestBody, stream: true }),
       });
@@ -149,7 +136,6 @@ export class DirectTransport implements SkaldTransport {
           provider,
         });
       } else {
-        // Log the raw error for debugging; surface only a human sentence.
         console.warn('[skald] network error:', err);
         this.handlers.onMessage({
           type: 'error',
@@ -163,13 +149,23 @@ export class DirectTransport implements SkaldTransport {
 
     if (!resp.ok) {
       this.activeChats.delete(id);
-      // Log raw status for debugging; surface only a human sentence.
       console.warn(`[skald] HTTP ${resp.status} from ${provider}`);
       const { error, retryable } = httpErrorMessage(
         resp.status,
         resp.headers.get('retry-after'),
       );
       this.handlers.onMessage({ type: 'error', id, error, retryable });
+      return;
+    }
+
+    if (!resp.body) {
+      this.activeChats.delete(id);
+      this.handlers.onMessage({
+        type: 'error',
+        id,
+        error: 'Empty response from the provider — resend.',
+        retryable: true,
+      });
       return;
     }
 
@@ -183,16 +179,27 @@ export class DirectTransport implements SkaldTransport {
     translateEvent: TranslateEvent,
     ac: AbortController,
   ): Promise<void> {
+    // resp.body is guaranteed non-null by the caller (Fix 2 guard).
     const reader = resp.body!.getReader();
     const decoder = new TextDecoder();
     const parser = new SSEParser();
     let stopReason = 'end_turn';
     let usage: Usage = { input_tokens: 0, output_tokens: 0 };
 
+    let idleTimedOut = false;
+    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    const resetIdle = () => {
+      clearTimeout(idleTimer);
+      idleTimer = setTimeout(() => { idleTimedOut = true; reader.cancel().catch(() => {}); }, STREAM_IDLE_TIMEOUT_MS);
+    };
+    const stopIdle = () => clearTimeout(idleTimer);
+    resetIdle();
+
     try {
       while (true) {
         const { done, value } = await reader.read();
-        if (done) break;
+        if (done) { stopIdle(); break; }
+        resetIdle();
         const frames = parser.push(decoder.decode(value, { stream: true }));
         for (const frame of frames) {
           if (!frame.event) continue;
@@ -227,6 +234,7 @@ export class DirectTransport implements SkaldTransport {
         }
       }
     } catch (err) {
+      stopIdle();
       this.activeChats.delete(id);
       if (err instanceof Error && err.name === 'AbortError') {
         this.handlers.onMessage({
@@ -238,28 +246,31 @@ export class DirectTransport implements SkaldTransport {
         });
         return;
       }
-      // Log raw error for debugging; surface only a human sentence.
       console.warn('[skald] stream error:', err);
       this.handlers.onMessage({
         type: 'error',
         id,
-        error: 'Lost the connection mid-response — check your network and resend.',
+        error: NETWORK_ERROR_MESSAGE,
         retryable: true,
       });
       return;
     }
 
     this.activeChats.delete(id);
+    if (idleTimedOut) {
+      this.handlers.onMessage({
+        type: 'error',
+        id,
+        error: NETWORK_ERROR_MESSAGE,
+        retryable: true,
+      });
+      return;
+    }
     this.handlers.onMessage({ type: 'done', id, stop_reason: stopReason, usage, provider });
   }
 }
 
-// ── Provider dispatch helpers ────────────────────────────────────────────
-
-type TranslateEvent = (
-  event: string,
-  data: unknown,
-) => { event: string; data: unknown };
+type TranslateEvent = (event: string, data: unknown) => { event: string; data: unknown };
 
 interface DispatchContext {
   url: string;
@@ -268,8 +279,7 @@ interface DispatchContext {
   translateEvent: TranslateEvent;
 }
 
-/** Budget for extended thinking. Anthropic includes thinking tokens in
- * output_tokens, so pricing.ts output accounting already covers them. */
+/** Budget for extended thinking (carved out of max_tokens). */
 const THINKING_BUDGET_TOKENS = 8192;
 
 function buildDispatch(
@@ -291,14 +301,9 @@ function buildDispatch(
       translateEvent: translateOpenRouterEvent,
     };
   }
-  // Anthropic (default)
   const caps = providerCapabilities(provider);
   const cachedReq = caps.promptCaching ? applyAnthropicCaching(req) : req;
-
-  // Attach extended thinking when on + supported (OpenRouter guarded above).
-  // Anthropic requires max_tokens > budget_tokens (budget is carved OUT of
-  // max_tokens); the 4096 dispatch default < the 8192 budget → 400. Bump
-  // max_tokens here (single attach point), keeping 4096 output headroom.
+  // Thinking: Anthropic requires max_tokens > budget_tokens; bump to budget+4096.
   const requestBody =
     thinkingEnabled && caps.extendedThinking
       ? {
@@ -307,11 +312,9 @@ function buildDispatch(
           thinking: { type: 'enabled', budget_tokens: THINKING_BUDGET_TOKENS },
         }
       : cachedReq;
-
   return {
     url: ANTHROPIC_URL,
     headers: {
-      // Prompt caching (incl. 1h TTL) is GA — no beta header (docs, 2026-06).
       'x-api-key': apiKey,
       'anthropic-version': ANTHROPIC_VERSION,
       'anthropic-dangerous-direct-browser-access': 'true',
@@ -322,14 +325,9 @@ function buildDispatch(
   };
 }
 
-function identityEvent(
-  event: string,
-  data: unknown,
-): { event: string; data: unknown } {
+function identityEvent(event: string, data: unknown): { event: string; data: unknown } {
   return { event, data };
 }
-
-// ── OpenRouter tool rewriting ──────────────────────────────────────────────
 
 function rewriteOpenRouterTools(
   req: import('@skald/protocol').ChatRequest,
