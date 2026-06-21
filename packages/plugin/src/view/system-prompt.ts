@@ -22,6 +22,15 @@ import { buildSkaldBaseline } from './skald-baseline';
 import { buildVaultMap } from './vault-map';
 import type { SkaldSettings } from '../settings';
 
+/**
+ * Hard cap (bytes) on the combined harness context (CLAUDE.md + skills/).
+ * Mirrors vault-map's MAX_MAP_BYTES pattern. Without a cap, a large .claude/
+ * folder sends unbounded tokens and pays full cache-creation cost on every
+ * new chat and every cache expiry. ~16 KB is generous for real harness docs
+ * but prevents runaway spend from accidentally oversized skill trees.
+ */
+export const MAX_HARNESS_BYTES = 16_384;
+
 export async function loadSystemPrompt(
   app: App,
   settings: SkaldSettings,
@@ -92,7 +101,18 @@ async function loadHarnessContext(
     }
   }
 
-  return parts.length > 0 ? parts.join('\n\n---\n\n') : null;
+  if (parts.length === 0) return null;
+
+  const joined = parts.join('\n\n---\n\n');
+
+  if (joined.length <= MAX_HARNESS_BYTES) return joined;
+
+  // Cap exceeded: truncate and append a clear elision marker so prompt
+  // consumers can see the content was trimmed (avoids silent omission).
+  return (
+    joined.slice(0, MAX_HARNESS_BYTES) +
+    '\n\n[... harness context truncated to cap injected tokens]'
+  );
 }
 
 async function collectSkills(app: App, folder: TFolder): Promise<string[]> {

@@ -10,9 +10,12 @@ import type { ToolDefinition } from '@skald/protocol';
  * Anthropic pricing; 5 caps a turn at ~$0.05).
  *
  * Version pinning is model-specific:
- *   - claude-haiku-4-5 (and any /haiku/ model id) requires the older
- *     20250305 / 20250910 pins — Anthropic 400s the 20260209 versions
- *     on that model family.
+ *   - claude-haiku-4-5 (and any /haiku/ model id) uses the older
+ *     20250305 / 20250910 pins. This is a DEFENSIVE PIN: a 400 was
+ *     observed in development when the 20260209 versions were sent to
+ *     Haiku — Anthropic does not document this difference, so the root
+ *     cause is unclear. Do not remove the special-case without first
+ *     verifying that a current Haiku model accepts the 20260209 types.
  *   - All other Anthropic models use the current 20260209 pins.
  *
  * OpenRouter translates both pin sets to its own openrouter:web_search /

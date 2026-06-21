@@ -2,9 +2,9 @@ name: Release
 
 # Skald is developed on GitLab (dunn.dev/skald); this GitHub repo is the
 # mirror. Tags pushed on GitLab auto-mirror here and trigger this workflow,
-# which builds the plugin and publishes the three Obsidian release assets
-# (manifest.json, main.js, styles.css) so BRAT and the community-plugins
-# directory can install the release.
+# which builds the plugin and publishes the four Obsidian release assets
+# (manifest.json, main.js, styles.css, versions.json) so BRAT and the
+# community-plugins directory can install the release.
 #
 # Obsidian convention: tags are bare semver with NO leading "v", and the
 # manifest version must equal the tag.
