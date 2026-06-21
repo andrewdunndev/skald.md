@@ -95,9 +95,14 @@ async function copyMessage(
 ): Promise<void> {
   try {
     await navigator.clipboard.writeText(text);
-    // Brief visual ack — swap the icon to a check for ~1s.
+    // Brief visual ack — swap the icon to a check for ~1s. Guard the
+    // revert: if the view detached (row removed) before the timer
+    // fired, btn.isConnected is false and we skip touching a stale
+    // node — no setIcon on an orphaned element.
     setIcon(btn, 'check');
-    setTimeout(() => setIcon(btn, 'copy'), 1200);
+    setTimeout(() => {
+      if (btn.isConnected) setIcon(btn, 'copy');
+    }, 1200);
   } catch {
     new Notice('Copy failed');
   }

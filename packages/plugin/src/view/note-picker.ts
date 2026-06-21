@@ -24,6 +24,9 @@ export interface NotePickerHooks {
 
 const MAX_RESULTS = 8;
 
+const PICKER_ID = 'skald-note-picker';
+const optionId = (idx: number): string => `${PICKER_ID}-opt-${idx}`;
+
 export class NotePicker {
   private pickerEl: HTMLDivElement | null = null;
   private anchor = -1;
@@ -90,6 +93,10 @@ export class NotePicker {
     this.results = [];
     this.anchor = -1;
     this.selectedIdx = 0;
+    // Reset the combobox ARIA state on the textarea so assistive tech
+    // stops pointing at a now-detached listbox.
+    this.inputEl.setAttr('aria-expanded', 'false');
+    this.inputEl.removeAttribute('aria-activedescendant');
   }
 
   // ── internals ─────────────────────────────────────────────────
@@ -103,6 +110,16 @@ export class NotePicker {
         'afterend',
         createDiv({ cls: 'skald-picker' }),
       ) as HTMLDivElement;
+      this.pickerEl.setAttrs({
+        id: PICKER_ID,
+        role: 'listbox',
+        'aria-label': 'Matching notes',
+      });
+      // Mark the textarea as a combobox controlling the listbox.
+      this.inputEl.setAttrs({
+        'aria-controls': PICKER_ID,
+        'aria-expanded': 'true',
+      });
     }
     this.render();
   }
@@ -114,11 +131,18 @@ export class NotePicker {
       this.pickerEl
         .createDiv({ cls: 'skald-picker-empty' })
         .setText('No matching notes');
+      this.inputEl.removeAttribute('aria-activedescendant');
       return;
     }
     this.results.forEach((file, idx) => {
+      const selected = idx === this.selectedIdx;
       const row = this.pickerEl!.createDiv({
-        cls: `skald-picker-row${idx === this.selectedIdx ? ' is-selected' : ''}`,
+        cls: `skald-picker-row${selected ? ' is-selected' : ''}`,
+      });
+      row.setAttrs({
+        id: optionId(idx),
+        role: 'option',
+        'aria-selected': selected ? 'true' : 'false',
       });
       row.createSpan({ cls: 'skald-picker-name', text: file.basename });
       const folder = file.parent?.path;
@@ -133,6 +157,10 @@ export class NotePicker {
       // Avoid stealing focus from the textarea on mousedown
       row.addEventListener('mousedown', (e) => e.preventDefault());
     });
+    // Point the textarea's active descendant at the selected option so
+    // a screen reader following the combobox announces it as the user
+    // arrows through results.
+    this.inputEl.setAttr('aria-activedescendant', optionId(this.selectedIdx));
   }
 
   private search(query: string): TFile[] {

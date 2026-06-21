@@ -11,11 +11,12 @@ import { renderHeader } from './view/header';
 import { augmentUserText } from './view/augment-user-text';
 import { readsBeforeToolUse } from './view/inflight-reads';
 import { MessageList } from './view/message-list';
+import { LiveRegion } from './view/live-region';
 import { maybeRenderSetupBanner } from './view/setup-banner';
 import { connectSession } from './view/connect-session';
 import { resumeConversation } from './view/resume-conversation';
 import { toImageContentBlock } from './image-attach';
-import { saveConversation } from './conversation-store';
+import { persistConversation } from './view/persist-conversation';
 import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
 import { ConversationSearchModal } from './conversation-search';
 import type { ContentBlock } from '@skald/protocol';
@@ -32,6 +33,7 @@ export class SkaldView extends ItemView {
   private statusEl!: HTMLDivElement;
   private composer!: Composer;
   private messageList!: MessageList;
+  private liveRegion!: LiveRegion;
   private activeNote: ActiveNoteIndicator | null = null;
   private usageFooterEl!: HTMLDivElement;
   /** Turns since the last memory-upkeep pass. Resets to 0 after
@@ -73,6 +75,12 @@ export class SkaldView extends ItemView {
     const root = this.containerEl.children[1] as HTMLElement;
     root.empty();
     root.addClass('skald-root');
+    root.setAttrs({ role: 'region', 'aria-label': 'Skald chat' });
+
+    // Polite live region for screen-reader announcement of finalized
+    // assistant replies. Mounted first so it exists before the first
+    // turn finalizes; visually hidden (.skald-sr-only).
+    this.liveRegion = new LiveRegion(root);
 
     const refs = renderHeader(root, this.plugin.settings, {
       onModelChange: async (newModel) => {
@@ -95,9 +103,12 @@ export class SkaldView extends ItemView {
     reconnectBtn.addEventListener('click', () => this.reconnect());
     this.setStatus('Disconnected');
 
-    this.activeNote = new ActiveNoteIndicator(root, this.app, {
-      onAttach: (file) => this.composer?.attachFile(file),
-    });
+    this.activeNote = new ActiveNoteIndicator(
+      root,
+      this.app,
+      { onAttach: (file) => this.composer?.attachFile(file) },
+      this,
+    );
 
     maybeRenderSetupBanner(root, this.app, {
       provider: this.plugin.settings.provider,
@@ -113,6 +124,7 @@ export class SkaldView extends ItemView {
       onReject: (id) => this.resolveApprovalUi(id, false),
       savedNotesFolder: this.plugin.settings.savedNotesFolder,
       getDocumentRegistry: () => this.session?.documentRegistry ?? new Map(),
+      announce: (text) => this.liveRegion.announce(text),
       onStarterPick: (chip) => {
         if (!this.composer) return;
         this.composer.fillText(chip.prompt);
@@ -144,6 +156,7 @@ export class SkaldView extends ItemView {
     this.activeNote = null;
     this.messageList?.cancelPendingRender();
     this.messageList?.tearDown();
+    this.liveRegion?.clear();
     this.dropSessionState();
     this.transport?.close();
     this.transport = null;
@@ -173,6 +186,7 @@ export class SkaldView extends ItemView {
     }
     this.session?.reset();
     this.messageList.tearDown();
+    this.liveRegion.clear();
     this.dropSessionState();
     this.turnsSinceUpkeep = 0;
     if (this.usageFooterEl) this.usageFooterEl.style.display = 'none';
@@ -184,6 +198,7 @@ export class SkaldView extends ItemView {
     this.transport = null;
     this.session = null;
     this.messageList.tearDown();
+    this.liveRegion.clear();
     this.dropSessionState();
     this.connect();
   }
@@ -326,24 +341,12 @@ export class SkaldView extends ItemView {
     });
   }
 
-  private async persistConversation(): Promise<void> {
-    if (!this.session) return;
-    const folder = this.plugin.settings.chatsFolder.trim();
-    if (!folder) return;
-    const totalUsage = this.session.getTotalUsage();
-    const costUSD = estimateTurnCost(totalUsage, this.modelSelect.value);
-    await saveConversation(
+  private persistConversation(): Promise<void> {
+    return persistConversation(
       this.app,
-      folder,
-      {
-        id: this.session.conversationId,
-        model: this.modelSelect.value,
-        created: this.session.conversationCreated,
-        updated: new Date().toISOString(),
-        usage: totalUsage,
-        costUSD,
-      },
-      this.session.getMessages(),
+      this.session,
+      this.plugin.settings.chatsFolder,
+      this.modelSelect.value,
     );
   }
 

@@ -33,7 +33,10 @@ export function renderHeader(
   let modelSelect: HTMLSelectElement;
   if (provider === 'anthropic') {
     // Anthropic-direct: small fixed dropdown of Anthropic models.
-    modelSelect = header.createEl('select', { cls: 'skald-model' });
+    modelSelect = header.createEl('select', {
+      cls: 'skald-model',
+      attr: { 'aria-label': 'Model' },
+    });
     for (const m of MODELS) {
       const opt = modelSelect.createEl('option', {
         text: m.label,
@@ -57,6 +60,7 @@ export function renderHeader(
     label.setAttr('title', 'Active OpenRouter model. Change in settings.');
     modelSelect = header.createEl('select', {
       cls: 'skald-model skald-model-hidden',
+      attr: { 'aria-label': 'Model' },
     });
     const opt = modelSelect.createEl('option', {
       text: settings.openrouterModel,
