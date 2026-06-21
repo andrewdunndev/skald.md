@@ -60,16 +60,10 @@ export class ChatSession {
     private readonly modelProvider: () => string,
     private readonly systemProvider: () => Promise<string | undefined>,
     private readonly providerConfigProvider: () => ProviderConfig,
-    /** Per-turn provider of the active tool set. Reading at
-     * dispatch time lets setting changes (memory enabled/disabled,
-     * future model-capability gating) apply on the next turn
-     * without recreating the session. */
     private readonly toolDefinitionsProvider: () => ToolDefinition[],
     private readonly toolExecutor: ToolExecutor,
     private readonly handlers: ChatSessionHandlers,
-    /** Optional: when true, read_note results are additionally injected
-     * as document blocks in the tool-result turn (citations path).
-     * Gate: only set when providerCapabilities(provider).citations. */
+    /** Optional: citations path gate. */
     private readonly citationsEnabledProvider?: () => boolean,
   ) {}
 
@@ -145,13 +139,9 @@ export class ChatSession {
   }
 
   /**
-   * Seed the session from a previously saved conversation. Restores
-   * the conversation id (so subsequent saves update the same file),
-   * replaces the message history, and restores cumulative usage so
-   * the cost footer continues from where the saved chat left off.
-   *
-   * Passive load — does NOT trigger onUpdate or onDone. Only allowed
-   * when no turn is in flight; silently ignored otherwise.
+   * Seed the session from a previously saved conversation.
+   * Passive load — does NOT trigger onUpdate or onDone.
+   * Silently ignored when a turn is in flight.
    */
   hydrate(opts: {
     conversationId: string;
@@ -163,14 +153,7 @@ export class ChatSession {
     this.conversationId = opts.conversationId;
     this.messages.length = 0;
     for (const m of opts.messages) this.messages.push(m);
-    if (opts.usage) {
-      this.totalUsage = { ...opts.usage };
-    } else {
-      this.totalUsage = { input_tokens: 0, output_tokens: 0 };
-    }
-    // conversationCreated stays as-is (new session startup time);
-    // the actual created timestamp lives in the saved file meta and
-    // is passed through when persistConversation re-saves.
+    this.totalUsage = opts.usage ? { ...opts.usage } : { input_tokens: 0, output_tokens: 0 };
   }
 
   private async dispatch(): Promise<void> {
@@ -181,15 +164,20 @@ export class ChatSession {
       usage: { input_tokens: 0, output_tokens: 0 },
     };
 
-    const system = await this.systemProvider();
+    let system: string | undefined;
+    try {
+      system = await this.systemProvider();
+    } catch (err) {
+      this.inFlight = null;
+      this.handlers.onError(err instanceof Error ? err.message : 'Failed to build system prompt.');
+      this.handlers.onUpdate();
+      return;
+    }
+
     const { provider, apiKey } = this.providerConfigProvider();
 
     const payload: ChatRequest = {
       model: this.modelProvider(),
-      // Compaction is size-triggered (see COMPACTION_TOKEN_THRESHOLD):
-      // below the threshold it returns history verbatim so the
-      // incremental prompt-cache prefix stays stable; it only stubs
-      // stale tool_results once history is genuinely large.
       messages: compactStaleToolResults(windowHistory(this.messages)),
       max_tokens: 4096,
     };
@@ -359,8 +347,15 @@ export class ChatSession {
     // Execute write tools strictly sequentially (approval UIs must not overlap).
     for (const block of writeUses) {
       const b = block as Record<string, any>;
-      const res = await this.toolExecutor(b.name, b.input, b.id);
-      resultMap.set(b.id, toResultBlock(b.id, res));
+      try {
+        const res = await this.toolExecutor(b.name, b.input, b.id);
+        resultMap.set(b.id, toResultBlock(b.id, res));
+      } catch (err) {
+        resultMap.set(b.id, toResultBlock(b.id, {
+          content: err instanceof Error ? err.message : 'tool execution failed',
+          is_error: true,
+        }));
+      }
     }
 
     // Reassemble in original tool_use order for determinism.
