@@ -278,11 +278,24 @@ export class CaptureService {
     );
 
     await this.ensureFolder(cfg.captureFolder);
+    const now = new Date();
     const filename = captureFilename(
       cfg.captureFolder,
       captureTitle || params.title || null,
+      now,
     );
     const path = normalizePath(filename);
+    // Collision guard: if a note already exists at the computed path (same-day
+    // + same-title-slug), the original vault.create would fail and the capture
+    // would be silently lost. Append the time component to uniquify, then
+    // retry once. A user-triggered capture must never be discarded.
+    if (this.app.vault.getAbstractFileByPath(path) != null) {
+      const uniquePath = normalizePath(
+        captureFilename(cfg.captureFolder, captureTitle || params.title || null, now, true),
+      );
+      await this.app.vault.create(uniquePath, captureBody);
+      return { path: uniquePath, routedTo: 'create' };
+    }
     await this.app.vault.create(path, captureBody);
     return { path, routedTo: 'create' };
   }

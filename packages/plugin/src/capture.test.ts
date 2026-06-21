@@ -165,4 +165,24 @@ describe('captureFilename', () => {
     const slug = f.replace('Captures/2026-05-14-', '').replace('.md', '');
     expect(slug.length).toBeLessThanOrEqual(40);
   });
+
+  // Fix 3: collision uniquification via withTime flag
+  it('appends the HH-MM-SS time suffix when withTime=true', () => {
+    // Same date and title as the standard path; withTime=true adds the time
+    // component so same-day same-slug collisions get a distinct filename.
+    const f = captureFilename('Skald/Captures', 'A great article', fixedDate, true);
+    // Should still start with date and base slug.
+    expect(f).toContain('2026-05-14-a-great-article');
+    // Must contain the time component derived from the ISO string (15:30:00Z → 15-30-00).
+    expect(f).toContain('15-30-00');
+    expect(f.endsWith('.md')).toBe(true);
+  });
+
+  it('withTime=false (default) omits the time suffix', () => {
+    const withoutTime = captureFilename('Captures', 'test', fixedDate, false);
+    const withTime = captureFilename('Captures', 'test', fixedDate, true);
+    expect(withTime).not.toBe(withoutTime);
+    // The non-time version must not include the time component.
+    expect(withoutTime).not.toContain('15-30-00');
+  });
 });

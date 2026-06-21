@@ -38,6 +38,30 @@ function makeApp() {
   };
 }
 
+/**
+ * Vault mock where `collisionPath` is treated as already-existing so
+ * getAbstractFileByPath returns a truthy value for it. The collision
+ * guard in CaptureService.run() should detect this and use the
+ * time-suffixed uniquified path instead.
+ */
+function makeAppWithCollision(collisionPath: string) {
+  const created: Array<{ path: string; body: string }> = [];
+  const vault = {
+    getAbstractFileByPath: (p: string) => (p === collisionPath ? { path: p } : null),
+    create: vi.fn(async (path: string, body: string) => {
+      created.push({ path, body });
+    }),
+    createFolder: vi.fn(),
+    cachedRead: vi.fn(async () => ''),
+    process: vi.fn(),
+  };
+  const workspace = { openLinkText: vi.fn() };
+  return {
+    app: { vault, workspace } as unknown as import('obsidian').App,
+    created,
+  };
+}
+
 /** Anthropic-shaped model response for requestUrl mock. */
 function anthropicResp(text: string) {
   return { status: 200, text: '', json: { content: [{ type: 'text', text }] } };
@@ -95,5 +119,36 @@ describe('CaptureService.run()', () => {
       svc.run({ kind: 'text', content: 'hello', silent: true }),
     ).rejects.toThrow('No Anthropic API key');
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  // Fix 3: same-day same-slug collision → uniquified path, capture is NOT lost.
+  it('retries with a time-suffixed path when the computed filename already exists', async () => {
+    // The provider returns a title that slugifies to "flowers", so the first
+    // candidate path is Skald/Captures/<date>-flowers.md. We pre-populate that
+    // path in the vault (simulating a prior same-day capture with the same title).
+    // The service must detect the collision and write to a distinct path instead.
+    spy.mockResolvedValue(anthropicResp('# Flowers\nRed tulips.'));
+
+    // Determine the first-candidate path by constructing it with the same logic
+    // the service uses (date only, no time suffix).
+    const today = new Date().toISOString().slice(0, 10);
+    const collisionPath = `Skald/Captures/${today}-flowers.md`;
+
+    const { app, created } = makeAppWithCollision(collisionPath);
+    const svc = new CaptureService(app, () => makeCfg());
+    const result = await svc.run({
+      kind: 'text',
+      content: 'tulips are beautiful',
+      silent: true,
+    });
+
+    // Must succeed and land at a path OTHER than the collision path.
+    expect(result.routedTo).toBe('create');
+    expect(result.path).not.toBe(collisionPath);
+    // The new path must still be inside the captures folder.
+    expect(result.path).toMatch(/^Skald\/Captures\//);
+    // Exactly one note must have been created (no silent drop).
+    expect(created).toHaveLength(1);
+    expect(created[0].body).toBe('# Flowers\nRed tulips.');
   });
 });

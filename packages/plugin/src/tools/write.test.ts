@@ -6,6 +6,7 @@ import {
   runUpdateMemory,
   runForgetFact,
 } from './memory';
+import { runWriteNote } from './write';
 import type { WriteProposal } from './context';
 
 /** Minimal App stub cast to the real Obsidian App surface. The memory
@@ -161,5 +162,95 @@ describe('memory tool routing', () => {
     expect(result.is_error).toBe(true);
     expect(result.content).toContain('not found');
     expect(approve).not.toHaveBeenCalled();
+  });
+});
+
+// ── Fix 1: write_note overwrite TOCTOU guard ──────────────────────────────────
+
+/**
+ * Build a minimal App stub for runWriteNote tests.
+ *
+ * `onDiskContent` is the content that vault.process sees as the "current"
+ * on-disk state when its callback is invoked — simulating what another writer
+ * may have written between the diff card snapshot and the vault commit.
+ *
+ * `processedWith` accumulates the return value from the process callback so
+ * tests can assert the write was (or wasn't) committed.
+ */
+function makeWriteApp(opts: {
+  /** Content returned by vault.read (the snapshot shown in the diff card). */
+  snapshotContent: string;
+  /** Content vault.process sees as current when its callback fires (may differ). */
+  onDiskContent: string;
+}): { app: App; processedWith: string[] } {
+  const processedWith: string[] = [];
+  const file = new TFile('notes/target.md');
+
+  const app = {
+    vault: {
+      getAbstractFileByPath: (p: string) =>
+        p === 'notes/target.md' ? file : null,
+      read: async (_f: TFile) => opts.snapshotContent,
+      process: vi.fn(async (_f: TFile, cb: (current: string) => string) => {
+        const result = cb(opts.onDiskContent);
+        processedWith.push(result);
+      }),
+      createFolder: async () => {},
+      create: vi.fn(async () => {}),
+    },
+  } as unknown as App;
+
+  return { app, processedWith };
+}
+
+describe('runWriteNote: overwrite TOCTOU guard', () => {
+  it('aborts with an error when on-disk content changed since the snapshot', async () => {
+    // The snapshot shown in the diff card is the OLD content. By the time the
+    // user approves, the file has been edited externally to NEW content. The
+    // write must refuse rather than discarding those external edits.
+    const { app, processedWith } = makeWriteApp({
+      snapshotContent: 'original content',
+      onDiskContent: 'content changed by another process',
+    });
+
+    const approve = vi.fn().mockResolvedValue(true);
+    const result = await runWriteNote(
+      app,
+      { path: 'notes/target.md', content: 'proposed replacement' },
+      'tu_toctou',
+      approve,
+    );
+
+    // Must error — the user's consent was to overwrite 'original content'.
+    expect(result.is_error).toBe(true);
+    expect(result.content).toMatch(/changed since/i);
+
+    // vault.process was called but the callback returned the on-disk content
+    // unchanged (the guard fired, so the callback returns `current` as-is).
+    // The 'proposed replacement' must NOT appear in what process returned.
+    expect(processedWith).toHaveLength(1);
+    expect(processedWith[0]).toBe('content changed by another process');
+    expect(processedWith[0]).not.toBe('proposed replacement');
+  });
+
+  it('succeeds when on-disk content is still the same as the snapshot', async () => {
+    // File was NOT changed between snapshot and write — happy path.
+    const { app, processedWith } = makeWriteApp({
+      snapshotContent: 'unchanged content',
+      onDiskContent: 'unchanged content',
+    });
+
+    const approve = vi.fn().mockResolvedValue(true);
+    const result = await runWriteNote(
+      app,
+      { path: 'notes/target.md', content: 'new proposed content' },
+      'tu_toctou_ok',
+      approve,
+    );
+
+    expect(result.is_error).toBeUndefined();
+    expect(result.content).toContain('notes/target.md');
+    // process committed the new content.
+    expect(processedWith[0]).toBe('new proposed content');
   });
 });
