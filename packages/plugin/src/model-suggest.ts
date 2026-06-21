@@ -81,18 +81,13 @@ export class ModelSuggest extends AbstractInputSuggest<ModelInfo> {
 
   override renderSuggestion(model: ModelInfo, el: HTMLElement): void {
     el.empty();
-    el.style.padding = '0.5rem 0.75rem';
-    el.style.borderBottom = '1px solid var(--background-modifier-border)';
-    el.style.cursor = 'pointer';
-    const id = el.createEl('div', { text: model.id });
-    id.style.fontFamily = 'var(--font-monospace, monospace)';
-    id.style.fontWeight = '600';
-    id.style.fontSize = '0.9rem';
+    el.addClass('skald-model-suggestion');
+    el.createEl('div', {
+      cls: 'skald-model-suggestion-id',
+      text: model.id,
+    });
 
-    const meta = el.createEl('div');
-    meta.style.fontSize = '0.78rem';
-    meta.style.color = 'var(--text-muted)';
-    meta.style.marginTop = '0.2rem';
+    const meta = el.createEl('div', { cls: 'skald-model-suggestion-meta' });
     const parts: string[] = [];
     if (model.name && model.name !== model.id) parts.push(model.name);
     if (model.contextLength)

@@ -1,4 +1,11 @@
-import { App, TFile, setIcon, setTooltip, type EventRef } from 'obsidian';
+import {
+  App,
+  Component,
+  TFile,
+  setIcon,
+  setTooltip,
+  type ItemView,
+} from 'obsidian';
 
 export interface ActiveNoteHooks {
   /** Called when the user taps the attach button. Host should push
@@ -15,21 +22,27 @@ export interface ActiveNoteHooks {
  * but without typing the path.
  *
  * Subscribes to workspace.on('file-open') so the chip updates as the
- * user navigates around the vault. dispose() unregisters the listener;
- * caller is responsible for invoking it on view close.
+ * user navigates around the vault. As a Component registered under the
+ * host ItemView, the listener is torn down automatically on view
+ * unload via registerEvent; dispose() remains for explicit teardown.
  */
-export class ActiveNoteIndicator {
+export class ActiveNoteIndicator extends Component {
   private readonly wrapEl: HTMLDivElement;
   private readonly labelEl: HTMLSpanElement;
   private readonly attachBtn: HTMLButtonElement;
-  private readonly subscription: EventRef;
   private current: TFile | null = null;
 
   constructor(
     parent: HTMLElement,
     private readonly app: App,
     private readonly hooks: ActiveNoteHooks,
+    /** Host view: the indicator registers itself as a child so its
+     * file-open listener tears down on view unload (lifecycle
+     * hygiene — no retained listeners after the pane closes). */
+    host: ItemView,
   ) {
+    super();
+    host.addChild(this);
     this.wrapEl = parent.createDiv({ cls: 'skald-active-note' });
     const icon = this.wrapEl.createSpan({ cls: 'skald-active-note-icon' });
     setIcon(icon, 'file-text');
@@ -46,9 +59,11 @@ export class ActiveNoteIndicator {
       if (this.current) this.hooks.onAttach(this.current);
     });
 
-    this.subscription = this.app.workspace.on('file-open', (file) => {
-      this.update(file ?? null);
-    });
+    this.registerEvent(
+      this.app.workspace.on('file-open', (file) => {
+        this.update(file ?? null);
+      }),
+    );
     this.update(this.app.workspace.getActiveFile() ?? null);
   }
 
@@ -72,10 +87,13 @@ export class ActiveNoteIndicator {
     setTooltip(this.labelEl, file.path);
   }
 
-  /** Tear down the workspace subscription. Must be called on view
-   * close to avoid retained listeners. */
+  /** Explicit teardown. unload() fires Component cleanup (the
+   * registered file-open listener), then we drop the DOM. Safe to
+   * call even if the host already unloaded us — unload is idempotent.
+   * The host's own unload would also tear the listener down; this
+   * stays for the view's existing onClose call path. */
   dispose(): void {
-    this.app.workspace.offref(this.subscription);
+    this.unload();
     this.wrapEl.remove();
   }
 }

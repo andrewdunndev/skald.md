@@ -40,6 +40,13 @@ export function renderDiffCard(
 ): void {
   const card = parent.createDiv({ cls: 'skald-diff' });
   card.setAttr('data-tool-use-id', proposal.toolUseId);
+  // Group the approve/reject controls + diff under one labelled
+  // landmark so screen readers announce what's being approved when
+  // focus lands inside, rather than reading orphaned + / − lines.
+  card.setAttrs({
+    role: 'group',
+    'aria-label': `Write proposal: ${proposal.kind} ${proposal.path}`,
+  });
 
   const header = card.createDiv({ cls: 'skald-diff-header' });
   header.createSpan({
@@ -102,6 +109,14 @@ export function renderDiffCard(
   });
 
   attachSwipeGesture(card, proposal, hooks);
+
+  // Move focus to Approve when the card mounts so keyboard + screen
+  // reader users land on the primary action (and hear the group's
+  // aria-label) without hunting. Deferred a tick so the element is
+  // attached + focusable before we call focus().
+  window.setTimeout(() => {
+    if (approve.isConnected) approve.focus();
+  }, 0);
 }
 
 /**

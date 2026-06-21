@@ -86,7 +86,11 @@ export function maybeRenderSetupBanner(
  * find settings manually — better than a silent no-op button.
  */
 function openSettingsForPlugin(app: App): void {
-  const setting = (app as any).setting;
+  const setting = (
+    app as unknown as {
+      setting?: { open?: () => void; openTabById?: (id: string) => void };
+    }
+  ).setting;
   if (setting && typeof setting.open === 'function') {
     setting.open();
     if (typeof setting.openTabById === 'function') {

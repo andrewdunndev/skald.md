@@ -8,6 +8,7 @@ import {
 import type { Message } from '@skald/protocol';
 import { renderBlock, type BlockContext } from './block-renderer';
 import { renderMessageActions } from './message-actions';
+import { announceableText } from './live-region';
 import {
   renderChipsInto,
   renderEmptyState,
@@ -60,6 +61,14 @@ export interface MessageListContext {
    * Absent → citation rendering is skipped (non-Anthropic path).
    */
   getDocumentRegistry?: () => ReadonlyMap<number, string>;
+  /**
+   * Optional: push finalized assistant text into a polite ARIA live
+   * region so screen-reader users hear the reply. Called once per
+   * turn at the moment the in-flight row finalizes — never per
+   * streaming delta — to avoid flooding the assistive-tech queue.
+   * See live-region.ts for the rationale behind the dedicated region.
+   */
+  announce?: (text: string) => void;
 }
 
 /**
@@ -170,7 +179,15 @@ export class MessageList {
       row.el.toggleClass('skald-msg-streaming', isInFlight);
       if (row.finalized && !isInFlight) continue;
       await this.renderRow(row, msg, isInFlight);
-      if (!isInFlight) row.finalized = true;
+      if (!isInFlight) {
+        row.finalized = true;
+        // Announce the finalized assistant turn to the polite live
+        // region — once, on the transition to finalized, so the
+        // screen reader gets the whole reply and never the partials.
+        if (msg.role === 'assistant') {
+          this.ctx.announce?.(announceableText(msg));
+        }
+      }
     }
 
     // Smooth scroll to the latest content. Falls back to instant on
@@ -339,8 +356,10 @@ function hasRenderedContent(msg: Message): boolean {
 // CSS.escape isn't always available; fall back to a regex strip for
 // safety. Inlined here so message-list stays self-contained.
 function escapeCss(s: string): string {
-  if (typeof (window as any).CSS?.escape === 'function') {
-    return (window as any).CSS.escape(s);
+  const css = (window as unknown as { CSS?: { escape?: (s: string) => string } })
+    .CSS;
+  if (typeof css?.escape === 'function') {
+    return css.escape(s);
   }
   return s.replace(/[^a-zA-Z0-9_-]/g, '\\$&');
 }
