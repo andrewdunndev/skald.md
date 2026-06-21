@@ -103,7 +103,34 @@ export async function runWriteNote(
   }
 
   if (existing instanceof TFile) {
-    await app.vault.modify(existing, content);
+    // TOCTOU guard: re-read inside vault.process so we compare against the
+    // actual on-disk content at the moment of write. If the file changed
+    // after the diff card was shown — another editor pane, sync, etc. —
+    // abort with a clear error rather than silently discarding those edits.
+    // `before` is the snapshot that was shown to the user in the diff card.
+    const beforeSnapshot = before; // captured above before the approve call
+    let changed = false;
+    try {
+      await app.vault.process(existing, (current) => {
+        if (current !== beforeSnapshot) {
+          changed = true;
+          // Return current unchanged — vault.process requires a string return.
+          return current;
+        }
+        return content;
+      });
+    } catch (err) {
+      return {
+        content: `Write to ${path} failed: ${err instanceof Error ? err.message : 'unknown error'}. Re-read and re-propose.`,
+        is_error: true,
+      };
+    }
+    if (changed) {
+      return {
+        content: `Write to ${path} aborted — note changed since the diff was shown. Re-read the note and re-propose.`,
+        is_error: true,
+      };
+    }
     return { content: `Overwrote ${path} (${content.length} chars).` };
   }
   await ensureFolderFor(app, path);

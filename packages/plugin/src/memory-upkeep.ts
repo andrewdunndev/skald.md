@@ -76,6 +76,45 @@ function nonWhitespaceLength(s: string): number {
 }
 
 /**
+ * Split a note into its YAML frontmatter block and body.
+ *
+ * A frontmatter block is a leading `---\n…\n---` (or `---\r\n…\r\n---`)
+ * delimited section. The returned `frontmatter` string includes the
+ * surrounding `---` fence lines (and the trailing newline) exactly as they
+ * appear in the source — so re-joining `frontmatter + body` reproduces the
+ * original note verbatim.
+ *
+ * If the note has no frontmatter, `frontmatter` is the empty string and
+ * `body` is the entire note unchanged.
+ *
+ * Pure — no I/O, no side-effects. Exported so callers (and tests) can
+ * use it independently.
+ */
+export function splitFrontmatter(note: string): { frontmatter: string; body: string } {
+  // Must begin with --- (optionally followed by \r) then a newline.
+  if (!note.startsWith('---')) {
+    return { frontmatter: '', body: note };
+  }
+  const afterOpen = note.indexOf('\n');
+  if (afterOpen === -1) {
+    return { frontmatter: '', body: note };
+  }
+  // Search for the closing --- on its own line after the opening fence.
+  const rest = note.slice(afterOpen + 1);
+  // Match `---` at the start of a line (possibly preceded by \r if CRLF).
+  const closeMatch = /^---[ \t]*$/m.exec(rest);
+  if (!closeMatch || closeMatch.index === undefined) {
+    return { frontmatter: '', body: note };
+  }
+  const closeEnd = afterOpen + 1 + closeMatch.index + closeMatch[0].length;
+  // Include the newline after the closing fence if present.
+  const trailingNl = note[closeEnd] === '\n' ? 1 : 0;
+  const frontmatter = note.slice(0, closeEnd + trailingNl);
+  const body = note.slice(closeEnd + trailingNl);
+  return { frontmatter, body };
+}
+
+/**
  * Normalize a note body for no-op comparison: trim each line, drop blank
  * lines, and join with single newlines. A chatty utility model can return
  * a cosmetically-different body (reordered blank lines, trailing spaces,
@@ -126,20 +165,27 @@ export async function proposeMemoryUpkeep(
     return null;
   }
 
+  // Frontmatter guard: split the memory note into its YAML frontmatter block
+  // (Obsidian properties) and the plain-text body. Send ONLY the body to the
+  // model so the model cannot alter or drop structured metadata. The original
+  // frontmatter is re-attached verbatim to the proposed body before it is
+  // surfaced to the user.
+  const { frontmatter, body: memoryBodyOnly } = splitFrontmatter(opts.memoryBody);
+
   const exchange = buildExchangeText(opts.messages);
   const userPrompt =
-    `Current memory note:\n<memory>\n${opts.memoryBody || '(empty)'}\n</memory>\n\n` +
+    `Current memory note:\n<memory>\n${memoryBodyOnly || '(empty)'}\n</memory>\n\n` +
     `Recent conversation:\n${exchange}\n\nReturn the updated memory note:`;
 
   try {
     const proposed = await callUtilityModel(opts.provider, opts.apiKey, opts.model, userPrompt);
     if (!proposed) return null;
-    const trimmed = proposed.trim();
+    const trimmedBody = proposed.trim();
 
     // No-op detection: compare NORMALIZED bodies so a cosmetically-different
     // response (reordered blank lines, whitespace, re-trimmed lines) that
     // carries no new facts is not surfaced as a spurious diff card.
-    if (normalizeNoteBody(trimmed) === normalizeNoteBody(opts.memoryBody)) {
+    if (normalizeNoteBody(trimmedBody) === normalizeNoteBody(memoryBodyOnly)) {
       return null;
     }
 
@@ -150,9 +196,9 @@ export async function proposeMemoryUpkeep(
     // mass-deletion overwrite to approve. Only guards against shrinkage of
     // a non-empty note — growth and first-population (empty → content) are
     // always allowed.
-    const existingLen = nonWhitespaceLength(opts.memoryBody);
+    const existingLen = nonWhitespaceLength(memoryBodyOnly);
     if (existingLen > 0) {
-      const proposedLen = nonWhitespaceLength(trimmed);
+      const proposedLen = nonWhitespaceLength(trimmedBody);
       const dropped = existingLen - proposedLen;
       if (dropped > existingLen * UPKEEP_MAX_DELETION_FRACTION) {
         console.warn(
@@ -163,7 +209,10 @@ export async function proposeMemoryUpkeep(
       }
     }
 
-    return trimmed;
+    // Re-attach the original frontmatter verbatim so the full proposed note
+    // (frontmatter + updated body) is what the diff card shows and what gets
+    // written to the vault on approval.
+    return frontmatter + trimmedBody;
   } catch (err) {
     console.warn('[memory-upkeep] error —', err);
     return null;

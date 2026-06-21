@@ -7,16 +7,25 @@
 /** Generate a vault-safe filename for a captured note. Strips path
  *  separators + `..` (defense in depth against malformed titles from
  *  Apple Shortcuts). Falls back to a timestamp when the title yields
- *  nothing slug-worthy. */
+ *  nothing slug-worthy.
+ *
+ *  When `withTime` is true, the HH-MM-SS component of `now` is appended
+ *  to the slug to produce a unique filename on same-day, same-title-slug
+ *  collisions. Used by the collision-retry path in CaptureService.run(). */
 export function captureFilename(
   captureFolder: string,
   title: string | null,
   now: Date = new Date(),
+  withTime = false,
 ): string {
   const dateStr = now.toISOString().slice(0, 10);
-  const slug =
+  const baseSlug =
     slugify(title ?? '', 40) ||
     'capture-' + now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+  const timeSuffix = withTime
+    ? '-' + now.toISOString().replace(/[:.]/g, '-').slice(11, 19)
+    : '';
+  const slug = baseSlug + timeSuffix;
   const folder = captureFolder.replace(/\/$/, '');
   return folder ? `${folder}/${dateStr}-${slug}.md` : `${dateStr}-${slug}.md`;
 }

@@ -363,3 +363,6 @@ describe('proposeMemoryUpkeep: cosmetic-only changes are not proposed', () => {
 // that the caller-supplied model flows into the request body rather than a
 // hardcoded one — is asserted above ("uses the model supplied by the
 // caller (resolveUtilityModel)").
+//
+// Fix 2: frontmatter preservation tests are in memory-upkeep.frontmatter.test.ts
+// (split out to keep this file under the 400-line cap).
