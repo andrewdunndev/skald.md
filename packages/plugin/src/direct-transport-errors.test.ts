@@ -27,10 +27,18 @@ describe('httpErrorMessage', () => {
     expect(httpErrorMessage(403)).toEqual(httpErrorMessage(401));
   });
 
-  it('400 → non-retryable, suggests a new chat, no body echo', () => {
+  it('400 → non-retryable, mentions image and new chat, no body echo', () => {
     const e = httpErrorMessage(400);
     expect(e.retryable).toBe(false);
-    expect(e.error).toMatch(/couldn't process/i);
+    expect(e.error).toMatch(/image/i);
+    expect(e.error).toMatch(/new chat/i);
+  });
+
+  it('413 → non-retryable, size-oriented actionable copy', () => {
+    const e = httpErrorMessage(413);
+    expect(e.retryable).toBe(false);
+    expect(e.error).toMatch(/too large/i);
+    expect(e.error).toMatch(/image/i);
   });
 
   it('5xx → retryable, "their end" human copy', () => {
@@ -49,7 +57,7 @@ describe('httpErrorMessage', () => {
   it('never echoes a raw provider body — it never receives one', () => {
     // The signature only accepts a status + retry-after header, so a
     // raw JSON body structurally cannot leak into the user-facing copy.
-    for (const status of [400, 401, 403, 429, 500, 503, 418]) {
+    for (const status of [400, 401, 403, 413, 429, 500, 503, 418]) {
       const e = httpErrorMessage(status);
       expect(e.error).not.toContain('{');
       expect(e.error).not.toContain('"error"');

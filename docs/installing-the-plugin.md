@@ -6,7 +6,7 @@ installation is manual. Three paths exist, ordered easiest-first.
 ## Path 1: BRAT (when releases are published)
 
 Status: **coming soon.** When the first BRAT-friendly release is cut,
-add `skald/skald` (the GitHub mirror) to
+add `andrewdunndev/skald.md` (the GitHub mirror) to
 [BRAT (Beta Reviewers Auto-update Tester)](https://github.com/TfTHacker/obsidian42-brat)
 and accept updates as they ship.
 
