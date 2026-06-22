@@ -22,8 +22,8 @@ Claude-processed vault note.
 > test pass; BRAT + community plugins listing to follow.
 
 > **Project home:** Skald is developed on **GitLab**
-> ([dunn.dev/skald](https://gitlab.com/dunn.dev/skald)) -- CI, code review,
-> and the [roadmap](https://gitlab.com/dunn.dev/skald/-/boards) live there.
+> ([dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md)) -- CI, code review,
+> and the [roadmap](https://gitlab.com/dunn.dev/skald.md/-/boards) live there.
 > If you are reading this on GitHub, that is a mirror for discoverability:
 > issues and pull requests are welcome and get triaged onto GitLab. See
 > [CONTRIBUTING.md](CONTRIBUTING.md).

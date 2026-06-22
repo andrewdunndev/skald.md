@@ -2,13 +2,13 @@
 
 ## Where development happens
 
-GitLab is canonical: [dunn.dev/skald](https://gitlab.com/dunn.dev/skald). CI, code review, and the roadmap all live there.
+GitLab is canonical: [dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md). CI, code review, and the roadmap all live there.
 
 GitHub ([andrewdunndev/skald.md](https://github.com/andrewdunndev/skald.md)) is a mirror for discoverability. Issues and pull requests are welcome there and get triaged onto GitLab. GitHub Discussions are off -- Issues are the single community funnel.
 
 ## The roadmap
 
-Lives as GitLab issues on the [project board](https://gitlab.com/dunn.dev/skald/-/boards), organized in two tiers:
+Lives as GitLab issues on the [project board](https://gitlab.com/dunn.dev/skald.md/-/boards), organized in two tiers:
 
 - **Tier 1 -- plugin**: native Obsidian plugin, BYO API key, runs on-device including mobile. This is v1, shipping.
 - **Tier 2 -- agent-host**: persistent headless companion (`claude -p` / Claude Agent SDK) the phone connects to. Marked **exploring, no dates**.
