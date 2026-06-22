@@ -31,8 +31,9 @@ interface HarnessOptions {
   systemRef?: { value: string | undefined };
   tools?: ToolDefinition[];
   toolsRef?: { value: ToolDefinition[] };
-  provider?: 'anthropic' | 'openrouter';
+  provider?: 'anthropic' | 'openrouter' | 'openai';
   apiKey?: string;
+  baseUrl?: string;
   toolExecutor?: (name: string, input: unknown, toolUseId: string) => Promise<{ content: string; is_error?: boolean }>;
 }
 
@@ -45,7 +46,7 @@ function makeHarness(opts: HarnessOptions = {}) {
     tx as unknown as import('./transport-interface').SkaldTransport,
     () => opts.model ?? 'claude-sonnet-4-6',
     async () => opts.systemRef ? opts.systemRef.value : opts.system,
-    () => ({ provider: opts.provider ?? 'anthropic', apiKey: opts.apiKey }),
+    () => ({ provider: opts.provider ?? 'anthropic', apiKey: opts.apiKey, baseUrl: opts.baseUrl }),
     () => opts.toolsRef ? opts.toolsRef.value : (opts.tools ?? []),
     opts.toolExecutor ?? (async () => ({ content: 'stub tool result' })),
     handlers,
@@ -138,6 +139,36 @@ describe('ChatSession.dispatch: payload shape', () => {
     expect(msg.provider).toBe('openrouter');
     expect(msg.openrouter_api_key).toBe('or-yyy');
     expect(msg.anthropic_api_key).toBeUndefined();
+  });
+
+  it('sets openai_api_key + openai_base_url for openai routes', async () => {
+    const { tx, session } = makeHarness({
+      provider: 'openai',
+      apiKey: 'oai-zzz',
+      baseUrl: 'https://llm.dunn.dev/v1',
+    });
+    await session.sendUserText('hi');
+    const msg = tx.sent[0];
+    if (msg.type !== 'chat') throw new Error('expected chat');
+    expect(msg.provider).toBe('openai');
+    expect(msg.openai_api_key).toBe('oai-zzz');
+    expect(msg.openai_base_url).toBe('https://llm.dunn.dev/v1');
+    expect(msg.anthropic_api_key).toBeUndefined();
+    expect(msg.openrouter_api_key).toBeUndefined();
+  });
+
+  it('sets openai_base_url even when no key is configured (keyless endpoint)', async () => {
+    const { tx, session } = makeHarness({
+      provider: 'openai',
+      apiKey: '',
+      baseUrl: 'https://llm.dunn.dev/v1',
+    });
+    await session.sendUserText('hi');
+    const msg = tx.sent[0];
+    if (msg.type !== 'chat') throw new Error('expected chat');
+    expect(msg.provider).toBe('openai');
+    expect(msg.openai_api_key).toBeUndefined();
+    expect(msg.openai_base_url).toBe('https://llm.dunn.dev/v1');
   });
 
   it('passes a multi-modal content-block array through the payload unchanged', async () => {

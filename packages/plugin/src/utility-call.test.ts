@@ -38,7 +38,24 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/messages';
 const ANT_KEY = 'sk-ant-test';
 const OR_KEY = 'or-test-key';
+const OAI_KEY = 'oai-test-key';
+const OAI_BASE = 'https://llm.dunn.dev/v1';
+const OAI_MODEL = 'qwen2.5-14b';
 const MODEL = 'claude-haiku-4-5';
+
+/** OpenAI /chat/completions response shape: text lives at
+ * choices[0].message.content as a STRING, not a block array. */
+function makeOpenaiResp(
+  status: number,
+  content: string,
+  rawText = '',
+): RequestUrlResponse {
+  return {
+    status,
+    json: { choices: [{ message: { content } }] },
+    text: rawText,
+  } as RequestUrlResponse;
+}
 
 function getCall() {
   return vi.mocked(obsidian.requestUrl).mock.calls[0][0] as unknown as Record<string, unknown>;
@@ -84,6 +101,138 @@ describe('utilityComplete: provider routing', () => {
     expect(headers['X-OpenRouter-Title']).toBe('skald');
     expect(headers).not.toHaveProperty('x-api-key');
     expect(headers).not.toHaveProperty('anthropic-version');
+  });
+});
+
+describe('utilityComplete: openai-compatible provider', () => {
+  beforeEach(() => { vi.restoreAllMocks(); });
+  afterEach(() => { vi.restoreAllMocks(); });
+
+  it('posts to <baseUrl>/chat/completions with Bearer auth', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue(
+      makeOpenaiResp(200, 'hi'),
+    );
+    const res = await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      userPrompt: 'test',
+      maxTokens: 100,
+      baseUrl: OAI_BASE,
+    });
+    expect(res.ok).toBe(true);
+    const call = getCall();
+    expect(call.url).toBe(`${OAI_BASE}/chat/completions`);
+    const headers = call.headers as Record<string, string>;
+    expect(headers['Authorization']).toBe(`Bearer ${OAI_KEY}`);
+    expect(headers['content-type']).toBe('application/json');
+    expect(headers).not.toHaveProperty('x-api-key');
+    expect(headers).not.toHaveProperty('anthropic-version');
+  });
+
+  it('strips a trailing slash from the base URL', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue(
+      makeOpenaiResp(200, 'hi'),
+    );
+    await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      userPrompt: 'test',
+      maxTokens: 100,
+      baseUrl: `${OAI_BASE}/`,
+    });
+    expect(getCall().url).toBe(`${OAI_BASE}/chat/completions`);
+  });
+
+  it('sends an OpenAI-shaped request body (flat messages, max_tokens, model)', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue(
+      makeOpenaiResp(200, 'hi'),
+    );
+    await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      system: 'You are a ranker.',
+      userPrompt: 'rank these',
+      maxTokens: 200,
+      baseUrl: OAI_BASE,
+    });
+    const body = JSON.parse(getCall().body as string);
+    expect(body.model).toBe(OAI_MODEL);
+    expect(body.max_tokens).toBe(200);
+    expect(body.messages).toEqual([
+      { role: 'system', content: 'You are a ranker.' },
+      { role: 'user', content: 'rank these' },
+    ]);
+    // OpenAI shape has no Anthropic-style top-level system key.
+    expect(body).not.toHaveProperty('system');
+  });
+
+  it('omits the system message when opts.system is absent', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue(
+      makeOpenaiResp(200, 'hi'),
+    );
+    await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      userPrompt: 'hello',
+      maxTokens: 100,
+      baseUrl: OAI_BASE,
+    });
+    const body = JSON.parse(getCall().body as string);
+    expect(body.messages).toEqual([{ role: 'user', content: 'hello' }]);
+  });
+
+  it('NEVER sends cache_control for openai, even with cacheSystem=true', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue(
+      makeOpenaiResp(200, 'hi'),
+    );
+    await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      system: 'You are a ranker.',
+      userPrompt: 'rank these',
+      maxTokens: 100,
+      cacheSystem: true,
+      baseUrl: OAI_BASE,
+    });
+    const raw = getCall().body as string;
+    expect(raw).not.toContain('cache_control');
+    const body = JSON.parse(raw);
+    // system lives only as a chat message, never as a cached block.
+    expect(body).not.toHaveProperty('system');
+  });
+
+  it('parses choices[0].message.content (a string)', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue(
+      makeOpenaiResp(200, 'the answer'),
+    );
+    const res = await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      userPrompt: 'test',
+      maxTokens: 100,
+      baseUrl: OAI_BASE,
+    });
+    expect(res.ok).toBe(true);
+    expect(res.text).toBe('the answer');
+  });
+
+  it('returns empty string text when choices are missing', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue({
+      status: 200,
+      json: {},
+      text: '',
+    } as RequestUrlResponse);
+    const res = await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      userPrompt: 'test',
+      maxTokens: 100,
+      baseUrl: OAI_BASE,
+    });
+    expect(res.ok).toBe(true);
+    expect(res.text).toBe('');
+  });
+
+  it('returns ok:false with errorText on a non-2xx response', async () => {
+    vi.mocked(obsidian.requestUrl).mockResolvedValue({
+      status: 503,
+      json: {},
+      text: 'endpoint unavailable',
+    } as RequestUrlResponse);
+    const res = await utilityComplete('openai', OAI_KEY, OAI_MODEL, {
+      userPrompt: 'test',
+      maxTokens: 100,
+      baseUrl: OAI_BASE,
+    });
+    expect(res.ok).toBe(false);
+    expect(res.status).toBe(503);
+    expect(res.errorText).toBe('endpoint unavailable');
   });
 });
 

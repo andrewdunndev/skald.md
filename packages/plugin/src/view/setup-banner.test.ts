@@ -13,6 +13,7 @@ function directInput(overrides: Partial<SetupBannerInput> = {}): SetupBannerInpu
     provider: 'anthropic',
     anthropicApiKey: 'sk-ant-live',
     openrouterApiKey: '',
+    openaiBaseUrl: '',
     ...overrides,
   };
 }
@@ -83,6 +84,44 @@ describe('resolveBannerSpec: openrouter provider', () => {
     expect(
       resolveBannerSpec(
         directInput({ provider: 'anthropic', anthropicApiKey: 'sk-ant-x', openrouterApiKey: '' }),
+      ),
+    ).toBeNull();
+  });
+});
+
+// ── OpenAI-compatible provider ──────────────────────────────────────────────
+
+describe('resolveBannerSpec: openai provider', () => {
+  it('returns null when a base URL is present (key is optional)', () => {
+    expect(
+      resolveBannerSpec(
+        directInput({ provider: 'openai', openaiBaseUrl: 'https://llm.dunn.dev/v1' }),
+      ),
+    ).toBeNull();
+  });
+
+  it('returns a banner when the base URL is empty', () => {
+    const spec = resolveBannerSpec(directInput({ provider: 'openai', openaiBaseUrl: '' }));
+    expect(spec).not.toBeNull();
+    expect(spec?.title).toMatch(/endpoint/i);
+  });
+
+  it('banner detail mentions a base URL and Settings → Skald', () => {
+    const spec = resolveBannerSpec(directInput({ provider: 'openai', openaiBaseUrl: '' }));
+    expect(spec?.detail).toMatch(/base url/i);
+    expect(spec?.detail).toContain('Settings');
+    expect(spec?.detail).toContain('Skald');
+  });
+
+  it('gates on base URL, NOT on a key — empty key with a base URL shows no banner', () => {
+    expect(
+      resolveBannerSpec(
+        directInput({
+          provider: 'openai',
+          anthropicApiKey: '',
+          openrouterApiKey: '',
+          openaiBaseUrl: 'https://llm.dunn.dev/v1',
+        }),
       ),
     ).toBeNull();
   });
