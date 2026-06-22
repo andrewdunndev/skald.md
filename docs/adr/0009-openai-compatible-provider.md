@@ -100,6 +100,35 @@ deployment share one source of truth.
    plugin can fall back to non-streaming via Obsidian's `requestUrl`
    (bypasses CORS, loses live streaming). Not the default; it exists.
 
+### Reference deployment (as built — `llm.dunn.dev`, 2026-06-22)
+
+The first concrete endpoint Skald integrates against. Topology:
+Skald → `https://llm.dunn.dev/v1` (envoy SNI → caddy → LiteLLM) → Ollama.
+Skald goes **direct to LiteLLM**, not through the human chat UI at
+`chat.dunn.dev` (Open WebUI).
+
+- **Endpoint:** `https://llm.dunn.dev/v1`, OpenAI-compatible (LiteLLM).
+  Edge is restricted to `/v1/*` + `/health`; `/ui` and `/key/*` are 404.
+- **Auth:** `Authorization: Bearer sk-...` — a LiteLLM *virtual key*
+  (operator-issued). Bearer is the only gate; no OIDC, no mTLS. Device-
+  trusted LE cert on its own FQDN (iOS trusts out of the box) — the
+  reason the API is *not* behind the private step-ca mesh.
+- **Model:** request the LiteLLM **alias** (`qwen2.5-14b`), not the Ollama
+  tag (`qwen2.5:14b-instruct`); `GET /v1/models` returns aliases. Default
+  Qwen2.5-14B-Instruct (strong tool-calling).
+- **Streaming:** SSE, unbuffered (`flush_interval -1`).
+- **Tool-calls — the non-obvious one:** LiteLLM **consolidates a tool
+  call into a single chunk** and drops the preamble text. The call
+  arrives *whole*, not as incremental `arguments` fragments. (See the
+  Consequences note — the robust accumulator handles this for free.)
+- **Timeouts:** cold model load 10–30s; server `request_timeout` 600s.
+  Expect a possible first-request 502 during LiteLLM cold-start.
+- **Metering:** per-virtual-key spend tracked server-side; Skald sends
+  nothing extra — identity is the key it holds.
+
+This is *one* deployment; the generic contract above still governs any
+self-hoster's endpoint (the public plugin's broader claim).
+
 ## Consequences
 
 - **A real OpenAI adapter is net-new.** Request building (Anthropic
@@ -107,10 +136,27 @@ deployment share one source of truth.
   (OpenAI `choices[].delta` chunks → the internal Anthropic-shaped
   events) must be written; there is no OpenAI path to reuse. Roughly a
   medium effort.
-- **`rerank.ts` must be generalized.** It is currently hardcoded to
-  `api.anthropic.com` with `x-api-key` — a latent bug under any
-  non-Anthropic provider today — and must dispatch by provider like
-  `memory-upkeep.ts` / `capture.ts` already do.
+- **Utility tier is now provider-agnostic (done).** `rerank.ts` was
+  hardcoded to `api.anthropic.com` (and `read.ts` wrongly gated rerank on
+  the prompt-caching capability, disabling it on OpenRouter). Landed: a
+  shared `utility-call.ts` `utilityComplete()` that rerank, memory-upkeep,
+  and capture all dispatch through. Adding `'openai'` is now one new
+  `case` there, not a fourth copy.
+- **Tool-call streaming: accumulate by index (handles both shapes).** The
+  OpenAI stream adapter must reassemble `tool_calls` by their `index`
+  across `choices[].delta` chunks. OpenAI / vLLM-direct / Ollama-direct
+  stream tool-call `arguments` incrementally; LiteLLM (the reference
+  deployment) delivers the call *whole in one chunk*. An accumulator-by-
+  index handles the incremental case and treats the whole-chunk case as
+  the trivial single-fragment case — so one robust path gives both general
+  OpenAI compatibility and LiteLLM compatibility. Note LiteLLM also drops
+  the assistant preamble text on a tool turn; do not depend on it.
+- **Cold-start timeouts need provider-aware handling.** The plugin's
+  current `REQUEST_TIMEOUT_MS` (30s) is too tight for a self-hosted cold
+  model load (10–30s before first token) and a possible cold-start 502.
+  The OpenAI provider needs a longer (or disabled) request timeout for the
+  initial response and a retry-once on a first-request 502. The 60s
+  *idle* timeout is fine once tokens flow.
 - **Feature degradation is honest and centralized.** Caching, citations,
   server tools, and extended thinking are off on OpenAI-compatible
   endpoints, gated in one place; the experience shifts but does not
@@ -130,7 +176,12 @@ deployment share one source of truth.
   than the server (vLLM vs Ollama). Validate the tool loop per model.
 - Model discovery: populate the picker from `/v1/models`, or free-text?
 - Per-conversation provider memory vs a single global active provider.
-- Exact mobile (Capacitor) origin string(s) to allow in CORS.
+- Exact mobile (Capacitor) origin string for CORS. Desktop
+  (`app://obsidian.md`) is covered; the reference edge allows
+  `capacitor://localhost` + `http://localhost` (the standard Capacitor
+  cases). The definitive on-device origin must be confirmed during the
+  device human-test — if Obsidian iOS uses a different scheme it is
+  CORS-blocked silently, and the operator adds it to the edge.
 
 ## References
 
