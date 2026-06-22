@@ -93,6 +93,24 @@ export interface ImageAttachment {
   byteLength: number;
 }
 
+/**
+ * Trim `incoming` so the running total (existing + incoming) stays at
+ * or under MAX_IMAGES_PER_TURN. Returns the accepted slice and the
+ * number of dropped images.
+ *
+ * Pure helper — extracted from Composer so the accumulation invariant
+ * is unit-testable without the Obsidian DOM.
+ */
+export function trimToImageCap(
+  existing: number,
+  incoming: ImageAttachment[],
+): { accepted: ImageAttachment[]; dropped: number } {
+  const remaining = Math.max(0, MAX_IMAGES_PER_TURN - existing);
+  const accepted = incoming.slice(0, remaining);
+  const dropped = incoming.length - accepted.length;
+  return { accepted, dropped };
+}
+
 /** True when the clipboard event carries a usable image. */
 export function clipboardHasImage(e: ClipboardEvent): boolean {
   const items = e.clipboardData?.items;

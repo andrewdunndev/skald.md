@@ -1,9 +1,11 @@
-import { App, TFile, setIcon, setTooltip } from 'obsidian';
+import { App, Notice, TFile, setIcon, setTooltip } from 'obsidian';
 import {
   attachmentsFromClipboard,
   attachmentsFromFiles,
   clipboardHasImage,
   humanByteCount,
+  MAX_IMAGES_PER_TURN,
+  trimToImageCap,
   type ImageAttachment,
 } from '../image-attach';
 import { NotePicker } from './note-picker';
@@ -253,8 +255,7 @@ export class Composer {
   private async handleImagePaste(e: ClipboardEvent): Promise<void> {
     const next = await attachmentsFromClipboard(e);
     if (next.length === 0) return;
-    this.pickedImages.push(...next);
-    this.renderChip();
+    this.addImages(next);
   }
 
   /**
@@ -265,7 +266,31 @@ export class Composer {
   private async handleImageFiles(files: FileList): Promise<void> {
     const next = await attachmentsFromFiles(files);
     if (next.length === 0) return;
-    this.pickedImages.push(...next);
+    this.addImages(next);
+  }
+
+  /**
+   * Merge `next` into pickedImages, capping the running total at
+   * MAX_IMAGES_PER_TURN across all paste/pick events in a turn.
+   * Extras are dropped with a visible Notice; blobsToAttachments
+   * already caps per-batch, but this guards the accumulated state.
+   */
+  private addImages(next: ImageAttachment[]): void {
+    const { accepted, dropped } = trimToImageCap(this.pickedImages.length, next);
+    if (accepted.length === 0 && dropped > 0) {
+      new Notice(
+        `skald: image limit reached — ${MAX_IMAGES_PER_TURN} images per turn maximum.`,
+        6000,
+      );
+      return;
+    }
+    this.pickedImages.push(...accepted);
+    if (dropped > 0) {
+      new Notice(
+        `skald: only ${MAX_IMAGES_PER_TURN} images per turn — ${dropped} image${dropped === 1 ? '' : 's'} dropped.`,
+        6000,
+      );
+    }
     this.renderChip();
   }
 
