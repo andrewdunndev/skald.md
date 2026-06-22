@@ -29,7 +29,8 @@ import type { Message } from '@skald/protocol';
 // ── helpers ───────────────────────────────────────────────────────────────────
 
 const ANTHROPIC_MESSAGES_URL = 'https://api.anthropic.com/v1/messages';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
+// OpenRouter now uses the Anthropic-compat /v1/messages endpoint (via utilityComplete).
+const OPENROUTER_URL = 'https://openrouter.ai/api/v1/messages';
 
 function makeMessages(extra: string): Message[] {
   return [
@@ -47,9 +48,10 @@ function mockAnthropicOk(body: string) {
 }
 
 function mockOpenRouterOk(body: string) {
+  // OpenRouter /v1/messages returns Anthropic-shaped content blocks.
   vi.mocked(obsidian.requestUrl).mockResolvedValue({
     status: 200,
-    json: { choices: [{ message: { content: body } }] },
+    json: { content: [{ type: 'text', text: body }] },
     text: body,
   } as ReturnType<typeof obsidian.requestUrl> extends Promise<infer R> ? R : never);
 }

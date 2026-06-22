@@ -7,10 +7,11 @@
  * routes through the existing diff-card approval flow — the user sees
  * exactly what changed before anything lands in the vault.
  *
- * Provider-agnostic: the endpoint is selected by provider. Anthropic
- * uses the Anthropic messages API directly (like rerank.ts). OpenRouter
- * uses the OpenRouter messages endpoint. The model is resolveUtilityModel
- * (Haiku tier by default, overridable via settings.utilityModel).
+ * Provider-agnostic: the endpoint is selected by provider via the
+ * shared utilityComplete helper. Both 'anthropic' and 'openrouter' use
+ * the Anthropic Messages wire format (/v1/messages endpoint). The model
+ * is resolveUtilityModel (Haiku tier by default, overridable via
+ * settings.utilityModel).
  *
  * Soft-fail contract: on any error (network, parse, bad key) the
  * function returns null and logs a warning. The caller never needs to
@@ -20,16 +21,12 @@
  * turn counter and pass it in; this module has no state.
  */
 
-import { requestUrl } from 'obsidian';
 import type { Message, Provider } from '@skald/protocol';
+import { utilityComplete } from './utility-call';
 
 /** Run upkeep every this many finalized turns. Conservative default
  * keeps utility-model cost low. Exposed so callers can test. */
 export const UPKEEP_EVERY_N_TURNS = 5;
-
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const OPENROUTER_URL = 'https://openrouter.ai/api/v1/chat/completions';
-const ANTHROPIC_VERSION = '2023-06-01';
 
 const UPKEEP_SYSTEM = `You are a memory-note curator for a personal AI assistant. You will receive the user's current memory note and a recent conversation excerpt. Your job is to return an UPDATED memory note that:
 - Adds new durable facts the user revealed (preferences, names, projects, recurring context)
@@ -178,9 +175,18 @@ export async function proposeMemoryUpkeep(
     `Recent conversation:\n${exchange}\n\nReturn the updated memory note:`;
 
   try {
-    const proposed = await callUtilityModel(opts.provider, opts.apiKey, opts.model, userPrompt);
-    if (!proposed) return null;
-    const trimmedBody = proposed.trim();
+    const res = await utilityComplete(opts.provider, opts.apiKey, opts.model, {
+      system: UPKEEP_SYSTEM,
+      userPrompt,
+      maxTokens: UPKEEP_MAX_TOKENS,
+    });
+
+    if (!res.ok || !res.text) {
+      console.warn(`[memory-upkeep] provider returned ${res.status}`);
+      return null;
+    }
+
+    const trimmedBody = res.text.trim();
 
     // No-op detection: compare NORMALIZED bodies so a cosmetically-different
     // response (reordered blank lines, whitespace, re-trimmed lines) that
@@ -234,99 +240,6 @@ function buildExchangeText(messages: readonly Message[]): string {
       return `${role}: ${text.slice(0, 300)}`;
     })
     .join('\n');
-}
-
-/** Dispatch to the correct provider endpoint. Returns the model's
- * text response, or null on unexpected shape. */
-async function callUtilityModel(
-  provider: Provider,
-  apiKey: string,
-  model: string,
-  userPrompt: string,
-): Promise<string | null> {
-  switch (provider) {
-    case 'anthropic':
-      return callAnthropic(apiKey, model, userPrompt);
-    case 'openrouter':
-      return callOpenRouter(apiKey, model, userPrompt);
-    default: {
-      // Exhaustiveness: if Provider gains a new value the compiler
-      // will error here (provider satisfies never pattern).
-      const _exhaustive: never = provider;
-      console.warn('[memory-upkeep] unknown provider:', _exhaustive);
-      return null;
-    }
-  }
-}
-
-async function callAnthropic(
-  apiKey: string,
-  model: string,
-  userPrompt: string,
-): Promise<string | null> {
-  const resp = await requestUrl({
-    url: ANTHROPIC_URL,
-    method: 'POST',
-    headers: {
-      'x-api-key': apiKey,
-      'anthropic-version': ANTHROPIC_VERSION,
-      'content-type': 'application/json',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: UPKEEP_MAX_TOKENS,
-      system: UPKEEP_SYSTEM,
-      messages: [{ role: 'user', content: userPrompt }],
-    }),
-    throw: false,
-  });
-  if (resp.status !== 200) {
-    console.warn(`[memory-upkeep] Anthropic returned ${resp.status}`);
-    return null;
-  }
-  const body = resp.json as Record<string, unknown>;
-  return extractAnthropicText(body);
-}
-
-async function callOpenRouter(
-  apiKey: string,
-  model: string,
-  userPrompt: string,
-): Promise<string | null> {
-  const resp = await requestUrl({
-    url: OPENROUTER_URL,
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'content-type': 'application/json',
-      'HTTP-Referer': 'https://skald.dunn.dev',
-    },
-    body: JSON.stringify({
-      model,
-      max_tokens: UPKEEP_MAX_TOKENS,
-      messages: [
-        { role: 'system', content: UPKEEP_SYSTEM },
-        { role: 'user', content: userPrompt },
-      ],
-    }),
-    throw: false,
-  });
-  if (resp.status !== 200) {
-    console.warn(`[memory-upkeep] OpenRouter returned ${resp.status}`);
-    return null;
-  }
-  const body = resp.json as Record<string, unknown>;
-  return extractOpenRouterText(body);
-}
-
-function extractAnthropicText(body: Record<string, unknown>): string | null {
-  const content = body?.content as Array<{ type: string; text?: string }> | undefined;
-  return content?.[0]?.text ?? null;
-}
-
-function extractOpenRouterText(body: Record<string, unknown>): string | null {
-  const choices = body?.choices as Array<{ message?: { content?: string } }> | undefined;
-  return choices?.[0]?.message?.content ?? null;
 }
 
 /**
