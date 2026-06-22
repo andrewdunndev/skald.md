@@ -2,10 +2,10 @@
  * LLM-as-reranker: reorder a candidate list by relevance to a query
  * using a cheap utility model as a ranking oracle.
  *
- * Calls Anthropic directly via Obsidian's requestUrl (non-streaming,
- * JSON) so it works on the direct-mode path without an extra WebSocket
- * turn. Applies a prompt-caching breakpoint on the system block so
- * repeated rerank calls within a session hit the cache.
+ * Uses the shared utilityComplete helper (utility-call.ts) so rerank
+ * works on any provider that the helper supports, not just Anthropic.
+ * Prompt-caching (1h TTL) is applied when the active provider supports
+ * it — otherwise the system block is sent as a plain string.
  *
  * Soft-fail contract: on any error (no API key, bad JSON, network
  * failure), logs to console.warn and returns the original candidates
@@ -16,10 +16,8 @@
  * from provider-capabilities.ts — no hardcoded model name here.
  */
 
-import { requestUrl } from 'obsidian';
-
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const ANTHROPIC_VERSION = '2023-06-01';
+import type { Provider } from '@skald/protocol';
+import { utilityComplete } from '../utility-call';
 
 const RERANK_SYSTEM = `You are a relevance ranker. Given a user query and a numbered list of candidate items, output a JSON array of indices (0-based) sorted from most relevant to least relevant. Output ONLY the JSON array, no other text. Example: [2,0,1]`;
 
@@ -35,15 +33,17 @@ export interface RerankOpts {
  * Returns the top topK candidates in ranked order.
  * On any failure, returns the original candidates slice unchanged.
  *
- * @param query      - The search query to rank against.
+ * @param query    - The search query to rank against.
  * @param candidates - Candidate strings to rerank.
- * @param apiKey     - Anthropic API key. Empty string disables rerank.
- * @param model      - Model id to use (e.g. from utilityModel(settings)).
- * @param opts       - Optional topK / maxInput overrides.
+ * @param provider - Active provider (determines endpoint + auth).
+ * @param apiKey   - API key for the active provider. Empty string disables rerank.
+ * @param opts     - Optional topK / maxInput overrides.
+ * @param model    - Model id to use (e.g. from utilityModel(settings)).
  */
 export async function rerankCandidates(
   query: string,
   candidates: string[],
+  provider: Provider,
   apiKey: string,
   opts: RerankOpts = {},
   model = 'claude-haiku-4-5',
@@ -52,7 +52,7 @@ export async function rerankCandidates(
   const maxInput = opts.maxInput ?? 20;
 
   if (!apiKey) {
-    console.warn('[rerank] no Anthropic API key — skipping rerank');
+    console.warn('[rerank] no API key — skipping rerank');
     return candidates.slice(0, topK);
   }
 
@@ -68,47 +68,19 @@ export async function rerankCandidates(
   const userMessage = `Query: ${query}\n\nCandidates:\n${numbered}`;
 
   try {
-    const resp = await requestUrl({
-      url: ANTHROPIC_URL,
-      method: 'POST',
-      headers: {
-        'x-api-key': apiKey,
-        'anthropic-version': ANTHROPIC_VERSION,
-        // No anthropic-beta header: 1h-TTL prompt caching is GA as of
-        // 2024-11 and needs no beta opt-in. Sending the old beta header
-        // risks a silent downgrade to the older caching behaviour.
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 200,
-        system: [
-          {
-            type: 'text',
-            text: RERANK_SYSTEM,
-            // 1-hour TTL: rerank fires sporadically during a session
-            // (only on noisy searches), often many minutes apart, so
-            // the 5-minute ephemeral default would almost never hit.
-            // 1h is GA (no beta header required). See pricing.ts.
-            cache_control: { type: 'ephemeral', ttl: '1h' },
-          },
-        ],
-        messages: [{ role: 'user', content: userMessage }],
-      }),
-      throw: false,
+    const res = await utilityComplete(provider, apiKey, model, {
+      system: RERANK_SYSTEM,
+      userPrompt: userMessage,
+      maxTokens: 200,
+      cacheSystem: true,
     });
 
-    if (resp.status !== 200) {
-      console.warn(`[rerank] model returned ${resp.status} — skipping rerank`);
+    if (!res.ok || !res.text) {
+      console.warn(`[rerank] model returned ${res.status} — skipping rerank`);
       return candidates.slice(0, topK);
     }
 
-    const body = resp.json as Record<string, unknown>;
-    const text =
-      (body?.content as Array<{ type: string; text?: string }>)?.[0]?.text ??
-      '';
-
-    const indices: unknown = JSON.parse(text.trim());
+    const indices: unknown = JSON.parse(res.text.trim());
     if (
       !Array.isArray(indices) ||
       !indices.every((x) => typeof x === 'number')

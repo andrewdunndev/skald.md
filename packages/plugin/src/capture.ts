@@ -14,12 +14,10 @@
 import {
   normalizePath,
   Notice,
-  requestUrl,
   TFile,
   TFolder,
   type App,
   type ObsidianProtocolData,
-  type RequestUrlParam,
 } from 'obsidian';
 import {
   CAPTURE_DEFAULT_PROMPTS,
@@ -28,6 +26,7 @@ import {
   type Provider,
 } from '@skald/protocol';
 import { SlidingWindow } from './rate-limit';
+import { utilityComplete } from './utility-call';
 import {
   captureFilename,
   safeAtob,
@@ -134,10 +133,11 @@ interface CaptureResult {
   title: string;
 }
 
-/** Call the provider API directly from the plugin. Uses Obsidian's
- * requestUrl — not subject to CORS, so plain x-api-key / Authorization
- * headers work without the anthropic-dangerous-direct-browser-access
- * header that native browser fetch requires. */
+/** Call the provider API directly from the plugin. Delegates to
+ * utilityComplete (utility-call.ts) which uses Obsidian's requestUrl —
+ * not subject to CORS, so plain x-api-key / Authorization headers work
+ * without the anthropic-dangerous-direct-browser-access header that
+ * native browser fetch requires. */
 async function directCapture(
   cfg: CaptureServiceConfig,
   prompt: string,
@@ -162,50 +162,19 @@ async function directCapture(
   }
   const model =
     provider === 'openrouter' ? cfg.openrouterModel : cfg.defaultModel;
-  const reqBody = {
-    model,
-    messages: [{ role: 'user', content: prompt }],
-    max_tokens: 2048,
-  };
-  const headers: Record<string, string> =
-    provider === 'openrouter'
-      ? {
-          Authorization: `Bearer ${apiKey}`,
-          'content-type': 'application/json',
-          'HTTP-Referer': 'https://github.com/skald/skald',
-          'X-OpenRouter-Title': 'skald',
-        }
-      : {
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
-          'content-type': 'application/json',
-        };
-  const url =
-    provider === 'openrouter'
-      ? 'https://openrouter.ai/api/v1/messages'
-      : 'https://api.anthropic.com/v1/messages';
-  const params: RequestUrlParam = {
-    url,
-    method: 'POST',
-    headers,
-    body: JSON.stringify(reqBody),
-    throw: false,
-  };
-  const resp = await requestUrl(params);
-  if (resp.status >= 400) {
+
+  const res = await utilityComplete(provider, apiKey, model, {
+    userPrompt: prompt,
+    maxTokens: 2048,
+  });
+
+  if (!res.ok) {
     throw new Error(
-      `${provider} API returned ${resp.status}: ${resp.text.slice(0, 300)}`,
+      `${provider} API returned ${res.status}: ${res.errorText ?? ''}`,
     );
   }
-  const json = resp.json as {
-    content?: Array<{ type?: string; text?: string }>;
-  };
-  const text = (json.content ?? [])
-    .filter((b) => b.type === 'text' && typeof b.text === 'string')
-    .map((b) => b.text as string)
-    .join('\n')
-    .trim();
-  if (!text) throw new Error('Provider returned no text content');
+  if (!res.text?.trim()) throw new Error('Provider returned no text content');
+  const text = res.text.trim();
   return { body: text, title: extractCaptureTitle(text) };
 }
 
