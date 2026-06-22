@@ -36,6 +36,7 @@ export function renderProviderSection(
     .addDropdown((d) => {
       d.addOption('anthropic', 'Anthropic (direct)');
       d.addOption('openrouter', 'OpenRouter (fallback)');
+      d.addOption('openai', 'OpenAI-compatible');
       d.setValue(plugin.settings.provider).onChange(async (v) => {
         plugin.settings.provider = v as Provider;
         await plugin.saveSettings();
@@ -46,6 +47,8 @@ export function renderProviderSection(
 
   if (plugin.settings.provider === 'anthropic') {
     renderAnthropicBlock(containerEl, plugin);
+  } else if (plugin.settings.provider === 'openai') {
+    renderOpenaiBlock(containerEl, plugin);
   } else {
     renderOpenRouterBlock(containerEl, plugin);
   }
@@ -144,5 +147,72 @@ function renderOpenRouterBlock(
         plugin.settings.openrouterModel = model.id;
         await plugin.saveSettings();
       });
+    });
+}
+
+function renderOpenaiBlock(
+  containerEl: HTMLElement,
+  plugin: SkaldPlugin,
+): void {
+  new Setting(containerEl).setName('OpenAI-compatible').setHeading();
+
+  const notice = containerEl.createEl('div', {
+    cls: 'skald-privacy-notice',
+  });
+  notice.createEl('strong', { text: 'Privacy notice. ' });
+  notice.createSpan({
+    text:
+      'When an OpenAI-compatible endpoint is the active provider, your ' +
+      'prompts (including vault content attached as context) are sent ' +
+      'directly to the base URL you configure below. Point this at an ' +
+      'endpoint you trust (e.g. your own self-hosted server). See ' +
+      "skald's security model in docs/security-model.md.",
+  });
+
+  new Setting(containerEl)
+    .setName('Base URL')
+    .setDesc(
+      'OpenAI-compatible base URL, e.g. https://llm.dunn.dev/v1. Skald ' +
+      'appends /chat/completions for utility calls.',
+    )
+    .addText((t) => {
+      t.setPlaceholder('https://llm.dunn.dev/v1')
+        .setValue(plugin.settings.openaiBaseUrl)
+        .onChange(async (v) => {
+          plugin.settings.openaiBaseUrl = v.trim();
+          await plugin.saveSettings();
+        });
+    });
+
+  new Setting(containerEl)
+    .setName('Model')
+    .setDesc(
+      'Free-text model id served by your endpoint, e.g. qwen2.5-14b. ' +
+      'Pickable per-chat in the chat header.',
+    )
+    .addText((t) => {
+      t.setPlaceholder('qwen2.5-14b')
+        .setValue(plugin.settings.openaiModel)
+        .onChange(async (v) => {
+          plugin.settings.openaiModel = v.trim();
+          await plugin.saveSettings();
+        });
+    });
+
+  new Setting(containerEl)
+    .setName('API key')
+    .setDesc(
+      'Bearer token for the endpoint. Sent as Authorization: Bearer. ' +
+      'Leave blank if your endpoint needs no auth. Stored in plugin ' +
+      'data, synced across your devices via Obsidian Sync.',
+    )
+    .addText((t) => {
+      t.inputEl.type = 'password';
+      t.setPlaceholder('sk-…')
+        .setValue(plugin.settings.openaiApiKey)
+        .onChange(async (v) => {
+          plugin.settings.openaiApiKey = v.trim();
+          await plugin.saveSettings();
+        });
     });
 }
