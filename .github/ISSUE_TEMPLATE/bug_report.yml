@@ -5,7 +5,7 @@ body:
   - type: markdown
     attributes:
       value: |
-        Skald is developed on **GitLab** ([dunn.dev/skald](https://gitlab.com/dunn.dev/skald)) -- that is where CI, code review, and the roadmap live. This GitHub repo is a mirror for discoverability. Issues and pull requests here are welcome and get triaged onto GitLab.
+        Skald is developed on **GitLab** ([dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md)) -- that is where CI, code review, and the roadmap live. This GitHub repo is a mirror for discoverability. Issues and pull requests here are welcome and get triaged onto GitLab.
 
   - type: textarea
     id: summary

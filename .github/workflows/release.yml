@@ -1,6 +1,6 @@
 name: Release
 
-# Skald is developed on GitLab (dunn.dev/skald); this GitHub repo is the
+# Skald is developed on GitLab (dunn.dev/skald.md); this GitHub repo is the
 # mirror. Tags pushed on GitLab auto-mirror here and trigger this workflow,
 # which builds the plugin and publishes the four Obsidian release assets
 # (manifest.json, main.js, styles.css, versions.json) so BRAT and the

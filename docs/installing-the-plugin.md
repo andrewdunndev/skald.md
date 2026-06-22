@@ -17,7 +17,7 @@ For now, the manual route:
 1. Build the plugin once:
 
    ```sh
-   git clone https://gitlab.com/dunn.dev/skald.git
+   git clone https://gitlab.com/dunn.dev/skald.md.git
    cd skald
    pnpm install
    pnpm --filter @skald/plugin build
