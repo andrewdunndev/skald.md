@@ -39,6 +39,15 @@ export interface SkaldSettings {
   provider: Provider;
   anthropicApiKey: string;
   openrouterApiKey: string;
+  /** API key (Bearer token) for an OpenAI-compatible endpoint
+   * (used when provider=openai). */
+  openaiApiKey: string;
+  /** Base URL for an OpenAI-compatible endpoint, e.g.
+   * https://llm.dunn.dev/v1 (used when provider=openai). */
+  openaiBaseUrl: string;
+  /** Free-text model id for the OpenAI-compatible endpoint, e.g.
+   * qwen2.5-14b (used when provider=openai). */
+  openaiModel: string;
   /** Default Anthropic model (used when provider=anthropic). */
   defaultModel: string;
   /** Default OpenRouter model id (used when provider=openrouter).
@@ -111,6 +120,9 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   provider: 'anthropic',
   anthropicApiKey: '',
   openrouterApiKey: '',
+  openaiApiKey: '',
+  openaiBaseUrl: '',
+  openaiModel: '',
   defaultModel: 'claude-sonnet-4-6',
   openrouterModel: 'anthropic/claude-sonnet-4-6',
   // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
