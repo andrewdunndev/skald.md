@@ -1,0 +1,139 @@
+# ADR 0009: OpenAI-compatible provider for self-hosted models
+
+- Status: Proposed (direction set; feature not yet built)
+- Date: 2026-06-22
+- Deciders: Andrew Dunn
+
+## Context
+
+Skald is direct-only ([ADR 0001](0001-direct-mode-over-cloudflare-worker.md)):
+the plugin calls the model straight from Obsidian's renderer, with no
+backend. Today it supports two providers, Anthropic and OpenRouter — but
+both speak **Anthropic's wire format**. OpenRouter works only because the
+transport points at OpenRouter's *Anthropic-compatible* `/v1/messages`
+endpoint; the internal `ChatRequest`, the SSE event model
+(`message_start` / `content_block_delta` / …), and the parser are all
+Anthropic-shaped. **There is no OpenAI-format code path in the plugin.**
+
+We want to run our own models on self-hosted GPUs (built alongside the
+othala/carmine work). The universal interface for self-hosting is the
+**OpenAI Chat Completions API** — vLLM, Ollama, LM Studio, llama.cpp, and
+TGI all speak it; almost nobody self-hosts Anthropic's wire format. This
+is the *direct-tier* expansion to local models reachable as a plain HTTP
+endpoint, distinct from (and reachable sooner than) the full persistent
+[agent-host in ADR 0008](0008-agent-host-tier.md).
+
+Two architectures were considered:
+
+- **A — endpoint speaks Anthropic.** Front the model with a shim
+  (e.g. LiteLLM exposing `/v1/messages`) so the plugin reuses its
+  existing identity path. Small plugin change, but adds a translation
+  hop to every deployment and only serves the niche of Anthropic-wire
+  endpoints.
+- **B — plugin speaks OpenAI.** Add a native OpenAI-compatible provider;
+  the plugin owns the Anthropic↔OpenAI translation. More plugin work
+  (a real adapter, since none exists), but it unlocks the entire
+  self-hosting ecosystem and keeps the user's serving stack simple
+  (no translation layer).
+
+## Decision
+
+Adopt **Architecture B**: a first-class **OpenAI-compatible provider**.
+The plugin translates between its Anthropic-shaped internals and the
+OpenAI Chat Completions API; a self-hosted endpoint only needs to be
+standard OpenAI-compatible.
+
+Providers are **coequal and independently configured**, and the user
+**switches** between them — one active provider at a time (not
+simultaneous mixing). This is already the settings shape (per-provider
+credentials: `anthropicApiKey`, `openrouterApiKey`, and the new
+`openaiBaseUrl` / `openaiApiKey` / `openaiModel`), so switching is
+lossless — flipping the active provider never discards another's config.
+Per-provider [capability gating](../security-model.md) (one exhaustive
+switch in `provider-capabilities.ts`) makes the switch capability-correct
+automatically: Anthropic-only features (prompt caching, citations, server
+tools, extended thinking) turn off on a self-hosted endpoint and back on
+for Claude, with no user management.
+
+Switching is a **two-level provider → model control in the chat header**,
+realized as a **single grouped menu**: one tap opens a list with
+providers as section headers and their models beneath; tapping a model
+sets provider + model together. It remembers the last model per provider.
+This keeps the switch one gesture on a narrow phone header while still
+reading as two levels.
+
+A self-hosted privacy benefit falls out of this: switching to the
+self-hosted endpoint keeps vault content on the user's network — Claude
+for hard or agentic work, local for routine or sensitive notes.
+
+### Serving-side contract (the requirements an endpoint must meet)
+
+This is the contract the self-hosted side (e.g. Envoy → vLLM/Ollama on
+carmine) must satisfy. It is recorded here so the plugin and the serving
+deployment share one source of truth.
+
+1. **CORS is mandatory — the #1 silent failure.** Streaming uses browser
+   `fetch` from the renderer, which enforces CORS (the reason the
+   Anthropic path carries `anthropic-dangerous-direct-browser-access`).
+   The endpoint or its edge must return `Access-Control-Allow-Origin` for
+   Obsidian origins and answer preflight `OPTIONS`: desktop
+   `app://obsidian.md`; mobile (Capacitor) `capacitor://localhost` /
+   `http://localhost` (verify on-device); allow `POST, OPTIONS` and
+   headers `Authorization, Content-Type`.
+2. **Unbuffered streaming, long timeouts.** SSE must pass through
+   unbuffered; disable per-route response buffering and the default
+   request timeout at the edge (Envoy's 15s would kill generations). The
+   plugin enforces a 60s *idle* timeout, so the server must emit a token
+   within 60s of the previous one.
+3. **Auth is bearer over TLS, not mTLS.** The plugin can send
+   `Authorization: Bearer <token>` but cannot present a client
+   certificate. Client→edge auth must be a bearer token; reserve mTLS for
+   the internal hop.
+4. **Edge cert must be device-trusted.** iOS will not trust a private CA
+   without a provisioning profile, so the client→edge cert must be
+   publicly trusted (the LE edge, not the private mesh CA).
+5. **Endpoints.** `POST /v1/chat/completions` (streaming) is required;
+   `GET /v1/models` is a nice-to-have for the model picker; a health
+   route helps a settings "test connection" button. The served model
+   name must match what the user enters.
+6. **Escape hatch.** If CORS is intractable on some deployment, the
+   plugin can fall back to non-streaming via Obsidian's `requestUrl`
+   (bypasses CORS, loses live streaming). Not the default; it exists.
+
+## Consequences
+
+- **A real OpenAI adapter is net-new.** Request building (Anthropic
+  `ChatRequest` → OpenAI messages/tools/system) and stream translation
+  (OpenAI `choices[].delta` chunks → the internal Anthropic-shaped
+  events) must be written; there is no OpenAI path to reuse. Roughly a
+  medium effort.
+- **`rerank.ts` must be generalized.** It is currently hardcoded to
+  `api.anthropic.com` with `x-api-key` — a latent bug under any
+  non-Anthropic provider today — and must dispatch by provider like
+  `memory-upkeep.ts` / `capture.ts` already do.
+- **Feature degradation is honest and centralized.** Caching, citations,
+  server tools, and extended thinking are off on OpenAI-compatible
+  endpoints, gated in one place; the experience shifts but does not
+  break.
+- **Switch, not mix.** The two-tier cascade ([ADR 0005](0005-model-cascade.md))
+  stays *within* the active provider. Running the reasoning tier on Claude
+  while the cheap tier runs on a local model simultaneously is a larger,
+  separate change and is explicitly deferred.
+- **New settings + header control.** Independent `openai*` fields, and
+  the grouped header switcher (which also benefits the existing
+  Anthropic/OpenRouter switch).
+
+## Open questions
+
+- Tool-calling reliability for an agentic vault client on open models is
+  model-dependent (much weaker than Claude); model choice matters more
+  than the server (vLLM vs Ollama). Validate the tool loop per model.
+- Model discovery: populate the picker from `/v1/models`, or free-text?
+- Per-conversation provider memory vs a single global active provider.
+- Exact mobile (Capacitor) origin string(s) to allow in CORS.
+
+## References
+
+- [ADR 0001: Direct mode over the Cloudflare Worker](0001-direct-mode-over-cloudflare-worker.md)
+- [ADR 0005: Two-tier model cascade](0005-model-cascade.md)
+- [ADR 0008: Agent-host tier for the heavy path](0008-agent-host-tier.md)
