@@ -61,7 +61,7 @@ export interface ChatRequest {
  * OpenRouter's Anthropic-shaped /api/v1/messages endpoint so the
  * request body is unchanged across providers.
  */
-export type Provider = 'anthropic' | 'openrouter';
+export type Provider = 'anthropic' | 'openrouter' | 'openai';
 
 // Plugin → transport
 export type ClientMessage =
@@ -81,6 +81,10 @@ export type ClientMessage =
       // reaches the upstream request body.
       anthropic_api_key?: string;
       openrouter_api_key?: string;
+      openai_api_key?: string;
+      // OpenAI-compatible base URL (e.g. https://llm.dunn.dev/v1).
+      // Lives outside payload alongside the keys.
+      openai_base_url?: string;
     }
   | { type: 'cancel'; id: string };
 
