@@ -43,6 +43,8 @@ export interface ToolExecutor {
 export interface ProviderConfig {
   provider: Provider;
   apiKey?: string;
+  /** OpenAI-compatible base URL (provider==='openai' only). */
+  baseUrl?: string;
 }
 
 export class ChatSession {
@@ -174,7 +176,7 @@ export class ChatSession {
       return;
     }
 
-    const { provider, apiKey } = this.providerConfigProvider();
+    const { provider, apiKey, baseUrl } = this.providerConfigProvider();
 
     const payload: ChatRequest = {
       model: this.modelProvider(),
@@ -194,9 +196,14 @@ export class ChatSession {
     if (apiKey) {
       if (provider === 'openrouter') {
         msg.openrouter_api_key = apiKey;
+      } else if (provider === 'openai') {
+        msg.openai_api_key = apiKey;
       } else {
         msg.anthropic_api_key = apiKey;
       }
+    }
+    if (provider === 'openai' && baseUrl) {
+      msg.openai_base_url = baseUrl;
     }
     this.transport.send(msg);
     this.handlers.onUpdate();

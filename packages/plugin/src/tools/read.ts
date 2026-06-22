@@ -209,8 +209,15 @@ export async function runSearchVault(
   const utilityKey =
     resolvedProvider === 'openrouter'
       ? (settings?.openrouterApiKey ?? '')
-      : (settings?.anthropicApiKey ?? anthropicApiKey ?? '');
-  const canRerank = !!utilityKey;
+      : resolvedProvider === 'openai'
+        ? (settings?.openaiApiKey ?? '')
+        : (settings?.anthropicApiKey ?? anthropicApiKey ?? '');
+  const utilityBaseUrl =
+    resolvedProvider === 'openai' ? (settings?.openaiBaseUrl ?? '') : undefined;
+  // OpenAI-compatible endpoints may need no key; gate rerank on a key for
+  // the key-requiring providers, and on a base URL for openai.
+  const canRerank =
+    resolvedProvider === 'openai' ? !!utilityBaseUrl : !!utilityKey;
   // Model for the utility reranker — respects settings.utilityModel override.
   const rerankModel = settings
     ? resolveUtilityModel(settings)
@@ -239,7 +246,7 @@ export async function runSearchVault(
         );
         let header = '(via omnisearch: ranked)';
         if (lines.length > 5 && canRerank) {
-          const reranked = await rerankCandidates(rawQuery, lines, resolvedProvider, utilityKey, {}, rerankModel);
+          const reranked = await rerankCandidates(rawQuery, lines, resolvedProvider, utilityKey, { baseUrl: utilityBaseUrl }, rerankModel);
           lines = reranked;
           header = '(reranked by haiku)';
         }
@@ -284,7 +291,7 @@ export async function runSearchVault(
   let finalResults = results;
   let scanHeader = '';
   if (results.length > 5 && canRerank) {
-    finalResults = await rerankCandidates(rawQuery, results, resolvedProvider, utilityKey, {}, rerankModel);
+    finalResults = await rerankCandidates(rawQuery, results, resolvedProvider, utilityKey, { baseUrl: utilityBaseUrl }, rerankModel);
     scanHeader = '(reranked by utility model)\n';
   }
 

@@ -26,6 +26,8 @@ export interface RerankOpts {
   topK?: number;
   /** Max candidates to pass to the reranker. Default 20. */
   maxInput?: number;
+  /** OpenAI-compatible base URL (provider==='openai' only). */
+  baseUrl?: string;
 }
 
 /**
@@ -73,6 +75,7 @@ export async function rerankCandidates(
       userPrompt: userMessage,
       maxTokens: 200,
       cacheSystem: true,
+      baseUrl: opts.baseUrl,
     });
 
     if (!res.ok || !res.text) {

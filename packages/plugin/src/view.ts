@@ -19,7 +19,7 @@ import { toImageContentBlock } from './image-attach';
 import { persistConversation } from './view/persist-conversation';
 import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
 import { ConversationSearchModal } from './conversation-search';
-import type { ContentBlock } from '@skald/protocol';
+import type { ContentBlock, Provider } from '@skald/protocol';
 import { isUpkeepDue } from './memory-upkeep';
 import { runMemoryUpkeepView, UpkeepInFlightGate } from './view/memory-upkeep-view';
 
@@ -114,6 +114,7 @@ export class SkaldView extends ItemView {
       provider: this.plugin.settings.provider,
       anthropicApiKey: this.plugin.settings.anthropicApiKey,
       openrouterApiKey: this.plugin.settings.openrouterApiKey,
+      openaiBaseUrl: this.plugin.settings.openaiBaseUrl,
     });
 
     this.messageList = new MessageList(root, {
@@ -297,7 +298,7 @@ export class SkaldView extends ItemView {
       cache_read_input_tokens?: number;
       cache_creation_input_tokens?: number;
     },
-    provider?: 'anthropic' | 'openrouter',
+    provider?: Provider,
   ): void {
     this.composer.setBusy(false);
     const total = this.session?.getTotalUsage() ?? usage;
@@ -328,7 +329,7 @@ export class SkaldView extends ItemView {
     }
   }
 
-  private runMemoryUpkeep(provider: 'anthropic' | 'openrouter' | undefined): Promise<void> {
+  private runMemoryUpkeep(provider: Provider | undefined): Promise<void> {
     // In-flight gate + conversationId race guard both live in runMemoryUpkeepView.
     return runMemoryUpkeepView({
       app: this.app,

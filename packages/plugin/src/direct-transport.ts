@@ -27,6 +27,10 @@ const OR_WEB_FETCH = 'openrouter:web_fetch';
 export interface DirectTransportConfig {
   getAnthropicKey: () => string;
   getOpenRouterKey: () => string;
+  /** Optional — Bearer token for an OpenAI-compatible endpoint. */
+  getOpenAiKey?: () => string;
+  /** Optional — base URL for an OpenAI-compatible endpoint. */
+  getOpenAiBaseUrl?: () => string;
   /** Optional — defaults to false. */
   getThinkingEnabled?: () => boolean;
 }
@@ -90,9 +94,15 @@ export class DirectTransport implements SkaldTransport {
     const apiKey =
       provider === 'openrouter'
         ? (msg.openrouter_api_key?.trim() || this.config.getOpenRouterKey().trim())
-        : (msg.anthropic_api_key?.trim() || this.config.getAnthropicKey().trim());
+        : provider === 'openai'
+          ? (msg.openai_api_key?.trim() || this.config.getOpenAiKey?.().trim() || '')
+          : (msg.anthropic_api_key?.trim() || this.config.getAnthropicKey().trim());
 
-    if (!apiKey) {
+    // OpenAI-compatible endpoints may legitimately need no auth; only
+    // Anthropic / OpenRouter strictly require a key here. (Moot for now —
+    // openai chat streaming throws in buildDispatch — but keeps the
+    // key-selection contract correct.)
+    if (!apiKey && provider !== 'openai') {
       const which = provider === 'openrouter' ? 'OpenRouter' : 'Anthropic';
       this.handlers.onMessage({
         type: 'error',
@@ -300,6 +310,17 @@ function buildDispatch(
       requestBody: rewriteOpenRouterTools(req),
       translateEvent: translateOpenRouterEvent,
     };
+  }
+  if (provider === 'openai') {
+    // Interim: OpenAI-compatible chat streaming (SSE translation between
+    // the /chat/completions delta format and skald's Anthropic-shaped
+    // event stream) is not wired yet. Throw a clean, actionable error
+    // rather than silently falling through to the Anthropic branch (which
+    // would send an Anthropic body to an OpenAI endpoint). The utility
+    // tier (rerank / memory / capture) already works on this provider.
+    throw new Error(
+      'Skald: OpenAI-compatible chat streaming is not implemented yet — it lands in the next update. Rerank/memory/capture already work on this provider.',
+    );
   }
   const caps = providerCapabilities(provider);
   const cachedReq = caps.promptCaching ? applyAnthropicCaching(req) : req;

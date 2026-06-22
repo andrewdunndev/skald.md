@@ -140,8 +140,11 @@ export interface UpkeepOpts {
   model: string;
   /** Active provider — determines which endpoint to call. */
   provider: Provider;
-  /** API key for the active provider. Empty string → soft-fail. */
+  /** API key for the active provider. Empty string → soft-fail
+   * (except provider==='openai', which may legitimately need no key). */
   apiKey: string;
+  /** OpenAI-compatible base URL (provider==='openai' only). */
+  baseUrl?: string;
 }
 
 /**
@@ -157,7 +160,13 @@ export type UpkeepProposal = string | null;
 export async function proposeMemoryUpkeep(
   opts: UpkeepOpts,
 ): Promise<UpkeepProposal> {
-  if (!opts.apiKey) {
+  // OpenAI-compatible endpoints may need no key; gate on base URL instead.
+  if (opts.provider === 'openai') {
+    if (!opts.baseUrl) {
+      console.warn('[memory-upkeep] no base URL — skipping');
+      return null;
+    }
+  } else if (!opts.apiKey) {
     console.warn('[memory-upkeep] no API key — skipping');
     return null;
   }
@@ -179,6 +188,7 @@ export async function proposeMemoryUpkeep(
       system: UPKEEP_SYSTEM,
       userPrompt,
       maxTokens: UPKEEP_MAX_TOKENS,
+      baseUrl: opts.baseUrl,
     });
 
     if (!res.ok || !res.text) {

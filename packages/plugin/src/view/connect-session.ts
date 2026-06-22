@@ -69,6 +69,8 @@ export function connectSession(
     {
       getAnthropicKey: () => plugin.settings.anthropicApiKey,
       getOpenRouterKey: () => plugin.settings.openrouterApiKey,
+      getOpenAiKey: () => plugin.settings.openaiApiKey,
+      getOpenAiBaseUrl: () => plugin.settings.openaiBaseUrl,
       getThinkingEnabled: () => plugin.settings.thinkingEnabled,
     },
     handlers,
@@ -86,8 +88,11 @@ export function connectSession(
       const apiKey =
         provider === 'openrouter'
           ? s.openrouterApiKey || undefined
-          : s.anthropicApiKey || undefined;
-      return { provider, apiKey };
+          : provider === 'openai'
+            ? s.openaiApiKey || undefined
+            : s.anthropicApiKey || undefined;
+      const baseUrl = provider === 'openai' ? s.openaiBaseUrl || undefined : undefined;
+      return { provider, apiKey, baseUrl };
     },
     () =>
       buildActiveTools({
