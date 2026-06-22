@@ -104,15 +104,24 @@ async function loadHarnessContext(
   if (parts.length === 0) return null;
 
   const joined = parts.join('\n\n---\n\n');
+  return capHarnessContext(joined);
+}
 
+/**
+ * Truncate the concatenated harness + skills injection to
+ * MAX_HARNESS_BYTES, appending a visible elision marker so prompt
+ * consumers can see the content was trimmed (avoids silent omission).
+ * The cap counts UTF-16 code units (≈ bytes for the ASCII markdown that
+ * dominates harness docs). The cut is guarded against splitting a
+ * surrogate pair: a trailing lone high surrogate becomes invalid UTF-8
+ * when the prompt is JSON-encoded for the API. Pure + exported for tests.
+ */
+export function capHarnessContext(joined: string): string {
   if (joined.length <= MAX_HARNESS_BYTES) return joined;
-
-  // Cap exceeded: truncate and append a clear elision marker so prompt
-  // consumers can see the content was trimmed (avoids silent omission).
-  return (
-    joined.slice(0, MAX_HARNESS_BYTES) +
-    '\n\n[... harness context truncated to cap injected tokens]'
-  );
+  let cut = joined.slice(0, MAX_HARNESS_BYTES);
+  const last = cut.charCodeAt(cut.length - 1);
+  if (last >= 0xd800 && last <= 0xdbff) cut = cut.slice(0, -1);
+  return cut + '\n\n[... harness context truncated to cap injected tokens]';
 }
 
 async function collectSkills(app: App, folder: TFolder): Promise<string[]> {
