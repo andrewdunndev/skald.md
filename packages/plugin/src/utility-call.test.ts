@@ -41,7 +41,7 @@ const OR_KEY = 'or-test-key';
 const MODEL = 'claude-haiku-4-5';
 
 function getCall() {
-  return vi.mocked(obsidian.requestUrl).mock.calls[0][0] as Record<string, unknown>;
+  return vi.mocked(obsidian.requestUrl).mock.calls[0][0] as unknown as Record<string, unknown>;
 }
 
 describe('utilityComplete: provider routing', () => {
