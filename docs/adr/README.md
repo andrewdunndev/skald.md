@@ -18,7 +18,9 @@ Conformance gaps against `dunn.dev/reference` live in `DEVIATIONS.md`.
 0001 sets the substrate (direct mode, no backend). 0002-0007 are the
 native enhancements that make the direct tier economical and accurate
 on-device. 0008 is the future heavy path that picks up where the
-on-device tier reaches its ceiling.
+on-device tier reaches its ceiling. 0009 opens the direct tier to
+self-hosted models over a plain OpenAI-compatible endpoint, switchable
+alongside Anthropic.
 
 ## Index
 
@@ -32,3 +34,4 @@ on-device tier reaches its ceiling.
 | [0006](0006-citations-grounding-dedup.md) | Citations as grounding, with token de-duplication | Accepted |
 | [0007](0007-vault-as-memory.md) | Vault-as-memory note with incremental upkeep | Accepted |
 | [0008](0008-agent-host-tier.md) | Agent-host tier for the heavy path | Proposed (exploring) |
+| [0009](0009-openai-compatible-provider.md) | OpenAI-compatible provider for self-hosted models | Proposed |
