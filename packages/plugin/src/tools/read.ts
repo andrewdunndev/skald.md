@@ -2,7 +2,7 @@ import { App, TFile } from 'obsidian';
 import type { ToolDefinition } from '@skald/protocol';
 import { safePath, type ToolExecutionResult } from './context';
 import { rerankCandidates } from './rerank';
-import { providerCapabilities, utilityModel as resolveUtilityModel } from '../provider-capabilities';
+import { utilityModel as resolveUtilityModel } from '../provider-capabilities';
 import type { SkaldSettings } from '../settings';
 
 // ---------------------------------------------------------------------------
@@ -201,14 +201,16 @@ export async function runSearchVault(
     typeof args.limit === 'number' ? Math.floor(args.limit) : 8;
   const limit = Math.min(Math.max(requestedLimit, 1), 50);
 
-  // The reranker calls Anthropic directly via the utility model. Only
-  // invoke it when the active provider supports prompt caching (i.e. is
-  // Anthropic) — an OpenRouter user shouldn't silently hit a second
-  // provider. Absent provider defaults to 'anthropic' (back-compat).
-  // The rerank also needs a key.
+  // The reranker uses the active provider's utility model. Gate only on
+  // whether a key for the active provider is available; rerank now works
+  // on any provider via the shared utilityComplete helper.
+  // Absent provider defaults to 'anthropic' (back-compat).
   const resolvedProvider = provider ?? 'anthropic';
-  const caps = providerCapabilities(resolvedProvider);
-  const canRerank = caps.promptCaching && !!anthropicApiKey;
+  const utilityKey =
+    resolvedProvider === 'openrouter'
+      ? (settings?.openrouterApiKey ?? '')
+      : (settings?.anthropicApiKey ?? anthropicApiKey ?? '');
+  const canRerank = !!utilityKey;
   // Model for the utility reranker — respects settings.utilityModel override.
   const rerankModel = settings
     ? resolveUtilityModel(settings)
@@ -237,7 +239,7 @@ export async function runSearchVault(
         );
         let header = '(via omnisearch: ranked)';
         if (lines.length > 5 && canRerank) {
-          const reranked = await rerankCandidates(rawQuery, lines, anthropicApiKey!, {}, rerankModel);
+          const reranked = await rerankCandidates(rawQuery, lines, resolvedProvider, utilityKey, {}, rerankModel);
           lines = reranked;
           header = '(reranked by haiku)';
         }
@@ -282,7 +284,7 @@ export async function runSearchVault(
   let finalResults = results;
   let scanHeader = '';
   if (results.length > 5 && canRerank) {
-    finalResults = await rerankCandidates(rawQuery, results, anthropicApiKey!, {}, rerankModel);
+    finalResults = await rerankCandidates(rawQuery, results, resolvedProvider, utilityKey, {}, rerankModel);
     scanHeader = '(reranked by utility model)\n';
   }
 
