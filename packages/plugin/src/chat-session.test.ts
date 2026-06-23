@@ -142,7 +142,7 @@ describe('ChatSession.dispatch: payload shape', () => {
   });
 
   it('sets openai_api_key + openai_base_url for openai routes', async () => {
-    const url = 'https://llm.dunn.dev/v1';
+    const url = 'https://your-endpoint.example/v1';
     const { tx, session } = makeHarness({ provider: 'openai', apiKey: 'oai-zzz', baseUrl: url });
     await session.sendUserText('hi');
     const msg = tx.sent[0];
@@ -155,7 +155,7 @@ describe('ChatSession.dispatch: payload shape', () => {
   });
 
   it('sets openai_base_url even with no key (keyless endpoint)', async () => {
-    const url = 'https://llm.dunn.dev/v1';
+    const url = 'https://your-endpoint.example/v1';
     const { tx, session } = makeHarness({ provider: 'openai', apiKey: '', baseUrl: url });
     await session.sendUserText('hi');
     const msg = tx.sent[0];

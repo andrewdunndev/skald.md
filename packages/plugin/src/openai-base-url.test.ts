@@ -10,7 +10,7 @@ describe('isLoopbackHost', () => {
   });
 
   it('rejects non-loopback hosts', () => {
-    expect(isLoopbackHost('llm.dunn.dev')).toBe(false);
+    expect(isLoopbackHost('your-endpoint.example')).toBe(false);
     expect(isLoopbackHost('10.0.0.5')).toBe(false);
     expect(isLoopbackHost('169.254.1.1')).toBe(false);
   });
@@ -18,7 +18,7 @@ describe('isLoopbackHost', () => {
 
 describe('validateOpenAiBaseUrl', () => {
   it('accepts https for any host', () => {
-    expect(validateOpenAiBaseUrl('https://llm.dunn.dev/v1').ok).toBe(true);
+    expect(validateOpenAiBaseUrl('https://your-endpoint.example/v1').ok).toBe(true);
   });
 
   it('accepts empty input (not yet configured)', () => {
@@ -32,7 +32,7 @@ describe('validateOpenAiBaseUrl', () => {
   });
 
   it('rejects http for a remote host', () => {
-    const r = validateOpenAiBaseUrl('http://llm.dunn.dev/v1');
+    const r = validateOpenAiBaseUrl('http://your-endpoint.example/v1');
     expect(r.ok).toBe(false);
     expect(r.error).toMatch(/https/i);
   });

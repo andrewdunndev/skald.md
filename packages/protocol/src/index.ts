@@ -79,7 +79,7 @@ export type ClientMessage =
       anthropic_api_key?: string;
       openrouter_api_key?: string;
       openai_api_key?: string;
-      // OpenAI-compatible base URL (e.g. https://llm.dunn.dev/v1).
+      // OpenAI-compatible base URL (e.g. https://your-endpoint.example/v1 or http://localhost:11434/v1).
       // Lives outside payload alongside the keys.
       openai_base_url?: string;
     }

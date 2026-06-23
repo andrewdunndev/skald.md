@@ -70,7 +70,7 @@ export async function utilityComplete(
       headers = {
         Authorization: `Bearer ${apiKey}`,
         'content-type': 'application/json',
-        'HTTP-Referer': 'https://github.com/skald/skald',
+        'HTTP-Referer': 'https://gitlab.com/dunn.dev/skald.md',
         'X-OpenRouter-Title': 'skald',
       };
       body = buildAnthropicBody(model, opts, caps.promptCaching);
