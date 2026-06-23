@@ -22,6 +22,8 @@
  */
 
 import type { ChatRequest } from '@skald/protocol';
+import type { DispatchContext } from './direct-transport';
+import { makeOpenAiStreamTranslator } from './openai-stream';
 
 // ── Types (local, narrow enough for translation only) ────────────────────────
 
@@ -307,4 +309,36 @@ function blocksToContentParts(blocks: Block[]): OAIContentPart[] {
   }
 
   return parts;
+}
+
+/**
+ * Build the dispatch context (url, headers, body, stream translator)
+ * for an OpenAI-compatible endpoint. Extracted from the transport so
+ * the OpenAI request-shaping stays in one module.
+ *
+ * The base URL is assumed already validated by the caller
+ * (validateOpenAiBaseUrl) — it is only normalized here.
+ */
+export function buildOpenAiDispatch(
+  apiKey: string,
+  req: ChatRequest,
+  openAiBaseUrl: string,
+): DispatchContext {
+  const baseUrl = openAiBaseUrl.replace(/\/$/, '');
+  const headers: Record<string, string> = { 'content-type': 'application/json' };
+  if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+  const translator = makeOpenAiStreamTranslator();
+  return {
+    url: `${baseUrl}/chat/completions`,
+    headers,
+    // requestBodyForOpenAI produces the OpenAI body; stream flags are added
+    // by the fetch layer ({ ...requestBody, stream: true }).
+    // stream_options is included here so include_usage comes back.
+    requestBody: {
+      ...requestBodyForOpenAI(req),
+      stream_options: { include_usage: true },
+    } as unknown as ChatRequest,
+    translateEvent: (_event: string, data: unknown) => translator(data),
+    passEventlessFrames: true,
+  };
 }

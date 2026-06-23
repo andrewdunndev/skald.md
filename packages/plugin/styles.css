@@ -629,6 +629,12 @@
   line-height: 1.4;
 }
 
+/* Invalid settings input (e.g. a non-https OpenAI base URL that was
+   rejected and not persisted). */
+.skald-input-invalid {
+  border-color: var(--text-error, #e93147) !important;
+}
+
 /* Chat-header label shown when provider=openrouter; the model
    picker lives in settings since the catalog has hundreds of
    entries. */

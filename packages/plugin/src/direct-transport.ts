@@ -12,8 +12,8 @@ import { providerCapabilities } from './provider-capabilities';
 import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
 import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS, composeSignal } from './transport-timeouts';
 import { rewriteOpenRouterTools, translateOpenRouterEvent } from './openrouter-translate';
-import { makeOpenAiStreamTranslator } from './openai-stream';
-import { requestBodyForOpenAI } from './openai-translate';
+import { buildOpenAiDispatch } from './openai-translate';
+import { validateOpenAiBaseUrl } from './openai-base-url';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -109,6 +109,22 @@ export class DirectTransport implements SkaldTransport {
 
     const thinkingEnabled = this.config.getThinkingEnabled?.() ?? false;
     const openAiBaseUrl = provider === 'openai' ? (msg.openai_base_url ?? '') : undefined;
+
+    // Refuse to dispatch the key + prompt over a cleartext non-loopback
+    // URL, even if data.json was edited to bypass the settings-UI check.
+    if (provider === 'openai') {
+      const urlCheck = validateOpenAiBaseUrl(openAiBaseUrl ?? '');
+      if (!urlCheck.ok) {
+        this.handlers.onMessage({
+          type: 'error',
+          id,
+          error: `Insecure OpenAI-compatible base URL: ${urlCheck.error}`,
+          retryable: false,
+        });
+        return;
+      }
+    }
+
     const { url, headers, requestBody, translateEvent, passEventlessFrames } = buildDispatch(
       provider,
       apiKey,
@@ -290,9 +306,12 @@ export class DirectTransport implements SkaldTransport {
  * Anthropic/OpenRouter paths skip frames with no event name by returning [].
  * The OpenAI path processes every frame regardless of event name.
  */
-type TranslateEvent = (event: string, data: unknown) => Array<{ event: string; data: unknown }>;
+export type TranslateEvent = (
+  event: string,
+  data: unknown,
+) => Array<{ event: string; data: unknown }>;
 
-interface DispatchContext {
+export interface DispatchContext {
   url: string;
   headers: Record<string, string>;
   requestBody: import('@skald/protocol').ChatRequest;
@@ -328,24 +347,9 @@ function buildDispatch(
     };
   }
   if (provider === 'openai') {
-    const baseUrl = (openAiBaseUrl ?? '').replace(/\/$/, '');
-    const url = `${baseUrl}/chat/completions`;
-    const headers: Record<string, string> = { 'content-type': 'application/json' };
-    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
-    const translator = makeOpenAiStreamTranslator();
-    return {
-      url,
-      headers,
-      // requestBodyForOpenAI produces the OpenAI body; stream flags are added
-      // by the fetch layer ({ ...requestBody, stream: true }).
-      // stream_options is included here so include_usage comes back.
-      requestBody: {
-        ...requestBodyForOpenAI(req),
-        stream_options: { include_usage: true },
-      } as unknown as import('@skald/protocol').ChatRequest,
-      translateEvent: (_event: string, data: unknown) => translator(data),
-      passEventlessFrames: true,
-    };
+    // runChat() has already enforced https (loopback http allowed) via
+    // validateOpenAiBaseUrl, so the base URL is safe to dispatch.
+    return buildOpenAiDispatch(apiKey, req, openAiBaseUrl ?? '');
   }
   const caps = providerCapabilities(provider);
   const cachedReq = caps.promptCaching ? applyAnthropicCaching(req) : req;
