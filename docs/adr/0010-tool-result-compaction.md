@@ -43,6 +43,36 @@ backstop** — compaction reduces how often it fires and how much it has to drop
 No backend, no model call: this is pure TypeScript that runs in the plugin,
 distinct from the cheap-model cascade ([ADR 0005](0005-model-cascade.md)).
 
+### Compact-before-cap for the large-output tools
+
+The three large-output tools — `read_note`, `list_notes`, `search_vault` — each
+call `capResult` internally (with a higher cap for notes, `MAX_NOTE_BYTES`).
+Compaction now runs **inside those runners, before their `capResult` call**, so
+densified content survives the byte budget.  More rows fit within 4 KB; the
+truncation footer fires less often and cuts less data when it does.
+
+Every other tool is unchanged: the dispatch-point compaction in
+`connect-session.ts` covers all remaining results.
+
+### Single-compaction invariant
+
+Each result is compacted **exactly once**.  The three in-runner tools set
+`compacted: true` on their `ToolExecutionResult`; the dispatch-point guard in
+`connect-session.ts` skips any result carrying that flag.  Non-capping tools
+have no flag and are compacted at the dispatch point as before.
+
+The `compactToolResults` context field threads the user's setting from
+`ToolContext` through `executeTool` into each of the three runners, so turning
+the setting off suppresses both the in-runner path and the dispatch-point path.
+
+### 4 KB cap retained (densified)
+
+`MAX_TOOL_RESULT_BYTES` stays at 4 096 bytes.  Because compaction now runs
+before the cap, the model receives more information per 4 KB than under the
+old truncate-first ordering.  Raising the cap would increase token cost per
+turn, contrary to the cost-control purpose; re-evaluate only if post-
+densification measurements show the budget is still insufficient.
+
 ## Consequences
 
 - **Complements ADR 0004, doesn't overlap it.** 0004 compacts *history*; 0010
@@ -56,22 +86,11 @@ distinct from the cheap-model cascade ([ADR 0005](0005-model-cascade.md)).
   capable models; weaker open models may parse it less reliably. That's why
   it's gated to clearly-tabular data *and* behind the setting — degrade to the
   setting-off path if a backend mishandles it.
-- **Ordering, and the named refinement.** Compaction is applied at the single
-  tool-dispatch point, which runs *after* each tool's internal `capResult`. For
-  the many tools whose results sit under the cap this captures the full benefit
-  (no truncation happened; the whole result is densified). For the few
-  **large-output tools** — `search_vault`, `list_notes`, `read_note` — the
-  result is truncated to the cap *first*, so only the surviving slice is
-  densified. The refinement is to compact those three *before* their cap (so
-  more rows survive the budget), and to revisit whether the 4 KB
-  `MAX_TOOL_RESULT_BYTES` should rise now that results densify. Deferred to keep
-  this change off the ~15-runner hot path; tracked as the next step.
 - **Bundle.** `@toon-format/toon` is pure TS and ships in the plugin bundle
   (not externalized).
 
 ## Future work
 
-- Compact-before-cap for the large-output tools (above).
 - Optional **utility-model extractive summarization** of very large *reused*
   context, run on the cheap cascade tier ([ADR 0005](0005-model-cascade.md)) —
   deferred until end-to-end ROI is measured (the compressor call costs tokens

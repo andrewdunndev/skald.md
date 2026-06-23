@@ -4,6 +4,11 @@ import type { Provider } from '@skald/protocol';
 export interface ToolExecutionResult {
   content: string;
   is_error?: boolean;
+  /** True when this result was already compacted in-runner (e.g. the three
+   * large-output tools that compact before their internal byte cap).  The
+   * dispatch-point compaction in connect-session.ts MUST skip results with
+   * this flag set to prevent double-compaction. */
+  compacted?: boolean;
 }
 
 export type WriteKind = 'create' | 'overwrite' | 'edit' | 'append';
@@ -51,6 +56,13 @@ export interface ToolContext {
    * 'anthropic' for backward compatibility.
    */
   provider?: Provider;
+  /**
+   * Whether to compact tool results before the byte cap.  When true the
+   * three large-output tools (read_note / list_notes / search_vault) run
+   * compaction inside their runner, before `capResult`, so densified
+   * content survives the budget.  Absent → treated as true (on by default).
+   */
+  compactToolResults?: boolean;
 }
 
 /**
