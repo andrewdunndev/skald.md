@@ -11,12 +11,8 @@
  *   - Reject button has aria-label="Reject write"
  *   - Clicking Approve calls onApprove with the correct toolUseId
  *   - Clicking Reject calls onReject with the correct toolUseId
- *
- * Focus-on-mount (window.setTimeout → approve.focus()) is exercised
- * structurally: we confirm focus() exists on the approve button stub.
- * The actual focus() call is a DOM side-effect that a real browser
- * verifies; in node the call succeeds (no-op) but we can't observe
- * which element "has focus" without a DOM implementation.
+ *   - Card does NOT steal focus on mount (regression guard for the
+ *     fix that moved focus-restore to resolveApprovalUi in view.ts)
  *
  * Implementation: minimal Obsidian element stubs in-file. The test
  * harness runs in node (no jsdom); Obsidian's HTMLElement extensions
@@ -24,28 +20,9 @@
  * simple recording objects.
  */
 
-import { describe, expect, it, vi, beforeAll, afterAll } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { renderDiffCard } from './diff-card';
 import type { WriteProposal } from '../tools';
-
-// renderDiffCard calls window.setTimeout for the deferred focus. In node
-// there is no `window` global; shim it to globalThis.setTimeout so the
-// call succeeds without a DOM. This must happen before the module imports
-// run, but vitest hoists beforeAll so this is the earliest safe spot.
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const hadWindow = 'window' in globalThis;
-beforeAll(() => {
-  if (!hadWindow) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (globalThis as any).window = { setTimeout: globalThis.setTimeout.bind(globalThis) };
-  }
-});
-afterAll(() => {
-  if (!hadWindow) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    delete (globalThis as any).window;
-  }
-});
 
 // ---------------------------------------------------------------------------
 // Minimal Obsidian HTMLElement stub
@@ -251,21 +228,42 @@ describe('renderDiffCard: Approve + Reject buttons', () => {
     expect(onReject).not.toHaveBeenCalled();
   });
 
-  it('focus() exists on the Approve button (focus-on-mount path is wired)', () => {
-    // renderDiffCard defers approve.focus() via window.setTimeout(fn, 0).
-    // In node, setTimeout runs but focus() is a no-op; what we CAN verify
-    // is that the approve button stub has a focus method (the call won't
-    // throw) and that isConnected is true at render time.
+  it('does NOT auto-steal focus on mount (composer focus must not be disrupted)', () => {
+    // renderDiffCard must NOT call approve.focus() on mount — not
+    // synchronously and not via a deferred callback.  Stealing focus
+    // collapses the mobile software keyboard and drops keyboard users
+    // on <body> after approve/reject resolves.  Focus is restored by
+    // the view layer (resolveApprovalUi in view.ts) after the decision.
+    //
+    // Strategy: intercept createEl on the parent stub so every button
+    // the card creates has its focus() pre-spied.  This catches both
+    // synchronous calls and deferred window.setTimeout callbacks.
+    const focusCalls: string[] = [];
     const parent = makeEl();
-    renderDiffCard(parent as unknown as HTMLElement, PROPOSAL, {
-      onApprove: vi.fn(),
-      onReject: vi.fn(),
-    });
-    const approve = find(parent, (e) => e.attrs['aria-label'] === 'Approve write');
-    expect(typeof approve?.focus).toBe('function');
-    expect(approve?.isConnected).toBe(true);
-    // The actual DOM focus() after setTimeout is a real-browser invariant;
-    // jsdom would be needed to observe which element "has focus".
+    const origCreateEl = parent.createEl.bind(parent);
+    parent.createEl = (tag2: string, opts?: { cls?: string; attr?: Record<string, string> }) => {
+      const child = origCreateEl(tag2, opts);
+      const label = opts?.attr?.['aria-label'] ?? '';
+      const origFocus = child.focus.bind(child);
+      child.focus = () => {
+        focusCalls.push(label || tag2);
+        origFocus();
+      };
+      return child;
+    };
+
+    vi.useFakeTimers();
+    try {
+      renderDiffCard(parent as unknown as HTMLElement, PROPOSAL, {
+        onApprove: vi.fn(),
+        onReject: vi.fn(),
+      });
+      vi.runAllTimers();
+    } finally {
+      vi.useRealTimers();
+    }
+
+    expect(focusCalls).toHaveLength(0);
   });
 });
 

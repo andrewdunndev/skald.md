@@ -390,10 +390,14 @@ export class SkaldView extends ItemView {
    * The DOM removal happens here rather than via re-render because
    * the row owning the tool_use is finalized — flushRender won't
    * re-walk it, so we patch the DOM in place.
+   *
+   * Focus is restored to the composer after removal so keyboard/mobile
+   * users don't land on <body>; preventScroll avoids a viewport jump.
    */
   private resolveApprovalUi(toolUseId: string, approved: boolean): void {
     if (!this.approvals.resolve(toolUseId, approved)) return;
     this.messageList.queryDiff(toolUseId)?.remove();
+    this.composer?.focus();
   }
 
   private setStatus(text: string, modifier?: 'connected' | 'error'): void {
