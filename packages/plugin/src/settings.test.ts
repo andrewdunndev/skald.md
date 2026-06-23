@@ -19,11 +19,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  normalizeSettings,
   parseDomainList,
   DEFAULT_SETTINGS,
   type SkaldSettings,
 } from './settings';
+import { normalizeSettings } from './settings-normalize';
 import { providerCapabilities } from './provider-capabilities';
 
 describe('normalizeSettings: provider coercion', () => {
