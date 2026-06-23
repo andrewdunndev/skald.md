@@ -1,0 +1,19 @@
+{
+  "$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation testing scoped to the highest-risk pure parsers — the wire-format translators whose correctness the unit suite must actually prove (not just cover). This is the quality backstop behind the coverage floor: a high line-coverage number means little if mutations survive. Runs nightly in CI (schedule-gated), not on every push.",
+  "packageManager": "pnpm",
+  "testRunner": "vitest",
+  "plugins": ["@stryker-mutator/vitest-runner"],
+  "vitest": { "configFile": "vitest.config.ts" },
+  "coverageAnalysis": "perTest",
+  "mutate": [
+    "packages/plugin/src/sse-parser.ts",
+    "packages/plugin/src/openai-translate.ts",
+    "packages/plugin/src/openai-stream.ts",
+    "packages/plugin/src/tool-compact.ts"
+  ],
+  "reporters": ["clear-text", "progress", "html"],
+  "thresholds": { "high": 85, "low": 75, "break": 70 },
+  "concurrency": 4,
+  "timeoutMS": 60000
+}

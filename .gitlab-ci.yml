@@ -46,10 +46,10 @@ plugin-lint:
   script:
     - pnpm check:lint
 
-# Coverage is reported (visible measure) but NOT yet gated on a threshold —
-# a floor is added once the baseline is agreed so it ratchets up, never down.
-# Note: the Obsidian-DOM view layer is intentionally CDP-tested, not unit-tested,
-# so statement coverage understates the pure-logic coverage.
+# Coverage is reported AND gated: test:coverage enforces a ratchet floor on the
+# pure, unit-testable core (vitest.config thresholds; the Obsidian-DOM view layer
+# is excluded because it's CDP/on-device-tested, not unit-testable). Floor never
+# regresses; raise toward 90% as gap-filling lands.
 coverage:
   stage: test
   script:
@@ -67,6 +67,23 @@ audit-prod:
   stage: test
   script:
     - pnpm audit:prod
+
+# Mutation testing on the high-risk wire-format parsers — the quality backstop
+# behind the coverage floor (high line-coverage means little if mutants survive).
+# Schedule-gated (nightly) only: it's slower and informational, not on the per-push
+# hot path. Create a pipeline schedule in GitLab (CI/CD → Schedules) to run it.
+# Current baseline mutation score ~77% (break threshold 70).
+mutation:
+  stage: test
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+  script:
+    - pnpm test:mutation
+  artifacts:
+    when: always
+    paths:
+      - reports/mutation/
+    expire_in: 2 weeks
 
 build-plugin:
   stage: build
