@@ -123,17 +123,20 @@ export async function executeTool(
 ): Promise<ToolExecutionResult> {
   const args = (input as Record<string, unknown>) ?? {};
   try {
+    const compact = ctx.compactToolResults ?? true;
     switch (name) {
       case 'read_note':
-        return await runReadNote(ctx.app, args);
+        return await runReadNote(ctx.app, args, compact);
       case 'list_notes':
-        return runListNotes(ctx.app, args);
+        return runListNotes(ctx.app, args, compact);
       case 'search_vault':
         return await runSearchVault(
           ctx.app,
           args,
           ctx.anthropicApiKey,
           ctx.provider,
+          undefined,
+          compact,
         );
       case 'current_note':
         return await runCurrentNote(ctx.app);

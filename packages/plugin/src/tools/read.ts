@@ -139,6 +139,7 @@ export const READ_ONLY_TOOLS: ToolDefinition[] = [
 export async function runReadNote(
   app: App,
   args: Record<string, unknown>,
+  compact = false,
 ): Promise<ToolExecutionResult> {
   const path = safePath(args.path);
   if (!path) {
@@ -160,12 +161,16 @@ export async function runReadNote(
     content = lines.slice(offset, offset + count).join('\n');
   }
 
-  return { content: capResult(content, MAX_NOTE_BYTES, 'call again with offset_lines + max_lines to read a specific range') };
+  const result = capResult(content, MAX_NOTE_BYTES, 'call again with offset_lines + max_lines to read a specific range', compact);
+  return compact
+    ? { content: result, compacted: true }
+    : { content: result };
 }
 
 export function runListNotes(
   app: App,
   args: Record<string, unknown>,
+  compact = false,
 ): ToolExecutionResult {
   const folder =
     typeof args.folder === 'string' && args.folder.length > 0
@@ -190,7 +195,10 @@ export function runListNotes(
   const truncated =
     files.length > limit ? `\n\n... and ${files.length - limit} more` : '';
   const raw = paths.join('\n') + truncated;
-  return { content: capResult(raw, MAX_TOOL_RESULT_BYTES, 'call with a smaller limit or a folder filter to drill down') };
+  const result = capResult(raw, MAX_TOOL_RESULT_BYTES, 'call with a smaller limit or a folder filter to drill down', compact);
+  return compact
+    ? { content: result, compacted: true }
+    : { content: result };
 }
 
 export async function runSearchVault(
@@ -199,6 +207,7 @@ export async function runSearchVault(
   anthropicApiKey?: string,
   provider?: import('@skald/protocol').Provider,
   settings?: SkaldSettings,
+  compact = false,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
   if (!rawQuery) {
@@ -258,13 +267,15 @@ export async function runSearchVault(
           header = '(reranked by haiku)';
         }
         const raw = `${header}\n${lines.join('\n')}`;
-        return {
-          content: capResult(
-            raw,
-            MAX_TOOL_RESULT_BYTES,
-            'call with limit:N or use search_in_folder to drill down',
-          ),
-        };
+        const omnisearchResult = capResult(
+          raw,
+          MAX_TOOL_RESULT_BYTES,
+          'call with limit:N or use search_in_folder to drill down',
+          compact,
+        );
+        return compact
+          ? { content: omnisearchResult, compacted: true }
+          : { content: omnisearchResult };
       }
       // Zero hits from Omnisearch — fall through to substring scan so the user
       // isn't left empty-handed if the index is stale.
@@ -303,9 +314,10 @@ export async function runSearchVault(
   }
 
   const raw = scanHeader + finalResults.join('\n');
-  return {
-    content: capResult(raw, MAX_TOOL_RESULT_BYTES, 'call with limit:N or use search_in_folder to drill down'),
-  };
+  const scanResult = capResult(raw, MAX_TOOL_RESULT_BYTES, 'call with limit:N or use search_in_folder to drill down', compact);
+  return compact
+    ? { content: scanResult, compacted: true }
+    : { content: scanResult };
 }
 
 export async function runCurrentNote(app: App): Promise<ToolExecutionResult> {

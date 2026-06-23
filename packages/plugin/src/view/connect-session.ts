@@ -113,15 +113,22 @@ export function connectSession(
         memoryPath: plugin.settings.memoryPath,
         anthropicApiKey: plugin.settings.anthropicApiKey || undefined,
         provider: plugin.settings.provider ?? 'anthropic',
+        compactToolResults: plugin.settings.compactToolResults,
       });
       // Apply structural compaction to read-tool results before the
       // message enters the model context.  Write tools are excluded:
       // their result content is a short status string ("Note written"),
       // not a data payload.  Error results are also skipped so the
       // model always sees the full error message.
+      //
+      // Skip results already marked `compacted` — the three large-output tools
+      // (read_note / list_notes / search_vault) compact in-runner, before their
+      // internal byte cap.  Compacting again here would be a no-op at best and
+      // incorrect at worst (double-densification).
       if (
         plugin.settings.compactToolResults &&
         !res.is_error &&
+        !res.compacted &&
         res.content.length > 0
       ) {
         const { text } = compactToolResult(res.content);
