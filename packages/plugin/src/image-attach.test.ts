@@ -97,25 +97,3 @@ describe('MAX_IMAGES_PER_TURN cap', () => {
   });
 });
 
-describe('downsized-image chip label', () => {
-  it('downsized label contains the original size and not the final size inline', () => {
-    // The chip renderer in composer.ts appends ` · ${humanByteCount(byteLength)}`
-    // to the label, so the label must NOT already contain the final size —
-    // only the original "from" size. This tests the label format contract.
-    const originalSize = 5 * 1024 * 1024; // 5 MB
-    const finalSize = 2 * 1024 * 1024;    // 2 MB
-    // Replicate the label construction from blobToAttachment.
-    const baseLabel = 'photo.jpg';
-    const label = `${baseLabel} (downsized from ${humanByteCount(originalSize)})`;
-    // The chip text as composed.ts would render it:
-    const chipText = `${label} · ${humanByteCount(finalSize)}`;
-
-    // Final size appears exactly once (from composer.ts's byteLength suffix).
-    const finalSizeStr = humanByteCount(finalSize); // '2.0 MB'
-    const occurrences = chipText.split(finalSizeStr).length - 1;
-    expect(occurrences).toBe(1);
-
-    // Original size appears in the label (user sees what was downscaled from).
-    expect(label).toContain(humanByteCount(originalSize));
-  });
-});

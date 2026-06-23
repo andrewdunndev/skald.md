@@ -112,10 +112,9 @@ describe('runListNotes', () => {
     }
     const app = makeApp(files);
     const result = runListNotes(app, { limit: 200 });
-    if (result.content.length > MAX_TOOL_RESULT_BYTES) {
-      // Should have been truncated
-      expect(result.content).toContain('…truncated');
-    }
+    // 200 unique deep paths (~12KB) exceed the 4KB cap even after compaction
+    // (unique paths don't compress), so truncation must fire.
+    expect(result.content).toContain('…truncated');
   });
 });
 
@@ -149,15 +148,13 @@ describe('runSearchVault', () => {
   it('truncates aggregate results above MAX_TOOL_RESULT_BYTES', async () => {
     // Create results whose join would exceed the cap
     const files: Record<string, string> = {};
-    for (let i = 0; i < 50; i++) {
-      // Each path is long and the content contains the needle
-      files[`${'a/'.repeat(20)}note-${i}.md`] = 'foo needle bar';
+    for (let i = 0; i < 100; i++) {
+      // Long unique paths so the aggregate clearly exceeds the 4KB cap.
+      files[`${'deep/folder/'.repeat(8)}note-${i}.md`] = 'foo needle bar';
     }
     const app = makeApp(files);
-    const result = await runSearchVault(app, { query: 'needle', limit: 50 });
-    if (result.content.length > MAX_TOOL_RESULT_BYTES) {
-      expect(result.content).toContain('…truncated');
-    }
+    const result = await runSearchVault(app, { query: 'needle', limit: 100 });
+    expect(result.content).toContain('…truncated');
   });
 });
 
@@ -291,9 +288,7 @@ describe('runSearchVault — Omnisearch', () => {
 
     try {
       const result = await runSearchVault(app, { query: 'x', limit: 50 });
-      if (result.content.length > MAX_TOOL_RESULT_BYTES) {
-        expect(result.content).toContain('…truncated');
-      }
+      expect(result.content).toContain('…truncated');
     } finally {
       (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
     }
