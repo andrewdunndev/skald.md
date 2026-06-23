@@ -22,6 +22,7 @@
 import { MarkdownRenderer, type App, type Component } from 'obsidian';
 import type { ContentBlock } from '@skald/protocol';
 import { renderDiffCard } from './diff-card';
+import { renderErrorBlock } from './error-block';
 import type { WriteProposal } from '../tools';
 import { citationLabel, citationPath, type CitationLocation } from '../citations';
 
@@ -33,6 +34,8 @@ export interface BlockContext {
   pendingApproval: (toolUseId: string) => WriteProposal | null;
   onApprove: (toolUseId: string) => void;
   onReject: (toolUseId: string) => void;
+  /** Re-send the last user turn (retryable skald_error Resend button). */
+  onResend?: () => void;
   /**
    * Optional: map from Anthropic document_index → vault path. When
    * provided, text blocks with `citations` arrays render inline
@@ -49,6 +52,11 @@ export async function renderBlock(
 ): Promise<void> {
   const b = block as Record<string, unknown>;
   const type = b.type as string | undefined;
+
+  if (type === 'skald_error') {
+    renderErrorBlock(parent, b, { onResend: ctx.onResend });
+    return;
+  }
 
   if (type === 'text') {
     const text = (b.text as string) ?? '';

@@ -10,9 +10,9 @@ import type {
 } from '@skald/protocol';
 import { sumUsage } from './pricing';
 import { windowHistory, compactStaleToolResults } from './history-window';
-import { isReadOnlyTool } from './tools';
 import type { SkaldTransport } from './transport-interface';
-import { buildDocumentBlock, parseCitationLocation } from './citations';
+import { parseCitationLocation } from './citations';
+import { executeToolLeg } from './chat-session-tool-loop';
 
 export interface InFlight {
   id: string;
@@ -22,9 +22,36 @@ export interface InFlight {
 
 export interface ChatSessionHandlers {
   onUpdate: () => void;
-  onError: (err: string) => void;
+  /** Surface a turn failure. `opts.retryable` (when true) signals the
+   * transport judged the error transient (429 / 5xx / network) so the
+   * view can offer a one-tap Resend of the last user turn. */
+  onError: (err: string, opts?: { retryable?: boolean }) => void;
   onDone: (stopReason: string, usage: Usage, provider?: Provider) => void;
 }
+
+/** Synthetic transcript block: a failed turn surfaced inline in the
+ * chat (not only in the status row) so the user sees the failure where
+ * they're looking. `retryable` drives the inline Resend affordance. */
+export interface SkaldErrorBlock {
+  type: 'skald_error';
+  text: string;
+  retryable: boolean;
+}
+
+/** True when a message is a synthetic inline-error message (its content
+ * is solely skald_error display blocks). Such messages are transcript-
+ * only and must never be sent upstream. */
+function isErrorMessage(msg: Message): boolean {
+  return (
+    Array.isArray(msg.content) &&
+    msg.content.length > 0 &&
+    msg.content.every((b) => (b as Record<string, unknown>).type === 'skald_error')
+  );
+}
+
+/** Drop synthetic inline-error messages before dispatch to a provider. */
+const stripErrorMessages = (messages: Message[]): Message[] =>
+  messages.filter((m) => !isErrorMessage(m));
 
 export interface ToolExecutor {
   (
@@ -120,10 +147,46 @@ export class ChatSession {
       return;
     }
     if (msg.type === 'error') {
-      this.handlers.onError(msg.error);
       this.inFlight = null;
-      this.handlers.onUpdate();
+      this.failTurn(msg.error, msg.retryable === true);
     }
+  }
+
+  /**
+   * Surface a turn failure inline in the transcript (visible where the
+   * user is looking, not only in the status row) AND via onError (keeps
+   * the status-row + composer-unlock behavior). The inline block carries
+   * the retryable flag so the view can render a one-tap Resend; the last
+   * user turn stays in `messages` for resendLast() to re-dispatch.
+   */
+  private failTurn(error: string, retryable: boolean): void {
+    const block: SkaldErrorBlock = { type: 'skald_error', text: error, retryable };
+    this.messages.push({ role: 'assistant', content: [block as unknown as ContentBlock] });
+    this.handlers.onError(error, { retryable });
+    this.handlers.onUpdate();
+  }
+
+  /**
+   * Re-send the last user turn after a retryable failure: drop the
+   * trailing inline error message back to the last user turn, then
+   * re-dispatch. No-op (returns false) if a turn is in flight or there's
+   * no user turn to resend.
+   */
+  async resendLast(): Promise<boolean> {
+    if (this.inFlight) return false;
+    // Pop trailing inline-error messages so the last message is the user
+    // turn we re-dispatch. Only error messages are popped — a real
+    // assistant turn is never discarded.
+    while (this.messages.length > 0 && isErrorMessage(this.messages[this.messages.length - 1])) {
+      this.messages.pop();
+    }
+    const last = this.messages[this.messages.length - 1];
+    if (!last || last.role !== 'user') return false;
+    this.toolLegCount = 0;
+    this.documentRegistry.clear();
+    this.handlers.onUpdate();
+    await this.dispatch();
+    return true;
   }
 
   getMessages(): Message[] {
@@ -182,15 +245,16 @@ export class ChatSession {
         system = await this.systemProvider();
       } catch (err) {
         this.inFlight = null;
-        this.handlers.onError(err instanceof Error ? err.message : 'Failed to build system prompt.');
-        this.handlers.onUpdate();
+        this.failTurn(err instanceof Error ? err.message : 'Failed to build system prompt.', false);
         return;
       }
 
       const { provider, apiKey, baseUrl } = this.providerConfigProvider();
       const payload: ChatRequest = {
         model: this.modelProvider(),
-        messages: compactStaleToolResults(windowHistory(this.messages)),
+        // Strip synthetic skald_error display blocks before windowing —
+        // they're transcript-only and would be invalid upstream content.
+        messages: compactStaleToolResults(windowHistory(stripErrorMessages(this.messages))),
         max_tokens: 4096,
       };
       if (system) payload.system = system;
@@ -208,8 +272,7 @@ export class ChatSession {
       this.handlers.onUpdate();
     } catch (err) {
       this.inFlight = null;
-      this.handlers.onError(err instanceof Error ? err.message : 'Unexpected error starting request.');
-      this.handlers.onUpdate();
+      this.failTurn(err instanceof Error ? err.message : 'Unexpected error starting request.', false);
     }
   }
 
@@ -268,8 +331,12 @@ export class ChatSession {
       const ep = d as Record<string, any>;
       const m = (ep?.error as Record<string, unknown> | undefined)?.message;
       this.inFlight = null;
-      this.handlers.onError(m != null ? String(m) : typeof ep?.message === 'string' ? ep.message : 'Stream error from provider.');
-      this.handlers.onUpdate();
+      // Mid-stream provider errors (overloaded_error etc.) are transient,
+      // so offer Resend.
+      this.failTurn(
+        m != null ? String(m) : typeof ep?.message === 'string' ? ep.message : 'Stream error from provider.',
+        true,
+      );
       return;
     }
 
@@ -315,92 +382,15 @@ export class ChatSession {
     // Clear per-leg: document_index is per-request; accumulating across legs mis-resolves.
     this.documentRegistry.clear();
 
-    const toolUses = blocks.filter(
-      (b) => (b as Record<string, unknown>).type === 'tool_use',
+    const results = await executeToolLeg(
+      {
+        toolExecutor: this.toolExecutor,
+        citationsEnabled: this.citationsEnabledProvider?.() ?? false,
+        documentRegistry: this.documentRegistry,
+      },
+      blocks,
     );
-    if (toolUses.length === 0) return;
-
-    // Partition into read-only (parallelisable) and write (sequential).
-    const readUses: typeof toolUses = [];
-    const writeUses: typeof toolUses = [];
-    for (const block of toolUses) {
-      const name = (block as Record<string, unknown>).name as string;
-      if (isReadOnlyTool(name)) readUses.push(block);
-      else writeUses.push(block);
-    }
-
-    // Map from tool_use_id → result block for reassembly in original order.
-    const resultMap = new Map<string, ContentBlock>();
-
-    const toResultBlock = (id: string, res: { content: string; is_error?: boolean }): ContentBlock => {
-      const rb: ContentBlock = { type: 'tool_result', tool_use_id: id, content: res.content };
-      if (res.is_error) (rb as Record<string, unknown>).is_error = true;
-      return rb;
-    };
-
-    // Execute read-only tools concurrently. A thrown read → error
-    // tool_result (never a missing block, so no tool_use is orphaned).
-    await Promise.all(
-      readUses.map(async (block) => {
-        const b = block as Record<string, any>;
-        try {
-          const res = await this.toolExecutor(b.name, b.input, b.id);
-          resultMap.set(b.id, toResultBlock(b.id, res));
-        } catch (err) {
-          resultMap.set(
-            b.id,
-            toResultBlock(b.id, {
-              content: err instanceof Error ? err.message : 'tool execution failed',
-              is_error: true,
-            }),
-          );
-        }
-      }),
-    );
-
-    // Execute write tools strictly sequentially (approval UIs must not overlap).
-    for (const block of writeUses) {
-      const b = block as Record<string, any>;
-      try {
-        const res = await this.toolExecutor(b.name, b.input, b.id);
-        resultMap.set(b.id, toResultBlock(b.id, res));
-      } catch (err) {
-        resultMap.set(b.id, toResultBlock(b.id, {
-          content: err instanceof Error ? err.message : 'tool execution failed',
-          is_error: true,
-        }));
-      }
-    }
-
-    // Reassemble in original tool_use order for determinism.
-    const results: ContentBlock[] = toolUses.map((block) => {
-      const id = (block as Record<string, unknown>).id as string;
-      return resultMap.get(id)!;
-    });
-
-    // Citations path: append document blocks for read_note results so the
-    // Citations API can ground citations. Body travels once in source.data;
-    // the tool_result.content is collapsed to the path to avoid duplication.
-    if (this.citationsEnabledProvider?.() ?? false) {
-      let docIdx = 0;
-      for (const block of toolUses) {
-        const b = block as Record<string, any>;
-        if (b.name !== 'read_note') continue;
-        const path = typeof b.input?.path === 'string' ? b.input.path : null;
-        const res = resultMap.get(b.id as string) as Record<string, unknown> | undefined;
-        const body = res && !res.is_error ? (res.content as string) : null;
-        if (!path || !body || !res) continue;
-        let docBlock: ContentBlock;
-        try { docBlock = buildDocumentBlock(path, body) as unknown as ContentBlock; }
-        catch { continue; }
-        results.push(docBlock);
-        // Collapse the body out of the tool_result (same obj in `results`);
-        // it now lives once in the doc block.
-        res.content = `[${path}]`;
-        this.documentRegistry.set(docIdx, path);
-        docIdx++;
-      }
-    }
+    if (results.length === 0) return;
 
     this.messages.push({ role: 'user', content: results });
     this.handlers.onUpdate();

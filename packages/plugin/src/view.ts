@@ -15,6 +15,7 @@ import { LiveRegion } from './view/live-region';
 import { maybeRenderSetupBanner } from './view/setup-banner';
 import { connectSession } from './view/connect-session';
 import { resumeConversation } from './view/resume-conversation';
+import { resendLastTurn } from './view/resend-turn';
 import { toImageContentBlock } from './image-attach';
 import { persistConversation } from './view/persist-conversation';
 import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
@@ -141,6 +142,8 @@ export class SkaldView extends ItemView {
       },
       loadStarterChips: () =>
         loadStarterChips(this.app, this.plugin.settings.startersPath),
+      // One-tap Resend (retryable inline error): re-dispatch last user turn.
+      onResend: () => resendLastTurn(this.transport, this.session, this.composer),
     });
 
     this.usageFooterEl = root.createDiv({ cls: 'skald-usage-footer' });

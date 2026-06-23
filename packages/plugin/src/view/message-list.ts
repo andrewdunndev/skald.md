@@ -61,6 +61,9 @@ export interface MessageListContext {
    * finalized assistant turn. Host fills the composer with a
    * follow-up prompt asking Claude to actually emit the write. */
   onSuggestWrite?: (path: string) => void;
+  /** Called when the user taps Resend on a retryable inline error block.
+   * Host re-dispatches the last user turn via the chat session. */
+  onResend?: () => void;
   /**
    * Optional: supplier for the live document registry (document_index
    * → vault path) from the active ChatSession. When provided, assistant
@@ -362,6 +365,7 @@ export class MessageList {
       onApprove: (id) => this.ctx.onApprove(id),
       onReject: (id) => this.ctx.onReject(id),
       documentRegistry: this.ctx.getDocumentRegistry?.(),
+      onResend: this.ctx.onResend,
     };
 
     if (typeof msg.content === 'string') {

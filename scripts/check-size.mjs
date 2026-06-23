@@ -58,12 +58,6 @@ const DEVIATIONS = [
     expires: '2026-09-22',
     note: 'scroll-guard (isNearBottom + scrollToBottom + pendingForceScroll) grew the file; extract scroll-guard logic to view/scroll-guard.ts when the refactor window opens',
   },
-  {
-    file: 'packages/plugin/src/chat-session.ts',
-    cap: 415,
-    expires: '2026-09-22',
-    note: 'MAX_TOOL_LEGS cap (security fix) added toolLegCount + cap guard; extract agentic-loop logic to chat-session-tool-loop.ts',
-  },
 ];
 
 async function walk(dir) {
