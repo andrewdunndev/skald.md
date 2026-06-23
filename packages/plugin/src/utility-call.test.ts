@@ -39,7 +39,7 @@ const OPENROUTER_URL = 'https://openrouter.ai/api/v1/messages';
 const ANT_KEY = 'sk-ant-test';
 const OR_KEY = 'or-test-key';
 const OAI_KEY = 'oai-test-key';
-const OAI_BASE = 'https://llm.dunn.dev/v1';
+const OAI_BASE = 'https://your-endpoint.example/v1';
 const OAI_MODEL = 'qwen2.5-14b';
 const MODEL = 'claude-haiku-4-5';
 
@@ -97,7 +97,7 @@ describe('utilityComplete: provider routing', () => {
     expect(call.url).toBe(OPENROUTER_URL);
     const headers = call.headers as Record<string, string>;
     expect(headers['Authorization']).toBe(`Bearer ${OR_KEY}`);
-    expect(headers['HTTP-Referer']).toBe('https://github.com/skald/skald');
+    expect(headers['HTTP-Referer']).toBe('https://gitlab.com/dunn.dev/skald.md');
     expect(headers['X-OpenRouter-Title']).toBe('skald');
     expect(headers).not.toHaveProperty('x-api-key');
     expect(headers).not.toHaveProperty('anthropic-version');

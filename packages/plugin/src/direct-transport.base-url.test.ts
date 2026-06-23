@@ -60,10 +60,10 @@ describe('DirectTransport: OpenAI base-url enforcement', () => {
   });
 
   it('allows https on a remote host (dispatches fetch)', async () => {
-    run('https://llm.dunn.dev/v1', vi.fn());
+    run('https://your-endpoint.example/v1', vi.fn());
     await vi.waitUntil(() => fetchMock.mock.calls.length > 0, { timeout: 1000 });
     expect((fetchMock.mock.calls[0] as [string])[0]).toBe(
-      'https://llm.dunn.dev/v1/chat/completions',
+      'https://your-endpoint.example/v1/chat/completions',
     );
   });
 });

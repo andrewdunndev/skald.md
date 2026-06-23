@@ -95,7 +95,7 @@ describe('resolveBannerSpec: openai provider', () => {
   it('returns null when a base URL is present (key is optional)', () => {
     expect(
       resolveBannerSpec(
-        directInput({ provider: 'openai', openaiBaseUrl: 'https://llm.dunn.dev/v1' }),
+        directInput({ provider: 'openai', openaiBaseUrl: 'https://your-endpoint.example/v1' }),
       ),
     ).toBeNull();
   });
@@ -120,7 +120,7 @@ describe('resolveBannerSpec: openai provider', () => {
           provider: 'openai',
           anthropicApiKey: '',
           openrouterApiKey: '',
-          openaiBaseUrl: 'https://llm.dunn.dev/v1',
+          openaiBaseUrl: 'https://your-endpoint.example/v1',
         }),
       ),
     ).toBeNull();

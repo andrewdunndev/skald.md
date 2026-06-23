@@ -32,7 +32,7 @@ export function resolveBannerSpec(input: SetupBannerInput): BannerSpec | null {
     if (input.openaiBaseUrl.trim()) return null;
     return {
       title: 'Add your endpoint',
-      detail: 'OpenAI-compatible base URL — Settings → Skald (e.g. https://llm.dunn.dev/v1).',
+      detail: 'OpenAI-compatible base URL — Settings → Skald (e.g. https://your-endpoint.example/v1 or http://localhost:11434/v1).',
     };
   }
 

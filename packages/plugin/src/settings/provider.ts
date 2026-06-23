@@ -173,11 +173,11 @@ function renderOpenaiBlock(
   new Setting(containerEl)
     .setName('Base URL')
     .setDesc(
-      'OpenAI-compatible base URL, e.g. https://llm.dunn.dev/v1. Skald ' +
-      'appends /chat/completions for utility calls.',
+      'OpenAI-compatible base URL, e.g. https://your-endpoint.example/v1 or ' +
+      'http://localhost:11434/v1. Skald appends /chat/completions for utility calls.',
     )
     .addText((t) => {
-      t.setPlaceholder('https://llm.dunn.dev/v1')
+      t.setPlaceholder('https://your-endpoint.example/v1')
         .setValue(plugin.settings.openaiBaseUrl)
         .onChange(async (v) => {
           const trimmed = v.trim();

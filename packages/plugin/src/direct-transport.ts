@@ -19,7 +19,7 @@ const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/messages';
-const OPENROUTER_REFERER = 'https://github.com/skald/skald';
+const OPENROUTER_REFERER = 'https://gitlab.com/dunn.dev/skald.md';
 const OPENROUTER_TITLE = 'skald';
 
 /** Config threaded in by view.ts at construction time. */

@@ -45,7 +45,7 @@ export interface SkaldSettings {
    * (used when provider=openai). */
   openaiApiKey: string;
   /** Base URL for an OpenAI-compatible endpoint, e.g.
-   * https://llm.dunn.dev/v1 (used when provider=openai). */
+   * https://your-endpoint.example/v1 or http://localhost:11434/v1 (used when provider=openai). */
   openaiBaseUrl: string;
   /** Free-text model id for the OpenAI-compatible endpoint, e.g.
    * qwen2.5-14b (used when provider=openai). */
