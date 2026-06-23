@@ -32,11 +32,25 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['packages/*/src/**/*.ts'],
-      exclude: ['packages/*/src/**/*.test.ts'],
-      // text-summary prints the "All files" line CI parses for the coverage %.
-      // No thresholds yet — a floor is added once the baseline is agreed (so it
-      // ratchets up, never silently down).
+      exclude: [
+        'packages/*/src/**/*.test.ts',
+        // The Obsidian-DOM UI layer is covered by the CDP walkthrough +
+        // on-device testing, NOT vitest (env is 'node'). Excluding it from the
+        // unit-coverage floor keeps the gate honest: the floor measures the
+        // pure, unit-testable core, not UI that unit tests structurally can't reach.
+        'packages/plugin/src/view/**',
+        'packages/plugin/src/view.ts',
+        'packages/plugin/src/main.ts',
+        'packages/plugin/src/settings.ts',
+        'packages/plugin/src/settings/**',
+        'packages/plugin/src/conversation-search.ts',
+      ],
       reporter: ['text', 'text-summary', 'json-summary'],
+      // Ratchet floor on the unit-testable core (baseline ~84% lines / 81%
+      // branch). Set AT the baseline so coverage can never silently regress;
+      // raise toward 90% as gap-filling lands. Mutation testing (Stryker, on the
+      // parsers) is the quality backstop so this stays real, not padding.
+      thresholds: { lines: 84, statements: 84, functions: 85, branches: 80 },
     },
   },
 });
