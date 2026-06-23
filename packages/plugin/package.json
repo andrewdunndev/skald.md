@@ -9,7 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@skald/protocol": "workspace:*"
+    "@skald/protocol": "workspace:*",
+    "@toon-format/toon": "^2.3.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",

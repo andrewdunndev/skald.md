@@ -15,6 +15,7 @@ import { buildActiveTools, executeTool } from '../tools';
 import type { WriteProposal } from '../tools';
 import { loadSystemPrompt } from './system-prompt';
 import { providerCapabilities } from '../provider-capabilities';
+import { compactToolResult } from '../tool-compact';
 
 export interface ConnectResult {
   transport: SkaldTransport;
@@ -101,8 +102,8 @@ export function connectSession(
         // is cbs.getModelValue()) so the two can't diverge mid-session.
         model: cbs.getModelValue(),
       }),
-    (name, input, toolUseId) =>
-      executeTool(name, input, toolUseId, {
+    async (name, input, toolUseId) => {
+      const res = await executeTool(name, input, toolUseId, {
         app,
         approve: (proposal) =>
           cbs.requestApproval({
@@ -112,7 +113,22 @@ export function connectSession(
         memoryPath: plugin.settings.memoryPath,
         anthropicApiKey: plugin.settings.anthropicApiKey || undefined,
         provider: plugin.settings.provider ?? 'anthropic',
-      }),
+      });
+      // Apply structural compaction to read-tool results before the
+      // message enters the model context.  Write tools are excluded:
+      // their result content is a short status string ("Note written"),
+      // not a data payload.  Error results are also skipped so the
+      // model always sees the full error message.
+      if (
+        plugin.settings.compactToolResults &&
+        !res.is_error &&
+        res.content.length > 0
+      ) {
+        const { text } = compactToolResult(res.content);
+        if (text !== res.content) return { ...res, content: text };
+      }
+      return res;
+    },
     {
       onUpdate: () => cbs.requestRender(),
       onError: (err) => {

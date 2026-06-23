@@ -70,9 +70,15 @@ Two packages in one repo:
    markdown-rendered messages (mermaid, tables, math, internal links),
    diff-card approval for vault edits, server-side web search,
    per-conversation Anthropic / OpenRouter provider switching,
-   and a long-term memory note Claude can read and propose updates to.
+   a long-term memory note Claude can read and propose updates to,
+   and token-economy controls (prompt caching, history + tool-result
+   compaction) so a direct-to-API chat stays cheap.
 2. **`packages/protocol/`** -- the TypeScript wire types shared across
    the project.
+
+How Skald keeps your token spend down -- caching, windowing, and
+tool-result compaction -- is documented in
+[`docs/context-and-cost.md`](docs/context-and-cost.md).
 
 ## Optional companions
 

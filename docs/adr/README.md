@@ -20,7 +20,8 @@ native enhancements that make the direct tier economical and accurate
 on-device. 0008 is the future heavy path that picks up where the
 on-device tier reaches its ceiling. 0009 opens the direct tier to
 self-hosted models over a plain OpenAI-compatible endpoint, switchable
-alongside Anthropic.
+alongside Anthropic. 0010 compacts tool output before it hits the
+context, the third token lever after caching (0003) and history (0004).
 
 ## Index
 
@@ -35,3 +36,4 @@ alongside Anthropic.
 | [0007](0007-vault-as-memory.md) | Vault-as-memory note with incremental upkeep | Accepted |
 | [0008](0008-agent-host-tier.md) | Agent-host tier for the heavy path | Proposed (exploring) |
 | [0009](0009-openai-compatible-provider.md) | OpenAI-compatible provider for self-hosted models | Proposed |
+| [0010](0010-tool-result-compaction.md) | Tool-result compaction | Accepted |
