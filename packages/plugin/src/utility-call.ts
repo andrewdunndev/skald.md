@@ -83,10 +83,11 @@ export async function utilityComplete(
         'content-type': 'application/json',
       };
       // OpenAI request shape: a flat messages array with an optional
-      // leading system message. Never carries cache_control.
+      // leading system message. Never carries cache_control. Newer OpenAI
+      // models reject the deprecated max_tokens, so emit max_completion_tokens.
       body = {
         model,
-        max_tokens: opts.maxTokens,
+        max_completion_tokens: opts.maxTokens,
         messages: [
           ...(opts.system ? [{ role: 'system', content: opts.system }] : []),
           { role: 'user', content: opts.userPrompt },

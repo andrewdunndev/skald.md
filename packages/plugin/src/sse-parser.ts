@@ -24,6 +24,17 @@
 export interface SSEFrame {
   event: string;
   data: unknown;
+  /**
+   * True when the SSE block carried a `data:` line, regardless of whether it
+   * also carried an `event:` line. OpenAI / OpenAI-compatible streams emit
+   * `data:`-only frames (no `event:` field), so the parser must surface them
+   * and let the consumer (via passEventlessFrames) decide.
+   *
+   * `data` may still be null for such a frame (e.g. `data: [DONE]` or a
+   * parse error) — `hadData` distinguishes "data line was present but parsed
+   * to null" from "no data line at all" (a bare keep-alive).
+   */
+  hadData: boolean;
 }
 
 export class SSEParser {
@@ -45,9 +56,10 @@ export class SSEParser {
 
     for (const block of blocks) {
       const frame = parseBlock(block);
-      // Only emit frames that carry an event name. Empty keep-alives
-      // (\n\n with no content) produce no frame.
-      if (frame.event) {
+      // Emit frames that carry an event name (Anthropic/OpenRouter) OR a data
+      // payload (OpenAI/OpenAI-compatible frames have no `event:` field).
+      // Empty keep-alives (\n\n with neither) produce no frame.
+      if (frame.event || frame.hadData) {
         frames.push(frame);
       }
     }
@@ -60,13 +72,14 @@ export class SSEParser {
     if (!this.buffer.trim()) return [];
     const frame = parseBlock(this.buffer);
     this.buffer = '';
-    return frame.event ? [frame] : [];
+    return frame.event || frame.hadData ? [frame] : [];
   }
 }
 
 function parseBlock(block: string): SSEFrame {
   let event = '';
   let dataStr = '';
+  let hadData = false;
 
   for (const line of block.split('\n')) {
     if (line.startsWith('event:')) {
@@ -74,6 +87,7 @@ function parseBlock(block: string): SSEFrame {
     } else if (line.startsWith('data:')) {
       // Multiple data: lines per spec are concatenated with \n —
       // Anthropic only uses one data: line per block, but handle both.
+      hadData = true;
       const piece = line.slice(5).trim();
       dataStr = dataStr ? dataStr + '\n' + piece : piece;
     }
@@ -81,14 +95,14 @@ function parseBlock(block: string): SSEFrame {
 
   // [DONE] is the SSE stream terminator — no JSON to parse.
   if (dataStr === '[DONE]') {
-    return { event, data: null };
+    return { event, data: null, hadData };
   }
 
-  if (!dataStr) return { event, data: null };
+  if (!dataStr) return { event, data: null, hadData };
 
   try {
-    return { event, data: JSON.parse(dataStr) };
+    return { event, data: JSON.parse(dataStr), hadData };
   } catch {
-    return { event, data: null };
+    return { event, data: null, hadData };
   }
 }

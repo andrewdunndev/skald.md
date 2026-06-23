@@ -139,7 +139,7 @@ describe('utilityComplete: openai-compatible provider', () => {
     expect(getCall().url).toBe(`${OAI_BASE}/chat/completions`);
   });
 
-  it('sends an OpenAI-shaped request body (flat messages, max_tokens, model)', async () => {
+  it('sends an OpenAI-shaped request body (flat messages, max_completion_tokens, model)', async () => {
     vi.mocked(obsidian.requestUrl).mockResolvedValue(
       makeOpenaiResp(200, 'hi'),
     );
@@ -151,7 +151,9 @@ describe('utilityComplete: openai-compatible provider', () => {
     });
     const body = JSON.parse(getCall().body as string);
     expect(body.model).toBe(OAI_MODEL);
-    expect(body.max_tokens).toBe(200);
+    // Newer OpenAI models reject max_tokens — emit max_completion_tokens.
+    expect(body.max_completion_tokens).toBe(200);
+    expect(body.max_tokens).toBeUndefined();
     expect(body.messages).toEqual([
       { role: 'system', content: 'You are a ranker.' },
       { role: 'user', content: 'rank these' },

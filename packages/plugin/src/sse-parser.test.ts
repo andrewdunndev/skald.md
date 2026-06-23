@@ -100,6 +100,56 @@ describe('SSEParser.push: keep-alive blocks', () => {
   });
 });
 
+describe('SSEParser.push: OpenAI eventless data frames', () => {
+  // OpenAI / OpenAI-compatible streams emit `data:` lines with NO `event:`
+  // field. The parser MUST surface these — dropping them returns NOTHING for
+  // every OpenAI stream (the core bug this fixes).
+  it('emits a frame for a data-only block (no event: field)', () => {
+    const p = new SSEParser();
+    const frames = p.push(
+      'data: {"choices":[{"delta":{"content":"hi"}}]}\n\n',
+    );
+    expect(frames).toHaveLength(1);
+    expect(frames[0].event).toBe('');
+    expect(frames[0].hadData).toBe(true);
+    expect((frames[0].data as any).choices[0].delta.content).toBe('hi');
+  });
+
+  it('surfaces a mid-stream eventless error frame', () => {
+    const p = new SSEParser();
+    const frames = p.push(
+      'data: {"error":{"message":"rate limited","type":"rate_limit_error"}}\n\n',
+    );
+    expect(frames).toHaveLength(1);
+    expect(frames[0].event).toBe('');
+    expect((frames[0].data as any).error.message).toBe('rate limited');
+  });
+
+  it('emits an eventless [DONE] frame with data=null but hadData=true', () => {
+    const p = new SSEParser();
+    const frames = p.push('data: [DONE]\n\n');
+    expect(frames).toHaveLength(1);
+    expect(frames[0].event).toBe('');
+    expect(frames[0].data).toBeNull();
+    // hadData distinguishes this terminator from a bare keep-alive.
+    expect(frames[0].hadData).toBe(true);
+  });
+
+  it('flush surfaces a buffered eventless data frame on stream end', () => {
+    const p = new SSEParser();
+    p.push('data: {"choices":[{"delta":{"content":"tail"}}]}');
+    const frames = p.flush();
+    expect(frames).toHaveLength(1);
+    expect((frames[0].data as any).choices[0].delta.content).toBe('tail');
+  });
+
+  it('still drops a bare keep-alive (no data line) — hadData=false', () => {
+    const p = new SSEParser();
+    // A comment-only keep-alive must NOT produce a frame.
+    expect(p.push(': ping\n\n')).toHaveLength(0);
+  });
+});
+
 describe('SSEParser.flush', () => {
   it('returns remaining buffered event on flush', () => {
     const p = new SSEParser();
