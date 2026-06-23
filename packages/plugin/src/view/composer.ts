@@ -211,6 +211,14 @@ export class Composer {
   }
 
   /**
+   * Return focus to the composer textarea.  Called after a diff-card
+   * approve/reject resolves so keyboard users don't land on <body>.
+   */
+  focus(): void {
+    this.inputEl.focus({ preventScroll: true });
+  }
+
+  /**
    * Drop text into the chat input from outside the composer (e.g. a
    * slash command modal expanding a template). Focuses the input
    * and moves the cursor to the end so the user can review +

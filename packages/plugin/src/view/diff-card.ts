@@ -110,13 +110,14 @@ export function renderDiffCard(
 
   attachSwipeGesture(card, proposal, hooks);
 
-  // Move focus to Approve when the card mounts so keyboard + screen
-  // reader users land on the primary action (and hear the group's
-  // aria-label) without hunting. Deferred a tick so the element is
-  // attached + focusable before we call focus().
-  window.setTimeout(() => {
-    if (approve.isConnected) approve.focus();
-  }, 0);
+  // Do NOT auto-focus the approve button here.  Stealing focus from
+  // the composer textarea breaks mobile keyboard workflows: the
+  // software keyboard collapses, scroll position jumps, and focus is
+  // left on <body> after approve/reject resolves.  Instead the view
+  // layer (resolveApprovalUi in view.ts) restores focus to the
+  // composer after a decision is made, keeping the UX intentional
+  // rather than incidental.  CDP / on-device tests cover the
+  // round-trip behaviour.
 }
 
 /**
