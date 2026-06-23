@@ -138,13 +138,29 @@ export class DirectTransport implements SkaldTransport {
     } catch (err) {
       this.activeChats.delete(id);
       const isAbort = err instanceof Error && err.name === 'AbortError';
-      if (isAbort) {
+      // Distinguish a user-initiated Stop from a request-timeout: a user
+      // cancel fires ac.abort() (so ac.signal.aborted === true); the
+      // REQUEST_TIMEOUT_MS ceiling fires the composed timer instead, leaving
+      // the per-turn controller un-aborted. A cold model start that blew the
+      // first-byte budget used to surface here as a silent done(cancelled),
+      // indistinguishable from the user pressing Stop — emit an actionable
+      // retryable error instead.
+      const isUserCancel = isAbort && ac.signal.aborted;
+      if (isUserCancel) {
         this.handlers.onMessage({
           type: 'done',
           id,
           stop_reason: 'cancelled',
           usage: { input_tokens: 0, output_tokens: 0 },
           provider,
+        });
+      } else if (isAbort) {
+        this.handlers.onMessage({
+          type: 'error',
+          id,
+          error:
+            'The model took too long to respond (it may be cold-starting). Try again.',
+          retryable: true,
         });
       } else {
         console.warn('[skald] network error:', err);
