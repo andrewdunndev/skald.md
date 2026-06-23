@@ -1,7 +1,7 @@
 /**
  * DirectTransport: call Anthropic / OpenRouter directly from the plugin.
  * Uses native fetch with `anthropic-dangerous-direct-browser-access: true`.
- * echo/ping: synchronous. cancel: aborts via AbortController.
+ * cancel: aborts via AbortController.
  * Timeouts: REQUEST_TIMEOUT_MS to first byte; STREAM_IDLE_TIMEOUT_MS per chunk.
  */
 import type { ClientMessage, Provider, ServerMessage, Usage } from '@skald/protocol';
@@ -64,17 +64,6 @@ export class DirectTransport implements SkaldTransport {
 
   send(msg: ClientMessage): void {
     switch (msg.type) {
-      case 'echo':
-        this.handlers.onMessage({
-          type: 'echoed',
-          id: msg.id,
-          text: msg.text,
-          received_at: Date.now(),
-        });
-        return;
-      case 'ping':
-        this.handlers.onMessage({ type: 'pong' });
-        return;
       case 'cancel': {
         const ac = this.activeChats.get(msg.id);
         if (ac) ac.abort();

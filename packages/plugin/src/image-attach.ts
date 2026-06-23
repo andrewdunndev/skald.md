@@ -38,9 +38,8 @@ const SUPPORTED_MEDIA_TYPES: ReadonlySet<string> = new Set<string>([
 /**
  * Per-image cap, checked against the raw (pre-base64) blob size.
  *
- * In direct mode the image rides an HTTPS POST to the provider, not a
- * Cloudflare WebSocket frame, so the ceiling is the provider's per-image
- * limit, not a transport frame size. Anthropic's API accepts up to 10 MB
+ * The image rides an HTTPS POST to the provider, so the ceiling is the
+ * provider's per-image limit. Anthropic's API accepts up to 10 MB
  * base64-encoded per image; base64 inflates raw bytes by ~33%, so the
  * hard raw ceiling is ~7.3 MB. OpenRouter fans out to providers with
  * assorted (often lower) limits, and surfaces their error verbatim if a

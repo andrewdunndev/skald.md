@@ -1,6 +1,5 @@
 // skald wire protocol.
 //
-// Phase 0 retains `echo` / `pong` / `echoed` for diagnostics.
 // Phase 1 adds Anthropic-shaped chat passthrough.
 // Phase 5 adds provider routing for OpenRouter fallback.
 // Phase 8b: shared capture constants (prompt templates + response
@@ -65,8 +64,6 @@ export type Provider = 'anthropic' | 'openrouter' | 'openai';
 
 // Plugin → transport
 export type ClientMessage =
-  | { type: 'echo'; id: string; text: string }
-  | { type: 'ping' }
   | {
       type: 'chat';
       id: string;
@@ -119,8 +116,6 @@ export function extractCaptureTitle(text: string): string {
 
 // Transport → Plugin
 export type ServerMessage =
-  | { type: 'echoed'; id: string; text: string; received_at: number }
-  | { type: 'pong' }
   | { type: 'chunk'; id: string; event: string; data: unknown }
   | {
       type: 'done';
