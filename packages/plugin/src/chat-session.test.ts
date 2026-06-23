@@ -211,7 +211,8 @@ describe('ChatSession.handleServer: error path', () => {
     await session.sendUserText('hi');
     session.handleServer({ type: 'error', id: chatId(tx), error: 'upstream broke' });
     expect(session.getInFlight()).toBeNull();
-    expect(handlers.onError).toHaveBeenCalledWith('upstream broke');
+    // onError now carries the retryable flag (defaults false when omitted).
+    expect(handlers.onError).toHaveBeenCalledWith('upstream broke', { retryable: false });
   });
 });
 

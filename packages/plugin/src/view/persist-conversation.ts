@@ -23,6 +23,16 @@ export async function persistConversation(
   if (!folder) return;
   const totalUsage = session.getTotalUsage();
   const costUSD = estimateTurnCost(totalUsage, model);
+  // Drop synthetic inline-error messages — they're a live UI affordance,
+  // not part of the saved conversation record.
+  const messages = session.getMessages().filter(
+    (m) =>
+      !(
+        Array.isArray(m.content) &&
+        m.content.length > 0 &&
+        m.content.every((b) => (b as Record<string, unknown>).type === 'skald_error')
+      ),
+  );
   await saveConversation(
     app,
     folder,
@@ -34,6 +44,6 @@ export async function persistConversation(
       usage: totalUsage,
       costUSD,
     },
-    session.getMessages(),
+    messages,
   );
 }

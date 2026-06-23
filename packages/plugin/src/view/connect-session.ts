@@ -32,8 +32,10 @@ export interface ConnectCallbacks {
   currentTurnReads: (toolUseId: string) => string[];
   onDone: (stopReason: string, usage: Usage, provider?: Provider) => void;
   /** Called when a transport error terminates an in-flight turn so the
-   * composer busy state can be reset in the view layer. */
-  onTurnAborted: () => void;
+   * composer busy state can be reset in the view layer.
+   * `retryable` (when true) means the failure was transient and the view
+   * should offer a one-tap Resend of the last user turn. */
+  onTurnAborted: (retryable?: boolean) => void;
 }
 
 /**
@@ -165,9 +167,9 @@ export function connectSession(
     },
     {
       onUpdate: () => cbs.requestRender(),
-      onError: (err) => {
+      onError: (err, opts) => {
         cbs.setStatus(`Chat error: ${err}`, 'error');
-        cbs.onTurnAborted();
+        cbs.onTurnAborted(opts?.retryable);
       },
       onDone: (stopReason, usage, provider) =>
         cbs.onDone(stopReason, usage, provider),
