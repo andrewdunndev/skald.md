@@ -52,6 +52,12 @@ const DEVIATIONS = [
     expires: '2026-09-22',
     note: 'a11y additions (role/status/error-icon) pushed past 400; extract setStatus + status-row setup to view/status-row.ts',
   },
+  {
+    file: 'packages/plugin/src/chat-session.ts',
+    cap: 415,
+    expires: '2026-09-22',
+    note: 'MAX_TOOL_LEGS cap (security fix) added toolLegCount + cap guard; extract agentic-loop logic to chat-session-tool-loop.ts',
+  },
 ];
 
 async function walk(dir) {

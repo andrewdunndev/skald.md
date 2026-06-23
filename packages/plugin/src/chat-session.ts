@@ -47,10 +47,18 @@ export interface ProviderConfig {
   baseUrl?: string;
 }
 
+/** Maximum number of tool-execution legs allowed per user turn.
+ * When this limit is reached the loop stops and a user-facing notice
+ * is surfaced via onError so the composer unlocks. */
+export const MAX_TOOL_LEGS = 20;
+
 export class ChatSession {
   private readonly messages: Message[] = [];
   private inFlight: InFlight | null = null;
   private totalUsage: Usage = { input_tokens: 0, output_tokens: 0 };
+  /** Counts tool-execution legs within the current user turn. Reset to 0
+   * at the start of each new user turn (sendUserMessage). */
+  private toolLegCount = 0;
   conversationId: string = crypto.randomUUID();
   conversationCreated: string = new Date().toISOString();
   /** document_index → vault path. Populated by executeToolsAndContinue
@@ -86,6 +94,7 @@ export class ChatSession {
       return;
     }
     this.documentRegistry.clear();
+    this.toolLegCount = 0;
     this.messages.push({ role: 'user', content });
     this.handlers.onUpdate();
     await this.dispatch();
@@ -285,6 +294,14 @@ export class ChatSession {
       // the continuation's onDone won't fire until tools resolve +
       // the model responds again.
       this.totalUsage = sumUsage(this.totalUsage, finalUsage);
+      this.toolLegCount++;
+      if (this.toolLegCount >= MAX_TOOL_LEGS) {
+        this.handlers.onError(
+          `Stopped after ${MAX_TOOL_LEGS} tool steps — ask a narrower question.`,
+        );
+        this.handlers.onUpdate();
+        return;
+      }
       await this.executeToolsAndContinue(blocks);
       return;
     }
