@@ -4,6 +4,7 @@ import { safePath, type ToolExecutionResult } from './context';
 import { rerankCandidates } from './rerank';
 import { utilityModel as resolveUtilityModel } from '../provider-capabilities';
 import type { SkaldSettings } from '../settings';
+import { compactToolResult } from '../tool-compact';
 
 // ---------------------------------------------------------------------------
 // Omnisearch interop — narrow types; no external @omnisearch package needed.
@@ -34,15 +35,21 @@ export const MAX_NOTE_BYTES = 16384;
  * Truncate a tool result string to `cap` bytes when it exceeds the cap.
  * Appends a human-readable footer so Claude knows it's seeing a partial view
  * and can narrow via limit: N or range args.
+ *
+ * When `compact` is true, `compactToolResult` runs on the text BEFORE the
+ * length check/truncate, so densified content survives the budget (e.g. more
+ * table rows fit within the same cap).  Footer/backstop behaviour unchanged.
  */
 export function capResult(
   text: string,
   cap: number,
   footer: string,
+  compact = false,
 ): string {
-  if (text.length <= cap) return text;
-  const totalKB = Math.round(text.length / 1024);
-  return text.slice(0, cap) + `\n\n…truncated (showed first ${cap >= 1024 ? `${Math.round(cap / 1024)}KB` : `${cap}B`} of ${totalKB}KB total — ${footer})`;
+  const working = compact ? compactToolResult(text).text : text;
+  if (working.length <= cap) return working;
+  const totalKB = Math.round(working.length / 1024);
+  return working.slice(0, cap) + `\n\n…truncated (showed first ${cap >= 1024 ? `${Math.round(cap / 1024)}KB` : `${cap}B`} of ${totalKB}KB total — ${footer})`;
 }
 
 export const READ_ONLY_TOOLS: ToolDefinition[] = [
