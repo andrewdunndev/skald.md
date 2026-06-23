@@ -1,4 +1,3 @@
-import { App, normalizePath, TFile } from 'obsidian';
 import type { Message, Usage } from '@skald/protocol';
 
 export interface ConversationMeta {
@@ -20,7 +19,7 @@ export interface ConversationMeta {
  * a human-browseable filename. Falls back to the conversation id if the
  * message has nothing slug-worthy.
  */
-function slugify(text: string, max = 40): string {
+export function slugify(text: string, max = 40): string {
   const cleaned = text
     .toLowerCase()
     .replace(/<context>[\s\S]*?<\/context>/g, '')
@@ -42,7 +41,7 @@ function slugify(text: string, max = 40): string {
  * Strip the <context>…</context> XML wrapper from a user message so the
  * saved file shows the question, not the embedded note bodies.
  */
-function stripContext(text: string): { text: string; attachedPaths: string[] } {
+export function stripContext(text: string): { text: string; attachedPaths: string[] } {
   const ctxMatch = text.match(/<context>([\s\S]*?)<\/context>\s*([\s\S]*)$/);
   if (!ctxMatch) return { text, attachedPaths: [] };
   const ctxBody = ctxMatch[1];
@@ -212,63 +211,6 @@ function describeBlock(b: Record<string, any>): string {
       return `Append to ${input.path ?? '?'}`;
     default:
       return name ?? 'tool call';
-  }
-}
-
-/**
- * Save (or update) the conversation file in the configured chats folder.
- * Filename uses the conversation id so subsequent updates rewrite the
- * same file. Folder is auto-created.
- */
-export async function saveConversation(
-  app: App,
-  folder: string,
-  meta: ConversationMeta,
-  messages: Message[],
-): Promise<TFile | null> {
-  if (!folder.trim()) return null;
-  if (messages.length === 0) return null;
-
-  const normalizedFolder = normalizePath(folder);
-  const folderItem = app.vault.getAbstractFileByPath(normalizedFolder);
-  if (!folderItem) {
-    try {
-      await app.vault.createFolder(normalizedFolder);
-    } catch {
-      // race / already exists; ignore
-    }
-  }
-
-  const firstUser = messages.find((m) => m.role === 'user');
-  const seed =
-    firstUser && typeof firstUser.content === 'string'
-      ? stripContext(firstUser.content).text
-      : 'chat';
-  const datePart = meta.created.slice(0, 10);
-  const slug = slugify(seed);
-  const filename = `${datePart}-${slug}-${meta.id.slice(0, 6)}.md`;
-  const path = normalizePath(`${normalizedFolder}/${filename}`);
-
-  // Final guard against any traversal that slipped past slugify:
-  // the resolved path MUST live inside the configured folder.
-  if (!path.startsWith(`${normalizedFolder}/`)) {
-    console.error(
-      `skald: refusing to save outside folder (resolved="${path}" folder="${normalizedFolder}")`,
-    );
-    return null;
-  }
-
-  const body = renderConversationMarkdown(meta, messages);
-  const existing = app.vault.getAbstractFileByPath(path);
-  try {
-    if (existing instanceof TFile) {
-      await app.vault.modify(existing, body);
-      return existing;
-    }
-    return await app.vault.create(path, body);
-  } catch (err) {
-    console.error('skald: saveConversation failed', err);
-    return null;
   }
 }
 

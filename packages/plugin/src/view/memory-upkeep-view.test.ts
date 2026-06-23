@@ -31,14 +31,30 @@ import type { ApprovalManager } from '../approval-manager';
 
 // ── fakes ───────────────────────────────────────────────────────────────────
 
-function makeVault() {
+function makeVault(opts: { onDiskContent?: string } = {}) {
   const modify = vi.fn(async () => {});
   const create = vi.fn(async () => {});
+  // The TOCTOU-guarded write re-reads the live on-disk content inside
+  // vault.process. `onDiskContent` is what process() sees as `current`
+  // when its callback fires — defaults to the same snapshot cachedRead
+  // returned (the happy path: nothing changed under us). A test can pass
+  // a divergent value to simulate a concurrent manual edit.
+  const onDisk = opts.onDiskContent ?? 'old memory body';
+  const processedWith: string[] = [];
+  const process = vi.fn(
+    async (_f: unknown, cb: (current: string) => string) => {
+      const result = cb(onDisk);
+      processedWith.push(result);
+      return result;
+    },
+  );
   return {
     modify,
     create,
+    process,
+    processedWith,
     createFolder: vi.fn(async () => {}),
-    // Existing file so the write path takes vault.modify.
+    // Existing file so the write path takes the overwrite branch.
     getAbstractFileByPath: vi.fn((_p: string) => existingFile),
     cachedRead: vi.fn(async () => 'old memory body'),
   };
@@ -49,10 +65,11 @@ function makeVault() {
 // declarations declare a 0-arg constructor, so cast through the mock
 // shape to construct one for the test.
 import { TFile } from 'obsidian';
+import * as obsidianMod from 'obsidian';
 const existingFile = new (TFile as unknown as new (p: string) => TFile)('Memory.md');
 
-function makeApp() {
-  const vault = makeVault();
+function makeApp(opts: { onDiskContent?: string } = {}) {
+  const vault = makeVault(opts);
   return { app: { vault } as unknown as import('obsidian').App, vault };
 }
 
@@ -147,6 +164,7 @@ describe('runMemoryUpkeepView: write requires approval', () => {
       provider: 'anthropic',
     });
     expect(approvals.request).toHaveBeenCalledTimes(1);
+    expect(vault.process).not.toHaveBeenCalled();
     expect(vault.modify).not.toHaveBeenCalled();
     expect(vault.create).not.toHaveBeenCalled();
   });
@@ -225,13 +243,16 @@ describe('runMemoryUpkeepView: conversationId race guard', () => {
       provider: 'anthropic',
       getActiveConversationId: () => 'conv-2', // changed mid-flight
     });
+    expect(vault.process).not.toHaveBeenCalled();
     expect(vault.modify).not.toHaveBeenCalled();
     expect(vault.create).not.toHaveBeenCalled();
   });
 
   it('writes when the conversation is unchanged between trigger and write', async () => {
     proposeMemoryUpkeep.mockResolvedValue('new memory body');
-    const { app, vault } = makeApp();
+    // on-disk content still equals the snapshot cachedRead returned, so the
+    // TOCTOU guard passes and the proposal commits via vault.process.
+    const { app, vault } = makeApp({ onDiskContent: 'old memory body' });
     await runMemoryUpkeepView({
       app,
       settings: makeSettings(),
@@ -240,7 +261,52 @@ describe('runMemoryUpkeepView: conversationId race guard', () => {
       provider: 'anthropic',
       getActiveConversationId: () => 'conv-1', // still the same conversation
     });
-    expect(vault.modify).toHaveBeenCalledWith(existingFile, 'new memory body');
+    expect(vault.process).toHaveBeenCalledTimes(1);
+    expect(vault.processedWith).toEqual(['new memory body']);
+    // Never the hand-rolled, unguarded modify.
+    expect(vault.modify).not.toHaveBeenCalled();
+  });
+});
+
+// ── Fix A: TOCTOU guard on the memory-note overwrite ─────────────────────────
+
+describe('runMemoryUpkeepView: memory-note TOCTOU guard', () => {
+  it('does NOT clobber a memory note that diverged since the proposal — aborts with a Notice', async () => {
+    // The snapshot shown in the diff card was 'old memory body'. By the
+    // time the user approves, the note on disk has been hand-edited to
+    // something else. The guarded write must refuse rather than discard
+    // that manual edit. Passes on correct code; FAILS if the write is
+    // routed through an unguarded vault.modify (the original bug) or if
+    // the snapshot comparison is dropped.
+    proposeMemoryUpkeep.mockResolvedValue('new memory body');
+    // Spy on the Notice constructor. mockImplementation keeps it `new`-able
+    // (the real class needs `new`); we only care that it was instantiated.
+    const noticeSpy = vi
+      .spyOn(obsidianMod, 'Notice')
+      .mockImplementation(() => ({}) as obsidianMod.Notice);
+    const { app, vault } = makeApp({
+      onDiskContent: 'MANUALLY EDITED memory body — keep me!',
+    });
+    await runMemoryUpkeepView({
+      app,
+      settings: makeSettings(),
+      session: makeSession([{ role: 'user', content: 'x' }], 'conv-1'),
+      approvals: makeApprovals(true),
+      provider: 'anthropic',
+      getActiveConversationId: () => 'conv-1',
+    });
+    // The guard ran inside vault.process and returned the on-disk content
+    // unchanged — the proposal was NOT committed.
+    expect(vault.process).toHaveBeenCalledTimes(1);
+    expect(vault.processedWith).toEqual([
+      'MANUALLY EDITED memory body — keep me!',
+    ]);
+    expect(vault.processedWith).not.toContain('new memory body');
+    // Never falls back to the unguarded overwrite.
+    expect(vault.modify).not.toHaveBeenCalled();
+    // The user is told the update was skipped.
+    expect(noticeSpy).toHaveBeenCalledTimes(1);
+    noticeSpy.mockRestore();
   });
 });
 
