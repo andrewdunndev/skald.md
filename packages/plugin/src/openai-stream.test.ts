@@ -1,18 +1,7 @@
 /**
  * openai-stream: stateful OpenAI → Anthropic stream translator tests.
- *
- * Each test feeds one or more OpenAI chunk objects (parsed JSON — not raw
- * SSE text) to the factory and asserts the synthesised event array.
- *
- * Event field paths are verified against what handleChunk in chat-session.ts
- * actually reads (checked at implementation time):
- *   content_block_start  → d.index, d.content_block.{type,id?,name?}
- *   content_block_delta  → d.index, d.delta.type, d.delta.text (text_delta)
- *                                                d.delta.partial_json (input_json_delta)
- *                                                d.delta.thinking   (thinking_delta)
- *   content_block_stop   → d.index
- *   message_start        → d.message.usage.{input_tokens,output_tokens}
- *   message_delta        → d.delta.stop_reason, d.usage.{input_tokens,output_tokens}
+ * Feeds parsed OpenAI chunk objects to the factory and asserts synthetic events.
+ * Field paths verified against handleChunk in chat-session.ts.
  */
 import { describe, expect, it, beforeEach } from 'vitest';
 import { makeOpenAiStreamTranslator } from './openai-stream';
@@ -102,14 +91,10 @@ describe('plain text stream', () => {
     expect((d.content_block as Record<string, unknown>)?.type).toBe('text');
   });
 
-  it('emits two content_block_delta text_delta events', () => {
+  it('emits two content_block_delta text_delta events with correct text', () => {
     const deltas = byEvent(events, 'content_block_delta');
     expect(deltas).toHaveLength(2);
-    for (const delta of deltas) {
-      const d = dataOf(delta);
-      const dd = d.delta as Record<string, unknown>;
-      expect(dd.type).toBe('text_delta');
-    }
+    expect(deltas.every((e) => (dataOf(e).delta as Record<string, unknown>).type === 'text_delta')).toBe(true);
     const texts = deltas.map((e) => (dataOf(e).delta as Record<string, unknown>).text as string);
     expect(texts.join('')).toBe('Hello world');
   });
@@ -243,7 +228,6 @@ describe('whole-tool-call-in-one-chunk (LiteLLM shape)', () => {
 
 describe('parallel tool calls (two OpenAI indices)', () => {
   const chunks = [
-    // First chunk: both tools announced (id+name for each)
     {
       choices: [{
         delta: {
@@ -255,9 +239,7 @@ describe('parallel tool calls (two OpenAI indices)', () => {
         finish_reason: null,
       }],
     },
-    // Arguments for index 0
     toolArgChunk(0, '{"path":"a.md"}'),
-    // Arguments for index 1, with finish
     toolArgChunk(1, '{"path":"b.md"}', 'tool_calls'),
   ];
 
@@ -299,27 +281,16 @@ describe('parallel tool calls (two OpenAI indices)', () => {
 // ── 5. Usage chunk (empty choices + usage field) ──────────────────────────────
 
 describe('usage chunk (stream_options include_usage)', () => {
-  it('captures input and output tokens in a message_delta', () => {
-    // Pattern: text chunk, finish chunk, then a usage-only chunk (empty choices).
-    const chunks = [
-      textChunk('Hi'),
-      finishChunk('stop'),
-      usageChunk(100, 42),
-    ];
-    const events = runChunks(chunks);
-    // The finish chunk emits a message_delta; the usage chunk emits a second one.
-    const mds = byEvent(events, 'message_delta');
-    // At least one message_delta must carry the captured usage.
-    const withUsage = mds.filter((e) => {
-      const d = dataOf(e);
-      const u = d.usage as Record<string, number> | undefined;
-      return u && u.input_tokens === 100 && u.output_tokens === 42;
+  it('at least one message_delta carries the captured usage tokens', () => {
+    const events = runChunks([textChunk('Hi'), finishChunk('stop'), usageChunk(100, 42)]);
+    const withUsage = byEvent(events, 'message_delta').filter((e) => {
+      const u = (dataOf(e).usage as Record<string, number> | undefined);
+      return u?.input_tokens === 100 && u?.output_tokens === 42;
     });
     expect(withUsage.length).toBeGreaterThanOrEqual(1);
   });
 
-  it('usage that arrives on the finish chunk is embedded in the single message_delta', () => {
-    // When stream_options returns usage on the same chunk as finish_reason.
+  it('usage on the finish chunk is embedded in the single message_delta', () => {
     const chunk = {
       choices: [{ delta: { content: '' }, finish_reason: 'stop' }],
       usage: { prompt_tokens: 50, completion_tokens: 20 },
@@ -327,8 +298,7 @@ describe('usage chunk (stream_options include_usage)', () => {
     const events = runChunks([chunk]);
     const mds = byEvent(events, 'message_delta');
     expect(mds).toHaveLength(1);
-    const d = dataOf(mds[0]);
-    const u = d.usage as Record<string, number>;
+    const u = dataOf(mds[0]).usage as Record<string, number>;
     expect(u.input_tokens).toBe(50);
     expect(u.output_tokens).toBe(20);
   });
@@ -337,16 +307,11 @@ describe('usage chunk (stream_options include_usage)', () => {
 // ── 6. Keepalive empty-choices chunk ─────────────────────────────────────────
 
 describe('keepalive empty-choices chunk', () => {
-  it('returns no events for an empty choices chunk with no usage', () => {
-    // The message_start is emitted on the FIRST call. If the first chunk is a
-    // keepalive, only message_start comes back; subsequent keepalives emit nothing.
+  it('subsequent keepalives after message_start emit no events', () => {
     const translate = makeOpenAiStreamTranslator();
-    const first = translate(keepaliveChunk());
-    // First call: message_start is emitted because messageStartEmitted was false.
+    const first = translate(keepaliveChunk()); // message_start on first call
     expect(first.map((e) => e.event)).toContain('message_start');
-
-    // Subsequent keepalive after message_start already emitted → empty.
-    const second = translate(keepaliveChunk());
+    const second = translate(keepaliveChunk()); // nothing after that
     expect(second).toHaveLength(0);
   });
 });
@@ -354,12 +319,10 @@ describe('keepalive empty-choices chunk', () => {
 // ── 7. Mid-stream error object ────────────────────────────────────────────────
 
 describe('mid-stream error', () => {
-  it('surfaces an error chunk when the parsed data carries an error field', () => {
-    const errorData = { error: { type: 'rate_limit_error', message: 'Too many requests' } };
-    const events = runChunks([errorData]);
+  it('surfaces an error event when the parsed data carries an error field', () => {
+    const events = runChunks([{ error: { type: 'rate_limit_error', message: 'Too many requests' } }]);
     expect(byEvent(events, 'error')).toHaveLength(1);
-    const errData = dataOf(byEvent(events, 'error')[0]) as Record<string, unknown>;
-    expect((errData as Record<string, unknown>).type).toBe('rate_limit_error');
+    expect((dataOf(byEvent(events, 'error')[0]) as Record<string, unknown>).type).toBe('rate_limit_error');
   });
 });
 
@@ -421,19 +384,12 @@ describe('reasoning_content (thinking) block', () => {
   });
 });
 
-// ── 11. Regression: Anthropic/OpenRouter paths via direct-transport ────────────
-// These tests verify that the pump generalisation (array-returning translate,
-// passEventlessFrames=false) does not break the existing providers. We re-run
-// the key assertions from direct-transport.test.ts against the openai-translate
-// stack (no fetch mock needed here — we test the translator logic itself).
+// ── 11. Regression: pump generalisation does not break OpenRouter ────────────
 
-describe('regression: anthropic/openrouter paths unaffected', () => {
-  it('direct-transport tests still pass — verified by running the test file', () => {
-    // This is a sentinel: if the direct-transport.test.ts file passes (17 tests),
-    // the pump generalisation is safe. We assert this implicitly because the full
-    // suite is run as part of the gate. Here we add an explicit structural check
-    // that the identity translator still produces the right shape.
-    // (The real regression guard is the existing 17 tests in direct-transport.test.ts.)
+describe('regression: openrouter translator unchanged', () => {
+  it('translateOpenRouterEvent returns identity for pass-through events', () => {
+    // Real regression guard: the 17 tests in direct-transport.test.ts.
+    // This is a structural smoke-check that the imported function still works.
     const result = translateOpenRouterEvent('content_block_start', { index: 0, content_block: { type: 'text' } });
     expect(result.event).toBe('content_block_start');
     expect(result.data).toEqual({ index: 0, content_block: { type: 'text' } });
