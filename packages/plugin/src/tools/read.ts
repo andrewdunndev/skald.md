@@ -23,7 +23,18 @@ interface OmnisearchApi {
   search: (query: string) => Promise<OmnisearchResult[]>;
 }
 
-/** Hard cap on most tool results. Above this we truncate + add a footer. */
+/**
+ * Hard cap on most tool results. Above this we truncate + add a footer.
+ *
+ * Decision (2026-06-22, ADR 0010): retain at 4 096 bytes (densified).
+ * Compaction now runs BEFORE this cap for the three large-output tools
+ * (read_note / list_notes / search_vault), so the model receives more
+ * information per 4 KB than it did under the old truncate-first ordering.
+ * Raising the cap would increase token cost per turn, which runs counter
+ * to the cost-control purpose of this mechanism — re-evaluate only if
+ * real-world measurements show the budget is still insufficient after
+ * densification.
+ */
 export const MAX_TOOL_RESULT_BYTES = 4096;
 
 /** Larger cap for read_note — a note body can legitimately be big, but we
