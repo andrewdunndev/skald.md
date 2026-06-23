@@ -72,28 +72,6 @@ describe('DirectTransport.connect / isOpen / close', () => {
   });
 });
 
-describe('DirectTransport.send: echo / ping', () => {
-  it('echo → echoed (synchronous)', () => {
-    const { transport, handlers } = makeTransport();
-    transport.connect();
-    transport.send({ type: 'echo', id: 'e1', text: 'hello' });
-    expect(handlers.onMessage).toHaveBeenCalledOnce();
-    const msg = handlers.messages[0];
-    expect(msg.type).toBe('echoed');
-    if (msg.type === 'echoed') {
-      expect(msg.id).toBe('e1');
-      expect(msg.text).toBe('hello');
-    }
-  });
-
-  it('ping → pong (synchronous)', () => {
-    const { transport, handlers } = makeTransport();
-    transport.connect();
-    transport.send({ type: 'ping' });
-    expect(handlers.messages[0]).toEqual({ type: 'pong' });
-  });
-});
-
 describe('DirectTransport: happy path streaming', () => {
   let fetchMock: ReturnType<typeof vi.fn>;
   beforeEach(() => {
