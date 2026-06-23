@@ -61,7 +61,7 @@ export function serverToolsForModel(model: string): ToolDefinition[] {
 
 /**
  * Default server tools (20260209 pins). Re-exported for callers that
- * need a static representative set (tests, ALL_TOOLS aggregate).
+ * need a static representative set (tests).
  * Live sessions must use serverToolsForModel(model) instead.
  */
 export const SERVER_TOOLS: ToolDefinition[] = DEFAULT_SERVER_TOOLS;
