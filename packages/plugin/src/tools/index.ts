@@ -29,10 +29,24 @@ import {
   runUpdateMemory,
   runForgetFact,
 } from './memory';
-import { SERVER_TOOLS, serverToolsForModel } from './server';
+import {
+  SERVER_TOOLS,
+  serverToolsForModel,
+  applyWebFetchAllowlist,
+} from './server';
+import type { WebFetchGuard } from './server';
 
 export type { WriteProposal } from './context';
-export { READ_ONLY_TOOLS, GRAPH_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS, serverToolsForModel };
+export type { WebFetchGuard } from './server';
+export {
+  READ_ONLY_TOOLS,
+  GRAPH_TOOLS,
+  WRITE_TOOLS,
+  MEMORY_TOOLS,
+  SERVER_TOOLS,
+  serverToolsForModel,
+  applyWebFetchAllowlist,
+};
 
 /** Set of tool names safe to execute concurrently (read-only vault
  * operations — no write, no approval flow). Built once at module load. */
@@ -68,6 +82,24 @@ export interface ActiveToolInput {
    * 20260209 set when absent (backward compatibility).
    */
   model?: string;
+  /**
+   * Whether the web tools (web_search + web_fetch) are surfaced to the
+   * model. SECURITY: web_fetch is a prompt-injection exfiltration
+   * channel — a malicious vault note can induce a fetch to an attacker
+   * URL with vault contents in the query string. When false, the web
+   * tools are omitted from the catalog entirely, closing the channel.
+   * Defaults to false (off) when absent so callers that haven't opted
+   * in never expose the channel.
+   */
+  webToolsEnabled?: boolean;
+  /**
+   * When web tools are enabled, restrict web_fetch to these domains via
+   * Anthropic's native server-side `allowed_domains` parameter. An
+   * empty/absent list means no domain restriction (the model may fetch
+   * any URL) — only meaningful alongside webToolsEnabled. This is the
+   * allow-list defense-in-depth layer on top of the on/off gate.
+   */
+  webFetchAllowedDomains?: readonly string[];
 }
 
 /**
@@ -85,8 +117,18 @@ export function buildActiveTools(input: ActiveToolInput): ToolDefinition[] {
     tools.push(...MEMORY_TOOLS);
   }
   // Server tools (web_search / web_fetch) execute on the provider side.
-  // Use the model-appropriate version pins so Haiku doesn't 400.
-  tools.push(...serverToolsForModel(input.model ?? ''));
+  // SECURITY: web_fetch is a prompt-injection exfiltration channel, so it
+  // is gated behind webToolsEnabled (off by default — when the operator
+  // hasn't opted in, the tools are never sent and the channel is closed).
+  // When enabled, the model-appropriate version pins are used (so Haiku
+  // doesn't 400) and web_fetch is constrained by Anthropic's native
+  // allowed_domains parameter when an allow-list is configured.
+  if (input.webToolsEnabled) {
+    const guard: WebFetchGuard = {
+      allowedDomains: input.webFetchAllowedDomains,
+    };
+    tools.push(...serverToolsForModel(input.model ?? '', guard));
+  }
   return tools;
 }
 
