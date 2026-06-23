@@ -26,6 +26,8 @@
     "typecheck": "pnpm -r typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "audit:prod": "pnpm audit --prod",
     "check:size": "node scripts/check-size.mjs",
     "check:lint": "node scripts/check-plugin-lint.mjs",
     "check:cdp": "node scripts/cdp-walkthrough.mjs",

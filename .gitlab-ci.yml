@@ -46,6 +46,28 @@ plugin-lint:
   script:
     - pnpm check:lint
 
+# Coverage is reported (visible measure) but NOT yet gated on a threshold —
+# a floor is added once the baseline is agreed so it ratchets up, never down.
+# Note: the Obsidian-DOM view layer is intentionally CDP-tested, not unit-tested,
+# so statement coverage understates the pure-logic coverage.
+coverage:
+  stage: test
+  script:
+    - pnpm test:coverage
+  coverage: '/All files\s*\|\s*([\d.]+)/'
+  artifacts:
+    when: always
+    paths:
+      - coverage/
+    expire_in: 2 weeks
+
+# Supply-chain gate: fail the pipeline on any vulnerability in PRODUCTION
+# dependencies (currently zero). Dev-only advisories are tracked separately.
+audit-prod:
+  stage: test
+  script:
+    - pnpm audit:prod
+
 build-plugin:
   stage: build
   needs: ['typecheck']
