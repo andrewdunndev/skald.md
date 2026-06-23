@@ -13,7 +13,14 @@ import { estimateTurnCost, formatSessionFooter } from '../pricing';
 
 export interface ResumeContext {
   app: App;
-  session: ChatSession | null;
+  /**
+   * Live read of the view's current session. MUST be a getter, not a
+   * snapshot: connect() swaps the view's session reference, so the
+   * hydrate target is only correct when read AFTER connect() runs.
+   * A captured value would point at the pre-connect (now-detached)
+   * session, leaving the live view bound to a fresh empty one.
+   */
+  getSession: () => ChatSession | null;
   connect: () => void;
   messageList: MessageList;
   dropSessionState: () => void;
@@ -50,9 +57,12 @@ export async function resumeConversation(
   }
 
   // Roll current chat cost into session cumulative before clearing.
-  if (ctx.session) {
+  // Read the session here (pre-teardown) so the outgoing chat's spend
+  // is captured before connect() swaps in a fresh session.
+  const outgoing = ctx.getSession();
+  if (outgoing) {
     const chatCost = estimateTurnCost(
-      ctx.session.getTotalUsage(),
+      outgoing.getTotalUsage(),
       ctx.getModelValue(),
     );
     ctx.onPreClear(chatCost);
@@ -67,7 +77,11 @@ export async function resumeConversation(
   ctx.setSession(null);
   ctx.connect();
 
-  const session = ctx.session;
+  // Read the session AFTER connect(): connect() installs a brand-new
+  // session on the view, so this is the reference the live view will
+  // send through. Hydrating any earlier-captured reference would
+  // hydrate a detached session and leave the view empty.
+  const session = ctx.getSession();
   if (!session) return;
 
   session.hydrate({
