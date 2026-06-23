@@ -6,10 +6,23 @@
  * cap (capResult / MAX_TOOL_RESULT_BYTES) remains the final backstop.
  *
  * Compaction is ALWAYS lossless or safe-degrading:
- *   - JSON → TOON  : structurally equivalent; every value is preserved.
- *   - JSON → minify: whitespace stripped, all values preserved.
+ *   - JSON → TOON  : structurally equivalent; the TOON is decoded back and
+ *                    deep-equalled against the source before it is accepted.
+ *                    Any mismatch falls through to minify (then unchanged).
+ *   - JSON → minify: whitespace stripped, all values preserved; the minified
+ *                    output is re-parsed and deep-equalled before acceptance.
  *   - Text dedup   : repeated identical lines collapsed with a marker.
  *   - Any error    : input returned unchanged (never throws, never corrupts).
+ *
+ * Integer-precision guard
+ * ───────────────────────
+ * `JSON.parse` silently rounds integer literals beyond ±2^53−1
+ * (Number.MAX_SAFE_INTEGER) to the nearest double, which would corrupt the
+ * value before any transform could see it.  We therefore detect unsafe
+ * integer literals in the RAW source up front and skip the JSON branch
+ * entirely on such inputs (treating them as plain text, which never reparses
+ * numbers).  This narrows the lossless claim honestly: large integers are
+ * left untouched rather than silently mangled.
  *
  * TOON readability tradeoff
  * ─────────────────────────
@@ -22,7 +35,7 @@
  * which every model understands unambiguously.
  */
 
-import { encode } from '@toon-format/toon';
+import { encode, decode } from '@toon-format/toon';
 
 /** Output shape — never throws; format='unchanged' signals a no-op. */
 export interface CompactResult {
@@ -126,6 +139,75 @@ function compactText(text: string, minDupRun: number): string | null {
 }
 
 /**
+ * Structural deep-equality for JSON-shaped values (the output of JSON.parse
+ * or TOON decode).  Used to PROVE a transform was lossless before accepting
+ * it.  Handles primitives, arrays, and plain objects; key order is ignored.
+ */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  // NaN === NaN is false above, but JSON has no NaN, so don't special-case it.
+  if (typeof a !== typeof b) return false;
+  if (a === null || b === null) return a === b;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i++) {
+      if (!deepEqual(a[i], b[i])) return false;
+    }
+    return true;
+  }
+  if (typeof a === 'object' && typeof b === 'object') {
+    const ao = a as Record<string, unknown>;
+    const bo = b as Record<string, unknown>;
+    const ak = Object.keys(ao);
+    const bk = Object.keys(bo);
+    if (ak.length !== bk.length) return false;
+    for (const k of ak) {
+      if (!Object.prototype.hasOwnProperty.call(bo, k)) return false;
+      if (!deepEqual(ao[k], bo[k])) return false;
+    }
+    return true;
+  }
+  return false;
+}
+
+/**
+ * True when `text` contains a JSON integer literal whose magnitude exceeds
+ * Number.MAX_SAFE_INTEGER (2^53−1), i.e. one that `JSON.parse` would round
+ * to a different value.  We scan the raw source rather than the parsed tree
+ * because the precision is already gone by the time `JSON.parse` returns.
+ *
+ * Matches integer-valued number tokens that are not part of a longer
+ * identifier and are followed by a JSON structural boundary; a fractional or
+ * exponent part means it was always a float and precision loss is expected,
+ * so those are ignored.  Conservative: a false positive only means we skip
+ * compaction (safe), never that we corrupt data.
+ */
+function hasUnsafeIntegerLiteral(text: string): boolean {
+  // Integer tokens: optional sign, digits, NOT followed by '.', 'e', 'E', or
+  // another digit/identifier char. Preceded by start, whitespace, or a JSON
+  // structural char so we don't match inside strings' worth of digits like
+  // version-ish tokens — but strings are JSON too, so also guard the lead.
+  const re = /(^|[\s,:[\]{])(-?\d+)(?![\d.eE])/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    const digits = m[2];
+    // Quick length gate: MAX_SAFE_INTEGER is 16 digits (9007199254740991).
+    const abs = digits.replace('-', '');
+    if (abs.length < 16) continue;
+    try {
+      if (BigInt(digits) > BigInt(Number.MAX_SAFE_INTEGER) ||
+          BigInt(digits) < BigInt(Number.MIN_SAFE_INTEGER)) {
+        return true;
+      }
+    } catch {
+      // Not a valid bigint (shouldn't happen for \d+) — be safe.
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Compact a tool-result string.  Pure function — never throws, never
  * mutates its input.  Returns the (possibly smaller) text and a format
  * tag describing what was done.
@@ -142,30 +224,41 @@ export function compactToolResult(
 
   try {
     // ── JSON branch ────────────────────────────────────────────────────
+    // Precision guard (A): if the raw source holds an integer literal beyond
+    // ±2^53−1, JSON.parse would already have rounded it.  Skip the JSON branch
+    // entirely and treat the input as plain text — never reparse the number.
     let parsed: unknown;
-    try {
-      parsed = JSON.parse(text);
-    } catch {
-      parsed = undefined;
+    if (!hasUnsafeIntegerLiteral(text)) {
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = undefined;
+      }
     }
 
     if (parsed !== undefined) {
       // Uniform flat array → try TOON.
+      // (B) Accept TOON only if decoding it back deep-equals the source.
       if (Array.isArray(parsed) && parsed.length >= minJsonArrayLen && isUniformFlatArray(parsed)) {
         try {
           const toon = TOON_HEADER + encode(parsed);
           if (toon.length < text.length) {
-            return { text: toon, format: 'toon' };
+            const roundTrip = decode(encode(parsed));
+            if (deepEqual(roundTrip, parsed)) {
+              return { text: toon, format: 'toon' };
+            }
+            // Decode mismatch — TOON would lose data. Fall through to minify.
           }
         } catch {
-          // TOON encode failed — fall through to minify.
+          // TOON encode/decode failed — fall through to minify.
         }
       }
 
       // All other JSON → minify.
+      // Accept only if the minified output re-parses to the same value.
       try {
         const minified = JSON.stringify(parsed);
-        if (minified.length < text.length) {
+        if (minified.length < text.length && deepEqual(JSON.parse(minified), parsed)) {
           return { text: minified, format: 'json-min' };
         }
       } catch {

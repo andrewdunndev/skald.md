@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { decode } from '@toon-format/toon';
 import { compactToolResult } from './tool-compact';
 
 // ---------------------------------------------------------------------------
@@ -230,5 +231,118 @@ describe('compactToolResult — realistic large result shrinks measurably', () =
     // Must be measurably shorter — assert ≥ 20% reduction
     const ratio = result.text.length / input.length;
     expect(ratio).toBeLessThan(0.80);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (A) Integer-precision guard — never silently round > 2^53
+// ---------------------------------------------------------------------------
+
+describe('compactToolResult — large-integer precision (A)', () => {
+  // 9007199254740993 = MAX_SAFE_INTEGER + 2, which JSON.parse rounds to
+  // 9007199254740992. Compacting must NOT emit a value that lost the +2.
+  const unsafe = '9007199254740993';
+
+  it('does not corrupt an unsafe integer in a uniform array (no TOON round-trip mangling)', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => ({ id: i, big: 9007199254740993 }));
+    // Build the JSON by hand so the literal survives until compaction.
+    const input =
+      '[\n' +
+      rows
+        .map((r) => `  { "id": ${r.id}, "big": ${unsafe} }`)
+        .join(',\n') +
+      '\n]';
+    const result = compactToolResult(input);
+    // Either skipped entirely (unchanged) OR — if it ever transforms — the
+    // exact 16-digit literal must survive verbatim. It must never appear as
+    // the rounded ...992 form.
+    expect(result.text).not.toContain('9007199254740992');
+    if (result.format === 'unchanged') {
+      expect(result.text).toBe(input);
+    } else {
+      expect(result.text).toContain(unsafe);
+    }
+  });
+
+  it('skips the JSON branch for a scalar-bearing object with an unsafe integer', () => {
+    const input = `{\n  "count": ${unsafe},\n  "name": "x"\n}`;
+    const result = compactToolResult(input);
+    // Must not minify into the rounded form; safest behaviour is unchanged.
+    expect(result.text).not.toContain('9007199254740992');
+    expect(result.format).toBe('unchanged');
+    expect(result.text).toBe(input);
+  });
+
+  it('still compacts safe integers normally (guard is not over-broad)', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => ({ id: i, n: 1000 + i }));
+    const input = JSON.stringify(rows, null, 2);
+    const result = compactToolResult(input);
+    // Safe ints → TOON path still fires.
+    expect(result.format).toBe('toon');
+  });
+
+  it('treats large floats (already lossy by nature) as compactable, not skipped', () => {
+    // A float with many digits is not an integer-precision concern.
+    const rows = Array.from({ length: 10 }, (_, i) => ({ id: i, ratio: 0.123456789 }));
+    const input = JSON.stringify(rows, null, 2);
+    const result = compactToolResult(input);
+    expect(result.format).not.toBe('unchanged');
+  });
+});
+
+// ---------------------------------------------------------------------------
+// (B) TOON acceptance is gated on a decode round-trip
+// ---------------------------------------------------------------------------
+
+describe('compactToolResult — TOON decode round-trip verification (B)', () => {
+  it('emits TOON only when it decodes back deep-equal to the source', () => {
+    const rows = Array.from({ length: 12 }, (_, i) => ({
+      path: `note-${i}.md`,
+      score: i,
+      tag: `t${i}`,
+    }));
+    const input = JSON.stringify(rows, null, 2);
+    const result = compactToolResult(input);
+    expect(result.format).toBe('toon');
+
+    // Strip the marker header and decode the body; it must reconstruct rows.
+    const body = result.text.replace(/^# TOON[^\n]*\n/, '');
+    const decoded = decode(body);
+    expect(decoded).toEqual(rows);
+  });
+
+  it('does not silently lose data when a value would not survive TOON', () => {
+    // Strings that look numeric-with-leading-zeros are a classic encode/decode
+    // hazard. Whatever the encoder does, the output must round-trip or it must
+    // fall back to a lossless format (json-min / unchanged).
+    const rows = Array.from({ length: 10 }, (_, i) => ({
+      id: i,
+      code: `00${i}`, // leading zeros: must stay a string on decode
+    }));
+    const input = JSON.stringify(rows, null, 2);
+    const result = compactToolResult(input);
+
+    if (result.format === 'toon') {
+      const body = result.text.replace(/^# TOON[^\n]*\n/, '');
+      expect(decode(body)).toEqual(rows);
+    } else {
+      // Fell back — must still be lossless: re-derive the original data.
+      expect(['json-min', 'unchanged']).toContain(result.format);
+      expect(JSON.parse(result.text)).toEqual(rows);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// minify round-trip verification
+// ---------------------------------------------------------------------------
+
+describe('compactToolResult — minify preserves all values', () => {
+  it('json-min output re-parses deep-equal to the source', () => {
+    const obj = { a: 1, b: { nested: [1, 2, 3] }, c: 'hello', d: null, e: true };
+    const input = JSON.stringify(obj, null, 2);
+    const result = compactToolResult(input);
+    expect(result.format).toBe('json-min');
+    expect(JSON.parse(result.text)).toEqual(obj);
   });
 });

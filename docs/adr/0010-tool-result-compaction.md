@@ -25,16 +25,42 @@ truncate what's left.
 
 Add **deterministic, on-device tool-result compaction** — a pure function
 (`tool-compact.ts`) applied to a tool's result before it enters the model
-context. It is lossless-or-safe: on any parse/encode error, or when the
-transform wouldn't shrink the result, it returns the input unchanged. Pipeline:
+context. It is lossless-or-safe: on any parse/encode error, on a verification
+failure, or when the transform wouldn't shrink the result, it returns the
+input unchanged. Pipeline:
 
 - **Uniform tabular JSON** (a flat array of objects, ≥ 8 rows) → encode as
   **TOON** (`@toon-format/toon`), a compact table-shaped notation that declares
   fields once and streams rows. Prefixed with a one-line marker so the model
-  knows the format. ~30–60% fewer tokens than JSON on this shape.
-- **Other JSON** → minified (whitespace stripped).
+  knows the format. ~30–60% fewer tokens than JSON on this shape. **The TOON is
+  decoded back and deep-equalled against the source before it is accepted**; on
+  any mismatch we fall through to minify, so a non-round-tripping encode can
+  never silently drop or mutate data.
+- **Other JSON** → minified (whitespace stripped). **The minified output is
+  re-parsed and deep-equalled against the source before acceptance.**
 - **Plain text / logs** → collapse runs of identical consecutive lines, strip
   trailing whitespace, collapse excess blank lines.
+
+#### Integer-precision honesty
+
+`JSON.parse` silently rounds integer literals beyond ±2^53−1
+(`Number.MAX_SAFE_INTEGER`) to the nearest double — corruption that happens
+*before* any transform can observe it. So "lossless" cannot cover such inputs
+by transforming them. We instead **detect unsafe integer literals in the raw
+source up front and skip the JSON branch entirely** (the input is treated as
+plain text, which never re-parses numbers). Large integers are therefore left
+**untouched**, not mangled. The guarantee is precise: *every value the
+function transforms survives a structural round-trip; values it cannot
+transform losslessly are returned unchanged.*
+
+#### Byte cap is measured in real UTF-8 bytes
+
+`capResult` measures the budget with `TextEncoder` (true UTF-8 byte length),
+not `String.length` (UTF-16 code units), so a non-ASCII-heavy result is capped
+at its real wire size rather than an under-count. Truncation cuts on a
+**code-point boundary**, so a UTF-16 surrogate pair (emoji / astral character)
+is never split into a lone surrogate; a multi-byte character that straddles the
+budget is dropped whole.
 
 Gated behind a `compactToolResults` setting (default **on**) so a user on a
 weaker model can disable it. The byte cap (`capResult`) **remains the hard
