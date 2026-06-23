@@ -85,6 +85,7 @@ machine-readability):
 | File | Cap | Expires | Next move |
 |------|-----|---------|-----------|
 | `packages/plugin/src/view.ts` | 415 | 2026-09-22 | Extract `setStatus` + status-row setup into `view/status-row.ts` |
+| `packages/plugin/src/chat-session.ts` | 415 | 2026-09-22 | Extract agentic-loop logic into `chat-session-tool-loop.ts` |
 
 Past deviations (worker/src/index.ts, tools.ts) have all been
 refactored into per-responsibility modules.
@@ -93,6 +94,11 @@ refactored into per-responsibility modules.
 `aria-live` on statusEl and a non-color error-icon cue, pushing the file to
 409 lines. The correct fix is to extract the status-row setup and `setStatus`
 into `view/status-row.ts` (9 lines of logic; the deviation expires 2026-09-22).
+
+**2026-06-23 — chat-session.ts:** resource-exhaustion fix (fix/agentic-leg-cap)
+added `MAX_TOOL_LEGS` constant + `toolLegCount` guard, pushing the file to 410
+lines. The correct follow-up is to extract the `executeToolsAndContinue` agentic
+loop into `chat-session-tool-loop.ts` (the deviation expires 2026-09-22).
 
 **Why deviations exist at all:** files that house complete
 subsystems whose decomposition is a real refactor, not a renaming
