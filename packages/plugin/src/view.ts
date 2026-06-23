@@ -320,8 +320,7 @@ export class SkaldView extends ItemView {
     this.usageFooterEl.style.display = '';
     void this.flushRender();
     void this.persistConversation();
-    // Memory upkeep: fire after the turn is shown (off the hot path).
-    // Never blocks rendering — errors soft-fail silently.
+    // Memory upkeep: fire after the turn is shown (off the hot path); never blocks rendering — errors soft-fail silently.
     this.turnsSinceUpkeep++;
     if (isUpkeepDue(this.turnsSinceUpkeep)) {
       this.turnsSinceUpkeep = 0;

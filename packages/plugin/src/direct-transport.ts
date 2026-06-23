@@ -11,26 +11,21 @@ import { applyAnthropicCaching } from './anthropic-caching';
 import { providerCapabilities } from './provider-capabilities';
 import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
 import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS, composeSignal } from './transport-timeouts';
+import { rewriteOpenRouterTools, translateOpenRouterEvent } from './openrouter-translate';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
-const ANTHROPIC_WEB_SEARCH_TYPES = ['web_search_20260209', 'web_search_20250305'];
-const ANTHROPIC_WEB_FETCH_TYPES = ['web_fetch_20260209', 'web_fetch_20250910'];
 
 const OPENROUTER_URL = 'https://openrouter.ai/api/v1/messages';
 const OPENROUTER_REFERER = 'https://github.com/skald/skald';
 const OPENROUTER_TITLE = 'skald';
-const OR_WEB_SEARCH = 'openrouter:web_search';
-const OR_WEB_FETCH = 'openrouter:web_fetch';
 
 /** Config threaded in by view.ts at construction time. */
 export interface DirectTransportConfig {
   getAnthropicKey: () => string;
   getOpenRouterKey: () => string;
-  /** Optional — Bearer token for an OpenAI-compatible endpoint. */
+  /** OpenAI-compatible Bearer token (optional; base URL flows via ClientMessage). */
   getOpenAiKey?: () => string;
-  /** Optional — base URL for an OpenAI-compatible endpoint. */
-  getOpenAiBaseUrl?: () => string;
   /** Optional — defaults to false. */
   getThinkingEnabled?: () => boolean;
 }
@@ -98,10 +93,7 @@ export class DirectTransport implements SkaldTransport {
           ? (msg.openai_api_key?.trim() || this.config.getOpenAiKey?.().trim() || '')
           : (msg.anthropic_api_key?.trim() || this.config.getAnthropicKey().trim());
 
-    // OpenAI-compatible endpoints may legitimately need no auth; only
-    // Anthropic / OpenRouter strictly require a key here. (Moot for now —
-    // openai chat streaming throws in buildDispatch — but keeps the
-    // key-selection contract correct.)
+    // OpenAI endpoints may need no auth; only anthropic/openrouter require a key.
     if (!apiKey && provider !== 'openai') {
       const which = provider === 'openrouter' ? 'OpenRouter' : 'Anthropic';
       this.handlers.onMessage({
@@ -312,12 +304,8 @@ function buildDispatch(
     };
   }
   if (provider === 'openai') {
-    // Interim: OpenAI-compatible chat streaming (SSE translation between
-    // the /chat/completions delta format and skald's Anthropic-shaped
-    // event stream) is not wired yet. Throw a clean, actionable error
-    // rather than silently falling through to the Anthropic branch (which
-    // would send an Anthropic body to an OpenAI endpoint). The utility
-    // tier (rerank / memory / capture) already works on this provider.
+    // Interim: OpenAI /chat/completions SSE translation isn't wired yet — throw
+    // rather than fall through to the Anthropic branch (wrong body shape).
     throw new Error(
       'Skald: OpenAI-compatible chat streaming is not implemented yet — it lands in the next update. Rerank/memory/capture already work on this provider.',
     );
@@ -348,72 +336,4 @@ function buildDispatch(
 
 function identityEvent(event: string, data: unknown): { event: string; data: unknown } {
   return { event, data };
-}
-
-function rewriteOpenRouterTools(
-  req: import('@skald/protocol').ChatRequest,
-): import('@skald/protocol').ChatRequest {
-  if (!req.tools) return req;
-  const tools = req.tools.map((t) => {
-    const type =
-      typeof (t as Record<string, unknown>).type === 'string'
-        ? ((t as Record<string, unknown>).type as string)
-        : undefined;
-    if (type && ANTHROPIC_WEB_SEARCH_TYPES.includes(type)) {
-      return { type: OR_WEB_SEARCH };
-    }
-    if (type && ANTHROPIC_WEB_FETCH_TYPES.includes(type)) {
-      return { type: OR_WEB_FETCH };
-    }
-    return t;
-  });
-  return { ...req, tools };
-}
-
-function translateOpenRouterEvent(
-  event: string,
-  data: unknown,
-): { event: string; data: unknown } {
-  if (!data || typeof data !== 'object') return { event, data };
-  const obj = data as Record<string, unknown>;
-
-  if (event === 'content_block_start') {
-    const block = obj.content_block as Record<string, unknown> | undefined;
-    if (block) {
-      const translated = translateOpenRouterBlock(block);
-      if (translated !== block) {
-        return { event, data: { ...obj, content_block: translated } };
-      }
-    }
-  }
-
-  return { event, data };
-}
-
-function translateOpenRouterBlock(
-  block: Record<string, unknown>,
-): Record<string, unknown> {
-  const blockType = typeof block.type === 'string' ? block.type : undefined;
-  const blockName = typeof block.name === 'string' ? block.name : undefined;
-
-  if (
-    (blockType === 'tool_use' || blockType === 'server_tool_use') &&
-    blockName
-  ) {
-    if (blockName === OR_WEB_SEARCH) {
-      return { ...block, type: 'server_tool_use', name: 'web_search' };
-    }
-    if (blockName === OR_WEB_FETCH) {
-      return { ...block, type: 'server_tool_use', name: 'web_fetch' };
-    }
-  }
-
-  if (blockType === `${OR_WEB_SEARCH}_result`) {
-    return { ...block, type: 'web_search_tool_result' };
-  }
-  if (blockType === `${OR_WEB_FETCH}_result`) {
-    return { ...block, type: 'web_fetch_tool_result' };
-  }
-
-  return block;
 }

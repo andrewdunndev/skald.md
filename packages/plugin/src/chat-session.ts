@@ -194,17 +194,11 @@ export class ChatSession {
       provider,
     };
     if (apiKey) {
-      if (provider === 'openrouter') {
-        msg.openrouter_api_key = apiKey;
-      } else if (provider === 'openai') {
-        msg.openai_api_key = apiKey;
-      } else {
-        msg.anthropic_api_key = apiKey;
-      }
+      if (provider === 'openrouter') msg.openrouter_api_key = apiKey;
+      else if (provider === 'openai') msg.openai_api_key = apiKey;
+      else msg.anthropic_api_key = apiKey;
     }
-    if (provider === 'openai' && baseUrl) {
-      msg.openai_base_url = baseUrl;
-    }
+    if (provider === 'openai' && baseUrl) msg.openai_base_url = baseUrl;
     this.transport.send(msg);
     this.handlers.onUpdate();
   }

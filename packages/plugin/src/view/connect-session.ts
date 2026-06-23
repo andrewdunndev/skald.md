@@ -70,7 +70,6 @@ export function connectSession(
       getAnthropicKey: () => plugin.settings.anthropicApiKey,
       getOpenRouterKey: () => plugin.settings.openrouterApiKey,
       getOpenAiKey: () => plugin.settings.openaiApiKey,
-      getOpenAiBaseUrl: () => plugin.settings.openaiBaseUrl,
       getThinkingEnabled: () => plugin.settings.thinkingEnabled,
     },
     handlers,

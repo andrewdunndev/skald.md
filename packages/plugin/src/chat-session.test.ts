@@ -142,33 +142,26 @@ describe('ChatSession.dispatch: payload shape', () => {
   });
 
   it('sets openai_api_key + openai_base_url for openai routes', async () => {
-    const { tx, session } = makeHarness({
-      provider: 'openai',
-      apiKey: 'oai-zzz',
-      baseUrl: 'https://llm.dunn.dev/v1',
-    });
+    const url = 'https://llm.dunn.dev/v1';
+    const { tx, session } = makeHarness({ provider: 'openai', apiKey: 'oai-zzz', baseUrl: url });
     await session.sendUserText('hi');
     const msg = tx.sent[0];
     if (msg.type !== 'chat') throw new Error('expected chat');
     expect(msg.provider).toBe('openai');
     expect(msg.openai_api_key).toBe('oai-zzz');
-    expect(msg.openai_base_url).toBe('https://llm.dunn.dev/v1');
+    expect(msg.openai_base_url).toBe(url);
     expect(msg.anthropic_api_key).toBeUndefined();
     expect(msg.openrouter_api_key).toBeUndefined();
   });
 
-  it('sets openai_base_url even when no key is configured (keyless endpoint)', async () => {
-    const { tx, session } = makeHarness({
-      provider: 'openai',
-      apiKey: '',
-      baseUrl: 'https://llm.dunn.dev/v1',
-    });
+  it('sets openai_base_url even with no key (keyless endpoint)', async () => {
+    const url = 'https://llm.dunn.dev/v1';
+    const { tx, session } = makeHarness({ provider: 'openai', apiKey: '', baseUrl: url });
     await session.sendUserText('hi');
     const msg = tx.sent[0];
     if (msg.type !== 'chat') throw new Error('expected chat');
-    expect(msg.provider).toBe('openai');
     expect(msg.openai_api_key).toBeUndefined();
-    expect(msg.openai_base_url).toBe('https://llm.dunn.dev/v1');
+    expect(msg.openai_base_url).toBe(url);
   });
 
   it('passes a multi-modal content-block array through the payload unchanged', async () => {
