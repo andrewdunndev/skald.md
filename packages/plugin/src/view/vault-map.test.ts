@@ -89,6 +89,20 @@ describe('buildVaultMap: folder-only over threshold', () => {
   });
 });
 
+describe('buildVaultMap: folder-only branch size cap', () => {
+  it('caps the folder-tree-only output at MAX_MAP_BYTES for a massive vault', () => {
+    const longSeg = 'very-long-folder-name-padding-segment-abcdefgh';
+    const paths = Array.from(
+      { length: 2000 },
+      (_, i) =>
+        `${longSeg}-${String(i).padStart(4, '0')}/${longSeg}-sub/note-${i}.md`,
+    );
+    const out = buildVaultMap(mockApp(paths), { maxNotesForFullList: 300 });
+    expect(out.length).toBeLessThanOrEqual(12_288 + 60);
+    expect(out).not.toContain('## All notes');
+  });
+});
+
 describe('buildVaultMap: size cap fallback', () => {
   it('falls back to folder-tree-only when the full list exceeds the size cap', () => {
     // Many notes with long paths, but UNDER the note-count threshold,

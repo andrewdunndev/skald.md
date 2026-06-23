@@ -128,6 +128,12 @@ export interface CaptureServiceConfig {
   openaiModel: string;
   /** OpenAI-compatible base URL. */
   openaiBaseUrl: string;
+  /**
+   * Cheap/utility model for this capture pass (from utilityModel(settings)).
+   * Capture is a one-shot summarise/tag task — it should run on the Haiku
+   * tier, not the reasoning model the user picked for chat.
+   */
+  utilityModel: string;
   captureFolder: string;
   /** Vault-relative path of a prompt-template note. Empty → use
    * the kind-default prompt baked into this module. */
@@ -176,12 +182,11 @@ async function directCapture(
       `Capture content too large (>${CAPTURE_MAX_PROMPT_BYTES / 1024} KB).`,
     );
   }
-  const model =
-    provider === 'openrouter'
-      ? cfg.openrouterModel
-      : provider === 'openai'
-        ? cfg.openaiModel
-        : cfg.defaultModel;
+  // Capture is a cheap one-shot summarise/tag task — route through
+  // the utility (Haiku-tier) model, not the reasoning model the user
+  // picked for chat. cfg.utilityModel is resolved by the caller via
+  // utilityModel(settings) from provider-capabilities.ts.
+  const model = cfg.utilityModel;
 
   const res = await utilityComplete(provider, apiKey, model, {
     userPrompt: prompt,

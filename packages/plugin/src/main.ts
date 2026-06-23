@@ -4,6 +4,7 @@ import { SkaldSettingTab, DEFAULT_SETTINGS, type SkaldSettings } from './setting
 import { Logger } from './logger';
 import { ConversationSearchModal } from './conversation-search';
 import { CaptureService } from './capture';
+import { utilityModel } from './provider-capabilities';
 import {
   loadSlashCommands,
   renderCommand,
@@ -36,6 +37,7 @@ export default class SkaldPlugin extends Plugin {
       openaiApiKey: this.settings.openaiApiKey,
       openaiModel: this.settings.openaiModel,
       openaiBaseUrl: this.settings.openaiBaseUrl,
+      utilityModel: utilityModel(this.settings),
       captureFolder: this.settings.capturesFolder,
       promptPath: this.settings.capturePromptPath,
     }));

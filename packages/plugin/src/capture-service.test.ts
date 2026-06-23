@@ -79,6 +79,7 @@ function makeCfg(
     openaiApiKey: '',
     openaiModel: '',
     openaiBaseUrl: '',
+    utilityModel: 'claude-haiku-4-5',
     captureFolder: 'Skald/Captures',
     promptPath: '',
     ...overrides,
@@ -122,6 +123,26 @@ describe('CaptureService.run()', () => {
       svc.run({ kind: 'text', content: 'hello', silent: true }),
     ).rejects.toThrow('No Anthropic API key');
     expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('routes the API call through the utility model, not the reasoning model', async () => {
+    const { app } = makeApp();
+    spy.mockResolvedValue(anthropicResp('# Summary\nContent here.'));
+    const svc = new CaptureService(
+      app,
+      () =>
+        makeCfg({
+          defaultModel: 'claude-sonnet-4-6',
+          utilityModel: 'claude-haiku-4-5',
+        }),
+    );
+    await svc.run({ kind: 'text', content: 'some content', silent: true });
+    expect(spy).toHaveBeenCalledOnce();
+    const body = JSON.parse(
+      (spy.mock.calls[0][0] as Record<string, unknown>).body as string,
+    ) as { model: string };
+    expect(body.model).toBe('claude-haiku-4-5');
+    expect(body.model).not.toBe('claude-sonnet-4-6');
   });
 
   // Fix 3: same-day same-slug collision → uniquified path, capture is NOT lost.
