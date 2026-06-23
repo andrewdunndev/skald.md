@@ -35,7 +35,7 @@ Architecture decisions are recorded in [`docs/adr/`](docs/adr/).
 ### 1. Install the plugin
 
 Today: manual install. Copy `packages/plugin/dist/{manifest.json,
-main.js, styles.css}` into your vault's
+main.js, styles.css, versions.json}` into your vault's
 `.obsidian/plugins/skald/` folder, enable the plugin in Obsidian.
 
 See [`docs/installing-the-plugin.md`](docs/installing-the-plugin.md)

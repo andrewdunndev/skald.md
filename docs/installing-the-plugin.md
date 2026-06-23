@@ -18,7 +18,7 @@ For now, the manual route:
 
    ```sh
    git clone https://gitlab.com/dunn.dev/skald.md.git
-   cd skald
+   cd skald.md
    pnpm install
    pnpm --filter @skald/plugin build
    ```
