@@ -21,6 +21,7 @@
 import { requestUrl } from 'obsidian';
 import type { Provider } from '@skald/protocol';
 import { providerCapabilities } from './provider-capabilities';
+import { validateOpenAiBaseUrl } from './openai-base-url';
 
 export interface UtilityResult {
   ok: boolean;
@@ -76,7 +77,22 @@ export async function utilityComplete(
       body = buildAnthropicBody(model, opts, caps.promptCaching);
       break;
     case 'openai': {
-      const base = (opts.baseUrl ?? '').replace(/\/$/, '');
+      // Defense-in-depth: even though loadSettings clamps an insecure
+      // openaiBaseUrl, refuse here too so prompts + the API key can never be
+      // dispatched over a cleartext non-loopback URL (the rule must hold no
+      // matter which path supplied the base URL).
+      const rawBase = opts.baseUrl ?? '';
+      const validation = validateOpenAiBaseUrl(rawBase);
+      if (!rawBase.trim() || !validation.ok) {
+        return {
+          ok: false,
+          text: null,
+          status: 0,
+          errorText:
+            validation.error ?? 'No OpenAI-compatible base URL configured.',
+        };
+      }
+      const base = rawBase.replace(/\/$/, '');
       url = `${base}/chat/completions`;
       headers = {
         Authorization: `Bearer ${apiKey}`,

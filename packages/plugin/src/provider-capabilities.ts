@@ -24,6 +24,26 @@ function assertNever(x: never): never {
   throw new Error(`Unhandled provider: ${String(x)}`);
 }
 
+/** The set of valid Provider values, kept in lockstep with the Provider
+ * union in @skald/protocol. This is the single runtime source of truth used
+ * to validate the provider field loaded from the (untrusted) data.json. */
+const PROVIDERS = ['anthropic', 'openrouter', 'openai'] as const;
+
+/**
+ * Runtime type guard for the Provider union. data.json is operator-editable
+ * AND delivered by Obsidian Sync, so the persisted `provider` value is
+ * untrusted: an unknown string would otherwise flow straight into the
+ * exhaustive `switch (provider)` sites below and hit `assertNever`, throwing
+ * at runtime (or hanging an init path). loadSettings uses this to coerce any
+ * unrecognised value back to the safe default before it reaches those
+ * switches.
+ */
+export function isProvider(value: unknown): value is Provider {
+  return (
+    typeof value === 'string' && (PROVIDERS as readonly string[]).includes(value)
+  );
+}
+
 export interface ProviderCapabilities {
   /** Whether Anthropic prompt-caching breakpoints should be applied. */
   promptCaching: boolean;
