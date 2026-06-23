@@ -12,6 +12,8 @@ import { providerCapabilities } from './provider-capabilities';
 import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
 import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS, composeSignal } from './transport-timeouts';
 import { rewriteOpenRouterTools, translateOpenRouterEvent } from './openrouter-translate';
+import { makeOpenAiStreamTranslator } from './openai-stream';
+import { requestBodyForOpenAI } from './openai-translate';
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
 const ANTHROPIC_VERSION = '2023-06-01';
@@ -106,11 +108,13 @@ export class DirectTransport implements SkaldTransport {
     }
 
     const thinkingEnabled = this.config.getThinkingEnabled?.() ?? false;
-    const { url, headers, requestBody, translateEvent } = buildDispatch(
+    const openAiBaseUrl = provider === 'openai' ? (msg.openai_base_url ?? '') : undefined;
+    const { url, headers, requestBody, translateEvent, passEventlessFrames } = buildDispatch(
       provider,
       apiKey,
       payload,
       thinkingEnabled,
+      openAiBaseUrl,
     );
 
     const ac = new AbortController();
@@ -171,7 +175,7 @@ export class DirectTransport implements SkaldTransport {
       return;
     }
 
-    await this.pumpStream(id, provider, resp, translateEvent, ac);
+    await this.pumpStream(id, provider, resp, translateEvent, passEventlessFrames, ac);
   }
 
   private async pumpStream(
@@ -179,6 +183,7 @@ export class DirectTransport implements SkaldTransport {
     provider: Provider,
     resp: Response,
     translateEvent: TranslateEvent,
+    passEventlessFrames: boolean,
     ac: AbortController,
   ): Promise<void> {
     // resp.body is guaranteed non-null by the caller (Fix 2 guard).
@@ -204,34 +209,39 @@ export class DirectTransport implements SkaldTransport {
         resetIdle();
         const frames = parser.push(decoder.decode(value, { stream: true }));
         for (const frame of frames) {
-          if (!frame.event) continue;
+          // Anthropic/OpenRouter: skip frames with no SSE event name (keep-alives).
+          // OpenAI: all frames must pass through — the event field is always empty.
+          if (!frame.event && !passEventlessFrames) continue;
           const translated = translateEvent(frame.event, frame.data);
-          this.handlers.onMessage({
-            type: 'chunk',
-            id,
-            event: translated.event,
-            data: translated.data,
-          } as ServerMessage);
+          for (const t of translated) {
+            this.handlers.onMessage({
+              type: 'chunk',
+              id,
+              event: t.event,
+              data: t.data,
+            } as ServerMessage);
 
-          const d = translated.data as Record<string, any> | null;
-          if (translated.event === 'message_start' && d?.message?.usage) {
-            usage = { ...usage, ...d.message.usage };
-          }
-          if (translated.event === 'message_delta') {
-            if (d?.usage) usage = { ...usage, ...d.usage };
-            if (d?.delta?.stop_reason) stopReason = d.delta.stop_reason;
+            const d = t.data as Record<string, any> | null;
+            if (t.event === 'message_start' && d?.message?.usage) {
+              usage = { ...usage, ...d.message.usage };
+            }
+            if (t.event === 'message_delta') {
+              if (d?.usage) usage = { ...usage, ...d.usage };
+              if (d?.delta?.stop_reason) stopReason = d.delta.stop_reason;
+            }
           }
         }
       }
       // Flush any partial buffer on clean stream end.
       for (const frame of parser.flush()) {
-        if (frame.event) {
-          const translated = translateEvent(frame.event, frame.data);
+        if (!frame.event && !passEventlessFrames) continue;
+        const translated = translateEvent(frame.event, frame.data);
+        for (const t of translated) {
           this.handlers.onMessage({
             type: 'chunk',
             id,
-            event: translated.event,
-            data: translated.data,
+            event: t.event,
+            data: t.data,
           } as ServerMessage);
         }
       }
@@ -272,13 +282,25 @@ export class DirectTransport implements SkaldTransport {
   }
 }
 
-type TranslateEvent = (event: string, data: unknown) => { event: string; data: unknown };
+/**
+ * Generalised translate signature: receives the SSE frame's event name
+ * (may be empty string for OpenAI frames which carry no `event:` field)
+ * and parsed data; returns zero or more synthetic Anthropic events.
+ *
+ * Anthropic/OpenRouter paths skip frames with no event name by returning [].
+ * The OpenAI path processes every frame regardless of event name.
+ */
+type TranslateEvent = (event: string, data: unknown) => Array<{ event: string; data: unknown }>;
 
 interface DispatchContext {
   url: string;
   headers: Record<string, string>;
   requestBody: import('@skald/protocol').ChatRequest;
   translateEvent: TranslateEvent;
+  /** When true the pump sends all frames (including event-less ones) to
+   *  translateEvent. When false (Anthropic/OpenRouter) frames without an
+   *  event name are skipped before translation (preserving prior behaviour). */
+  passEventlessFrames: boolean;
 }
 
 /** Budget for extended thinking (carved out of max_tokens). */
@@ -289,6 +311,7 @@ function buildDispatch(
   apiKey: string,
   req: import('@skald/protocol').ChatRequest,
   thinkingEnabled: boolean,
+  openAiBaseUrl?: string,
 ): DispatchContext {
   if (provider === 'openrouter') {
     return {
@@ -300,15 +323,29 @@ function buildDispatch(
         'X-OpenRouter-Title': OPENROUTER_TITLE,
       },
       requestBody: rewriteOpenRouterTools(req),
-      translateEvent: translateOpenRouterEvent,
+      translateEvent: wrapSingle(translateOpenRouterEvent),
+      passEventlessFrames: false,
     };
   }
   if (provider === 'openai') {
-    // Interim: OpenAI /chat/completions SSE translation isn't wired yet — throw
-    // rather than fall through to the Anthropic branch (wrong body shape).
-    throw new Error(
-      'Skald: OpenAI-compatible chat streaming is not implemented yet — it lands in the next update. Rerank/memory/capture already work on this provider.',
-    );
+    const baseUrl = (openAiBaseUrl ?? '').replace(/\/$/, '');
+    const url = `${baseUrl}/chat/completions`;
+    const headers: Record<string, string> = { 'content-type': 'application/json' };
+    if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
+    const translator = makeOpenAiStreamTranslator();
+    return {
+      url,
+      headers,
+      // requestBodyForOpenAI produces the OpenAI body; stream flags are added
+      // by the fetch layer ({ ...requestBody, stream: true }).
+      // stream_options is included here so include_usage comes back.
+      requestBody: {
+        ...requestBodyForOpenAI(req),
+        stream_options: { include_usage: true },
+      } as unknown as import('@skald/protocol').ChatRequest,
+      translateEvent: (_event: string, data: unknown) => translator(data),
+      passEventlessFrames: true,
+    };
   }
   const caps = providerCapabilities(provider);
   const cachedReq = caps.promptCaching ? applyAnthropicCaching(req) : req;
@@ -330,8 +367,16 @@ function buildDispatch(
       'content-type': 'application/json',
     },
     requestBody: requestBody as import('@skald/protocol').ChatRequest,
-    translateEvent: identityEvent,
+    translateEvent: wrapSingle(identityEvent),
+    passEventlessFrames: false,
   };
+}
+
+/** Wrap a single-event translator to satisfy the array-returning TranslateEvent contract. */
+function wrapSingle(
+  fn: (event: string, data: unknown) => { event: string; data: unknown },
+): TranslateEvent {
+  return (event, data) => [fn(event, data)];
 }
 
 function identityEvent(event: string, data: unknown): { event: string; data: unknown } {
