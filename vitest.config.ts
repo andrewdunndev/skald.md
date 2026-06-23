@@ -33,6 +33,10 @@ export default defineConfig({
       provider: 'v8',
       include: ['packages/*/src/**/*.ts'],
       exclude: ['packages/*/src/**/*.test.ts'],
+      // text-summary prints the "All files" line CI parses for the coverage %.
+      // No thresholds yet — a floor is added once the baseline is agreed (so it
+      // ratchets up, never silently down).
+      reporter: ['text', 'text-summary', 'json-summary'],
     },
   },
 });
