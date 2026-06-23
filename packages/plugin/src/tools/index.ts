@@ -31,13 +31,7 @@ import {
 } from './memory';
 import { SERVER_TOOLS, serverToolsForModel } from './server';
 
-export type {
-  ApproveFn,
-  ToolContext,
-  ToolExecutionResult,
-  WriteKind,
-  WriteProposal,
-} from './context';
+export type { WriteProposal } from './context';
 export { READ_ONLY_TOOLS, GRAPH_TOOLS, WRITE_TOOLS, MEMORY_TOOLS, SERVER_TOOLS, serverToolsForModel };
 
 /** Set of tool names safe to execute concurrently (read-only vault
