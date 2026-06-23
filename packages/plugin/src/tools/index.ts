@@ -57,25 +57,6 @@ export function isReadOnlyTool(name: string): boolean {
   return READ_ONLY_NAMES.has(name);
 }
 
-/**
- * Every tool definition shipped on a chat request. Plugin dispatches
- * READ_ONLY_TOOLS + WRITE_TOOLS + MEMORY_TOOLS through executeTool;
- * SERVER_TOOLS execute on the provider side and never reach the
- * executor.
- *
- * Prefer `buildActiveTools()` for live chat sessions — it gates the
- * memory tools on settings so Claude doesn't see tools that would
- * error at execution. ALL_TOOLS stays for tests + callers that
- * need the full catalog.
- */
-export const ALL_TOOLS: ToolDefinition[] = [
-  ...READ_ONLY_TOOLS,
-  ...GRAPH_TOOLS,
-  ...WRITE_TOOLS,
-  ...MEMORY_TOOLS,
-  ...SERVER_TOOLS,
-];
-
 export interface ActiveToolInput {
   /** Whether memory-prompt injection is enabled. When false, the
    * memory tools (remember_fact / update_memory / forget_fact)
