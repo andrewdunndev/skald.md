@@ -84,7 +84,8 @@ machine-readability):
 
 | File | Cap | Expires | Next move |
 |------|-----|---------|-----------|
-| `packages/plugin/src/view.ts` | 415 | 2026-09-22 | Extract `setStatus` + status-row setup into `view/status-row.ts` |
+| `packages/plugin/src/view.ts` | 425 | 2026-09-22 | Extract `setStatus` + status-row setup into `view/status-row.ts` |
+| `packages/plugin/src/view/message-list.ts` | 450 | 2026-09-22 | Extract scroll-guard logic into `view/scroll-guard.ts` |
 | `packages/plugin/src/chat-session.ts` | 415 | 2026-09-22 | Extract agentic-loop logic into `chat-session-tool-loop.ts` |
 
 Past deviations (worker/src/index.ts, tools.ts) have all been
@@ -94,6 +95,16 @@ refactored into per-responsibility modules.
 `aria-live` on statusEl and a non-color error-icon cue, pushing the file to
 409 lines. The correct fix is to extract the status-row setup and `setStatus`
 into `view/status-row.ts` (9 lines of logic; the deviation expires 2026-09-22).
+
+**2026-06-23 — view.ts (scroll-guard):** fix/ux-scroll-guard added a
+`scrollToBottom()` call in `send()`, nudging `view.ts` from 415 to 421 lines;
+cap bumped to 425. Extraction into `view/status-row.ts` remains the correct
+next move (same expiry 2026-09-22).
+
+**2026-06-23 — message-list.ts:** fix/ux-scroll-guard added `isNearBottom()`,
+`scrollToBottom()`, `pendingForceScroll`, and related JSDoc, growing the file
+from 375 to 445 lines. The correct follow-up is to extract the scroll-guard
+primitives into `view/scroll-guard.ts` (deviation expires 2026-09-22).
 
 **2026-06-23 — chat-session.ts:** resource-exhaustion fix (fix/agentic-leg-cap)
 added `MAX_TOOL_LEGS` constant + `toolLegCount` guard, pushing the file to 410

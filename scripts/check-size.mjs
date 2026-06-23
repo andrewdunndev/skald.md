@@ -48,9 +48,15 @@ const SOURCE_ROOTS = [
 const DEVIATIONS = [
   {
     file: 'packages/plugin/src/view.ts',
-    cap: 415,
+    cap: 425,
     expires: '2026-09-22',
-    note: 'a11y additions (role/status/error-icon) pushed past 400; extract setStatus + status-row setup to view/status-row.ts',
+    note: 'a11y + scroll-guard additions pushed past 400; extract setStatus + status-row setup to view/status-row.ts',
+  },
+  {
+    file: 'packages/plugin/src/view/message-list.ts',
+    cap: 450,
+    expires: '2026-09-22',
+    note: 'scroll-guard (isNearBottom + scrollToBottom + pendingForceScroll) grew the file; extract scroll-guard logic to view/scroll-guard.ts when the refactor window opens',
   },
   {
     file: 'packages/plugin/src/chat-session.ts',

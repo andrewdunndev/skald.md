@@ -284,6 +284,10 @@ export class SkaldView extends ItemView {
         this.composer.clearImages();
         await this.session.sendUserMessage(blocks);
       }
+      // Jump to the bottom unconditionally on the user's own send so
+      // their new message is immediately visible even if they had
+      // scrolled up to read history before sending.
+      this.messageList.scrollToBottom();
     } catch (err) {
       this.composer.setBusy(false);
       this.setStatus(err instanceof Error ? err.message : 'Send failed.', 'error');

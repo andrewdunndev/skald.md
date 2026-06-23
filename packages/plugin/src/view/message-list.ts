@@ -18,6 +18,14 @@ import type { WriteProposal } from '../tools';
 
 const RENDER_THROTTLE_MS = 150;
 
+/**
+ * Distance from the scroll bottom (in px) within which the list is
+ * considered "at the bottom" for auto-scroll purposes. Anything
+ * beyond this means the user has deliberately scrolled up to read
+ * history — we leave the viewport alone in that case.
+ */
+const NEAR_BOTTOM_THRESHOLD_PX = 50;
+
 interface MessageRow {
   el: HTMLDivElement;
   body: HTMLDivElement;
@@ -84,6 +92,12 @@ export class MessageList {
   private rows: MessageRow[] = [];
   private renderTimer: number | null = null;
   private emptyStateEl: HTMLDivElement | null = null;
+  /**
+   * Set to true by requestRender() when a forceScroll intent arrives
+   * mid-coalesce window, so the pending timer fires with the flag even
+   * if subsequent coalesced calls omit it.
+   */
+  private pendingForceScroll = false;
 
   constructor(parent: HTMLElement, ctx: MessageListContext) {
     this.ctx = ctx;
@@ -129,6 +143,32 @@ export class MessageList {
     return this.messagesEl;
   }
 
+  /**
+   * True when the scroll container is at or near the bottom, meaning
+   * the user has not scrolled up into history. Used by flushRender to
+   * decide whether streaming updates should track the new content.
+   *
+   * Must be called BEFORE the DOM update so the measurement reflects
+   * the pre-render scroll position.
+   */
+  private isNearBottom(): boolean {
+    const el = this.messagesEl;
+    return el.scrollHeight - el.scrollTop - el.clientHeight <= NEAR_BOTTOM_THRESHOLD_PX;
+  }
+
+  /**
+   * Scroll to the very bottom of the message list immediately.
+   * Exposed so the view layer can force a jump after the user's own
+   * send, regardless of where the viewport currently sits.
+   */
+  scrollToBottom(): void {
+    if (typeof this.messagesEl.scrollTo === 'function') {
+      this.messagesEl.scrollTo({ top: this.messagesEl.scrollHeight, behavior: 'smooth' });
+    } else {
+      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    }
+  }
+
   /** Schedule a render. Coalesces multiple updates within the throttle
    * window so streaming SSE chunks don't trigger a render per delta.
    *
@@ -139,24 +179,50 @@ export class MessageList {
    * time EVEN IF the session had nulled its inFlight between
    * schedule and fire. Result: an extra DOM row for an inFlight
    * that had already been finalized + appended to the history.
-   * Manifested as duplicate assistant rows after every chat turn. */
+   * Manifested as duplicate assistant rows after every chat turn.
+   *
+   * @param forceScroll - When true, scroll to bottom unconditionally
+   *   regardless of current scroll position. Use for the user's own
+   *   sends so the view jumps to their new message immediately. For
+   *   mid-stream assistant updates, omit (or pass false): the list
+   *   only auto-scrolls when the user is already near the bottom,
+   *   preserving their position if they scrolled up to read history. */
   requestRender(
     getHistory: () => Message[],
     getInFlight: () => { blocks: Message['content'] } | null,
+    forceScroll = false,
   ): void {
+    if (forceScroll) {
+      // Latch the force-scroll intent so it survives across coalesced
+      // render requests that arrive while the timer is already pending.
+      this.pendingForceScroll = true;
+    }
     if (this.renderTimer !== null) return;
     this.renderTimer = window.setTimeout(() => {
       this.renderTimer = null;
-      void this.flushRender(getHistory(), getInFlight());
+      const force = this.pendingForceScroll;
+      this.pendingForceScroll = false;
+      void this.flushRender(getHistory(), getInFlight(), force);
     }, RENDER_THROTTLE_MS);
   }
 
   /** Immediate render — used for finalizing a turn (after onDone) so
-   * the assistant message stops streaming and locks its rendered DOM. */
+   * the assistant message stops streaming and locks its rendered DOM.
+   *
+   * @param forceScroll - When true, scroll to bottom unconditionally.
+   *   Defaults to false; the render checks the pre-update scroll
+   *   position and only scrolls when the user is already near the
+   *   bottom. Pass true for resume-conversation loads so the view
+   *   opens at the tail of the loaded history. */
   async flushRender(
     history: Message[],
     inFlight: { blocks: Message['content'] } | null,
+    forceScroll = false,
   ): Promise<void> {
+    // Capture scroll position BEFORE mutating the DOM so the measurement
+    // reflects the user's intent, not the post-render layout.
+    const shouldScroll = forceScroll || this.isNearBottom();
+
     const totalCount = history.length + (inFlight ? 1 : 0);
 
     if (totalCount === 0) {
@@ -195,16 +261,20 @@ export class MessageList {
       }
     }
 
-    // Smooth scroll to the latest content. Falls back to instant on
-    // engines that don't support the scrollTo options bag (older
-    // mobile webviews) — scrollTop assignment is the safe baseline.
-    if (typeof this.messagesEl.scrollTo === 'function') {
-      this.messagesEl.scrollTo({
-        top: this.messagesEl.scrollHeight,
-        behavior: 'smooth',
-      });
-    } else {
-      this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+    // Only auto-scroll when the user was already at/near the bottom
+    // before this render, or when the caller explicitly forced it
+    // (e.g. the user's own send, or a resume-conversation load).
+    // This prevents yanking the viewport when the user has scrolled
+    // up to read history while a long response is still streaming in.
+    if (shouldScroll) {
+      if (typeof this.messagesEl.scrollTo === 'function') {
+        this.messagesEl.scrollTo({
+          top: this.messagesEl.scrollHeight,
+          behavior: 'smooth',
+        });
+      } else {
+        this.messagesEl.scrollTop = this.messagesEl.scrollHeight;
+      }
     }
   }
 
