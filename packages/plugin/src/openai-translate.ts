@@ -10,9 +10,8 @@
  *
  * Coverage:
  *   - model passthrough
- *   - max_tokens kept as-is (vLLM/Ollama/LM-Studio accept it; OpenAI
- *     deprecated it in favour of max_completion_tokens but still honours
- *     max_tokens on most endpoints — transport can remap if needed)
+ *   - max_tokens → max_completion_tokens (newer OpenAI models reject the
+ *     deprecated max_tokens; OpenAI-compatible servers accept the modern field)
  *   - stop_sequences → stop
  *   - temperature passthrough
  *   - thinking / metadata / anthropic-only fields dropped
@@ -127,6 +126,22 @@ function systemToString(system: ChatRequest['system']): string {
 export function requestBodyForOpenAI(req: ChatRequest): Record<string, unknown> {
   const oaiMessages: OAIMessage[] = [];
 
+  // Stable-id synthesis for orphaned tool blocks. OpenAI requires every
+  // assistant tool_call to have an id and every role:'tool' message to
+  // reference it via tool_call_id. Anthropic ties them together: the
+  // assistant tool_use carries `id`, the user tool_result echoes it as
+  // `tool_use_id`. When either side is missing/empty we synthesise a
+  // deterministic id and PAIR the two sides positionally:
+  //   - an orphaned assistant tool_use mints a fresh id and enqueues it
+  //   - an orphaned user tool_result dequeues that same id (FIFO, in order)
+  // so a replayed [assistant tool_uses → user tool_results] sequence still
+  // matches even when both sides lost their ids. If a tool_result has no
+  // pending id to claim (orphan with no preceding orphaned tool_use), it
+  // still mints its own non-empty id so the message is never id-less.
+  let synthIdSeq = 0;
+  const orphanIdQueue: string[] = [];
+  const mintSynthId = () => `call_skald_${synthIdSeq++}`;
+
   // 1. System prompt ──────────────────────────────────────────────────────────
   const systemText = systemToString(req.system);
   if (systemText.trim()) {
@@ -145,7 +160,29 @@ export function requestBodyForOpenAI(req: ChatRequest): Record<string, unknown> 
       const toolResults = blocks.filter((b) => b.type === 'tool_result');
       const contentBlocks = blocks.filter((b) => b.type !== 'tool_result');
 
-      // Emit content blocks as a user message (if any).
+      // ORDER MATTERS: when a turn carries BOTH tool_results and regular
+      // content, the role:'tool' messages must come FIRST — immediately after
+      // the preceding assistant tool_calls turn. A real OpenAI server 400s if
+      // a user message is interposed between the assistant tool_calls and its
+      // tool replies. Emit the tool messages first, then trailing user content.
+
+      // Explode each tool_result into its own role:'tool' message.
+      for (const tr of toolResults) {
+        const toolCallId =
+          typeof tr.tool_use_id === 'string' && tr.tool_use_id.length > 0
+            ? tr.tool_use_id
+            // Claim the id minted by the matching orphaned tool_use (FIFO),
+            // or mint a fresh one if there's nothing pending.
+            : (orphanIdQueue.shift() ?? mintSynthId());
+        const content = toolResultContentToString(tr.content);
+        oaiMessages.push({
+          role: 'tool',
+          tool_call_id: toolCallId,
+          content,
+        });
+      }
+
+      // Emit any remaining (non-tool_result) content as a trailing user message.
       if (contentBlocks.length > 0) {
         const parts = blocksToContentParts(contentBlocks);
         oaiMessages.push({
@@ -155,18 +192,6 @@ export function requestBodyForOpenAI(req: ChatRequest): Record<string, unknown> 
             : parts,
         });
       }
-
-      // Explode each tool_result into its own role:'tool' message.
-      for (const tr of toolResults) {
-        const toolCallId =
-          typeof tr.tool_use_id === 'string' ? tr.tool_use_id : '';
-        const content = toolResultContentToString(tr.content);
-        oaiMessages.push({
-          role: 'tool',
-          tool_call_id: toolCallId,
-          content,
-        });
-      }
     } else if (msg.role === 'assistant') {
       // Collect text blocks and tool_use blocks separately.
       const textParts: string[] = [];
@@ -174,7 +199,15 @@ export function requestBodyForOpenAI(req: ChatRequest): Record<string, unknown> 
 
       for (const b of blocks) {
         if (b.type === 'tool_use') {
-          const id = typeof b.id === 'string' ? b.id : '';
+          let id: string;
+          if (typeof b.id === 'string' && b.id.length > 0) {
+            id = b.id;
+          } else {
+            // Orphaned tool_use: mint an id and enqueue it so the matching
+            // orphaned tool_result (same position) can claim it.
+            id = mintSynthId();
+            orphanIdQueue.push(id);
+          }
           const name = typeof b.name === 'string' ? b.name : '';
           const input = b.input !== undefined ? b.input : {};
           toolCalls.push({
@@ -207,9 +240,12 @@ export function requestBodyForOpenAI(req: ChatRequest): Record<string, unknown> 
   }
 
   // 3. Top-level params ───────────────────────────────────────────────────────
+  // Newer OpenAI models (o-series, gpt-4o+, gpt-5*) REJECT `max_tokens` and
+  // require `max_completion_tokens`. Emit the modern field for the OpenAI path.
+  // OpenAI-compatible servers (vLLM/Ollama/LM-Studio) also accept it.
   const body: Record<string, unknown> = {
     model: req.model,
-    max_tokens: req.max_tokens,
+    max_completion_tokens: req.max_tokens,
     messages: oaiMessages,
   };
 

@@ -27,8 +27,11 @@ describe('top-level param translation', () => {
     expect(requestBodyForOpenAI(baseReq({ model: 'gpt-4o' })).model).toBe('gpt-4o');
   });
 
-  it('passes max_tokens through', () => {
-    expect(requestBodyForOpenAI(baseReq({ max_tokens: 1024 })).max_tokens).toBe(1024);
+  it('maps max_tokens → max_completion_tokens (newer OpenAI models reject max_tokens)', () => {
+    const body = requestBodyForOpenAI(baseReq({ max_tokens: 1024 }));
+    expect(body.max_completion_tokens).toBe(1024);
+    // Deprecated field must NOT be present — newer models 400 on it.
+    expect(body.max_tokens).toBeUndefined();
   });
 
   it('maps stop_sequences → stop', () => {

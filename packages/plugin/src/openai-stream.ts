@@ -177,7 +177,14 @@ export function makeOpenAiStreamTranslator(): (data: unknown) => SynthEvent[] {
         if (!toolMap.has(oaiIndex)) {
           // First sight of this tool index — assign a block index and capture metadata.
           const blockIdx = nextIdx();
-          const id   = typeof tc.id === 'string' ? tc.id : '';
+          // Synthesise a stable id when the server omits one (some OpenAI-
+          // compatible servers stream tool_calls without an id). A bare '' id
+          // would break the downstream tool_result → tool_call_id match, so
+          // derive a deterministic id from the tool index instead.
+          const id =
+            typeof tc.id === 'string' && tc.id.length > 0
+              ? tc.id
+              : `call_skald_stream_${oaiIndex}`;
           const name = typeof fn.name === 'string' ? fn.name : '';
           toolMap.set(oaiIndex, { blockIndex: blockIdx, id, name, started: false });
         }
