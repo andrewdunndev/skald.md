@@ -36,6 +36,17 @@ jobs:
 
       - run: pnpm --filter @skald/plugin build
 
+      - name: Assert manifest.version == tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          MANIFEST_VERSION=$(node -e "process.stdout.write(require('./packages/plugin/dist/manifest.json').version)")
+          if [ "$MANIFEST_VERSION" != "$TAG" ]; then
+            echo "ERROR: manifest.version ($MANIFEST_VERSION) does not match tag ($TAG)"
+            exit 1
+          fi
+          echo "OK: manifest.version == $TAG"
+
       - name: Publish GitHub release with the Obsidian assets
         env:
           GH_TOKEN: ${{ github.token }}
