@@ -34,8 +34,11 @@ unchanged):
 - **Text and logs** have repeated lines collapsed and excess whitespace
   stripped.
 
-A byte cap still backstops anything that's *still* too big after compaction,
-truncating with a "narrow your query" hint.
+For the three large-output tools (`read_note`, `list_notes`, `search_vault`),
+compaction runs **before** the size cap, so more information survives the budget
+(more table rows fit within 4 KB).  All other tool results are compacted at the
+dispatch point.  Either way, a hard byte cap backstops anything still too large
+after compaction, truncating with a "narrow your query" hint.
 
 **Setting:** *Compact tool results* (Advanced, default on). Turn it off if you
 run a model that parses the compact table format unreliably — Skald will send
