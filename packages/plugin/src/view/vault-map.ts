@@ -56,7 +56,14 @@ export function buildVaultMap(app: App, opts: VaultMapOptions = {}): string {
     `(${total} notes total — use list_notes / list_folders / search to drill into folders.)`,
   ].join('\n');
 
-  if (total > threshold) return folderOnly;
+  // Apply the same MAX_MAP_BYTES cap to the folder-tree-only path.
+  // An extremely large vault (thousands of deeply-nested folders) can
+  // produce a folder tree that exceeds the cap on its own. Truncate to
+  // the cap and append a hint so the prompt stays bounded.
+  if (total > threshold) {
+    if (folderOnly.length <= MAX_MAP_BYTES) return folderOnly;
+    return folderOnly.slice(0, MAX_MAP_BYTES) + '\n...(truncated: vault too large to map fully)';
+  }
 
   // Small vault: try to include the full note list.
   const withList = [
