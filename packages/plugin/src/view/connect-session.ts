@@ -42,7 +42,7 @@ export function connectSession(
   app: App,
   plugin: SkaldPlugin,
   cbs: ConnectCallbacks,
-): ConnectResult | null {
+): ConnectResult {
   // session is captured by reference after construction below.
   let sessionRef: ChatSession | null = null;
 

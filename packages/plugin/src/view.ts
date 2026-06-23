@@ -242,7 +242,6 @@ export class SkaldView extends ItemView {
         this.onTurnDone(stopReason, usage, provider),
       onTurnAborted: () => this.composer?.setBusy(false),
     });
-    if (!result) return;
     this.transport = result.transport;
     this.session = result.session;
     this.requestRender();
