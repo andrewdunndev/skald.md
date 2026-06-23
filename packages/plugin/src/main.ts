@@ -1,6 +1,11 @@
 import { Plugin } from 'obsidian';
 import { SkaldView, VIEW_TYPE_SKALD } from './view';
-import { SkaldSettingTab, DEFAULT_SETTINGS, type SkaldSettings } from './settings';
+import {
+  SkaldSettingTab,
+  DEFAULT_SETTINGS,
+  normalizeSettings,
+  type SkaldSettings,
+} from './settings';
 import { Logger } from './logger';
 import { ConversationSearchModal } from './conversation-search';
 import { CaptureService } from './capture';
@@ -88,11 +93,14 @@ export default class SkaldPlugin extends Plugin {
   }
 
   async loadSettings() {
-    const stored = (await this.loadData()) as Partial<SkaldSettings> | null;
-    this.settings = {
-      ...DEFAULT_SETTINGS,
-      ...(stored ?? {}),
-    };
+    // data.json is a trust boundary: operator-editable AND Obsidian-Sync
+    // delivered. normalizeSettings merges DEFAULT_SETTINGS for missing keys,
+    // coerces an unknown `provider` back to the default (so it can never reach
+    // the exhaustive provider switches), drops non-string/boolean fields, and
+    // CLAMPS a cleartext non-loopback openaiBaseUrl to empty so the
+    // utility/capture/memory paths can't dispatch prompts + key over the wire.
+    const stored: unknown = await this.loadData();
+    this.settings = normalizeSettings(stored);
   }
 
   async saveSettings() {

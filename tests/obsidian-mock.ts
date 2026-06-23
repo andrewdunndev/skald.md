@@ -55,6 +55,29 @@ export function prepareFuzzySearch(
 // AbstractInputSuggest — they won't be instantiated in unit tests so
 // runtime shape doesn't matter.
 export class App {}
+/** Minimal PluginSettingTab stub. settings.ts evaluates
+ * `class SkaldSettingTab extends PluginSettingTab` at module-load time, so
+ * the symbol must exist for the module to import; it is never instantiated
+ * in unit tests (only the pure normalizeSettings export is exercised). */
+export class PluginSettingTab {
+  containerEl: HTMLElement = {} as HTMLElement;
+  constructor(_app: App, _plugin: unknown) {
+    void _app;
+    void _plugin;
+    void this;
+  }
+}
+/** Minimal Setting stub — chainable no-ops; not instantiated in unit tests. */
+export class Setting {
+  constructor(_containerEl: HTMLElement) {
+    void _containerEl;
+    void this;
+  }
+  setName(_n: string): this { return this; }
+  setDesc(_d: string): this { return this; }
+  setHeading(): this { return this; }
+  addToggle(_cb: (t: unknown) => void): this { return this; }
+}
 export class SuggestModal<T> {
   constructor(_app: App) {
     void _app;

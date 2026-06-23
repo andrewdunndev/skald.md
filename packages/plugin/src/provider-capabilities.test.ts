@@ -15,6 +15,7 @@ import {
   providerCapabilities,
   utilityModel,
   reasoningModel,
+  isProvider,
 } from './provider-capabilities';
 
 // Minimal SkaldSettings stub — only the fields provider-capabilities uses.
@@ -36,6 +37,30 @@ function makeSettings(overrides: Partial<MinimalSettings> = {}): MinimalSettings
     ...overrides,
   };
 }
+
+// ── isProvider (data.json trust-boundary guard) ───────────────────────────
+
+describe('isProvider', () => {
+  it('accepts every valid Provider value', () => {
+    for (const p of ['anthropic', 'openrouter', 'openai']) {
+      expect(isProvider(p)).toBe(true);
+    }
+  });
+
+  it('rejects an unknown provider string', () => {
+    expect(isProvider('gemini')).toBe(false);
+    expect(isProvider('')).toBe(false);
+    expect(isProvider('ANTHROPIC')).toBe(false);
+  });
+
+  it('rejects non-string values', () => {
+    expect(isProvider(undefined)).toBe(false);
+    expect(isProvider(null)).toBe(false);
+    expect(isProvider(42)).toBe(false);
+    expect(isProvider({ provider: 'anthropic' })).toBe(false);
+    expect(isProvider(['anthropic'])).toBe(false);
+  });
+});
 
 // ── providerCapabilities ──────────────────────────────────────────────────
 

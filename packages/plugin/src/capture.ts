@@ -27,6 +27,7 @@ import {
 } from '@skald/protocol';
 import { SlidingWindow } from './rate-limit';
 import { utilityComplete } from './utility-call';
+import { validateOpenAiBaseUrl } from './openai-base-url';
 import {
   captureFilename,
   safeAtob,
@@ -167,6 +168,15 @@ async function directCapture(
     if (!baseUrl) {
       throw new Error(
         'No OpenAI-compatible base URL configured. Add it in plugin settings (openaiBaseUrl).',
+      );
+    }
+    // Defense-in-depth: refuse to send capture content (vault data) + the
+    // API key over a cleartext non-loopback URL, even if a hand-edited
+    // data.json slipped one past loadSettings' clamp.
+    const validation = validateOpenAiBaseUrl(baseUrl);
+    if (!validation.ok) {
+      throw new Error(
+        validation.error ?? 'OpenAI-compatible base URL is not allowed.',
       );
     }
   } else if (!apiKey) {
