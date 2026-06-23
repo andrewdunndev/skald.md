@@ -7,7 +7,7 @@
  * view.ts to keep that file under the 400-line cap.
  */
 
-import { TFile, normalizePath, type App } from 'obsidian';
+import { Notice, TFile, normalizePath, type App } from 'obsidian';
 import type { Provider } from '@skald/protocol';
 import type { ApprovalManager } from '../approval-manager';
 import { proposeMemoryUpkeep } from '../memory-upkeep';
@@ -107,7 +107,13 @@ export async function runMemoryUpkeepView(opts: {
       }
     }
 
-    await writeVaultNote(app, settings.memoryPath, proposed);
+    // TOCTOU-guarded write. `memoryBody` is the snapshot shown to the user
+    // in the approval diff card (the `before`). Re-read the on-disk content
+    // INSIDE app.vault.process and abort if it diverged — a concurrent
+    // manual edit (another pane, sync) between the diff card and this commit
+    // would otherwise be silently clobbered. Losing a hand-edited memory
+    // note is the worst outcome in a live family vault.
+    await writeMemoryNoteGuarded(app, settings.memoryPath, memoryBody, proposed);
   } finally {
     inFlight?.release();
   }
@@ -133,15 +139,52 @@ async function readVaultNote(app: App, path: string): Promise<string> {
   try { return await app.vault.cachedRead(file); } catch { return ''; }
 }
 
-/** Write (create or overwrite) a vault note by path. */
-async function writeVaultNote(app: App, path: string, body: string): Promise<void> {
-  try {
-    const normalized = normalizePath(path);
-    const existing = app.vault.getAbstractFileByPath(normalized);
-    if (existing instanceof TFile) {
-      await app.vault.modify(existing, body);
+/**
+ * Write the memory note with a TOCTOU guard, mirroring runWriteNote in
+ * tools/write.ts (the one guarded write primitive). `snapshot` is the
+ * on-disk content that was read at trigger time and shown to the user in
+ * the approval diff card. For an existing note we re-read the live content
+ * INSIDE app.vault.process and only commit if it still equals `snapshot`;
+ * if it diverged (a concurrent manual edit) we abort and surface a Notice
+ * rather than overwriting the user's edit. For a new note (snapshot is the
+ * empty string and no file exists) there is nothing to clobber, so we
+ * create it.
+ */
+async function writeMemoryNoteGuarded(
+  app: App,
+  path: string,
+  snapshot: string,
+  body: string,
+): Promise<void> {
+  const normalized = normalizePath(path);
+  const existing = app.vault.getAbstractFileByPath(normalized);
+  if (existing instanceof TFile) {
+    let diverged = false;
+    try {
+      await app.vault.process(existing, (current) => {
+        if (current !== snapshot) {
+          diverged = true;
+          // Return current unchanged — vault.process requires a string return.
+          return current;
+        }
+        return body;
+      });
+    } catch (err) {
+      console.warn('[memory-upkeep] vault write failed —', err);
+      new Notice('Skald: memory-note update failed — see console.');
       return;
     }
+    if (diverged) {
+      console.warn(
+        '[memory-upkeep] memory note changed since the proposal was shown — aborting overwrite to preserve the manual edit',
+      );
+      new Notice(
+        'Skald: memory note changed since the proposal — update skipped to protect your edit.',
+      );
+    }
+    return;
+  }
+  try {
     const folder = normalized.includes('/')
       ? normalized.slice(0, normalized.lastIndexOf('/'))
       : '';
@@ -151,5 +194,6 @@ async function writeVaultNote(app: App, path: string, body: string): Promise<voi
     await app.vault.create(normalized, body);
   } catch (err) {
     console.warn('[memory-upkeep] vault write failed —', err);
+    new Notice('Skald: memory-note update failed — see console.');
   }
 }

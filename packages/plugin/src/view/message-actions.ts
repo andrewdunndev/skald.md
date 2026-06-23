@@ -118,10 +118,14 @@ async function saveAsNote(
   }
   const folder = cfg.savedNotesFolder.trim() || 'Skald/Saved';
   const ts = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
-  const path = normalizePath(`${folder}/${ts}.md`);
   try {
     const folderItem = cfg.app.vault.getAbstractFileByPath(folder);
     if (!folderItem) await cfg.app.vault.createFolder(folder);
+    // Second-precision timestamps collide when two messages are saved in
+    // the same second — without a unique suffix the second save would
+    // overwrite (or, on a strict vault, throw) and the note would be lost.
+    // Probe for a free path, appending -2, -3, … on collision.
+    const path = uniqueSavePath(cfg.app, folder, ts);
     const created = await cfg.app.vault.create(path, text);
     new Notice(`Saved to ${path}`);
     cfg.app.workspace.openLinkText(created.path, '', false);
@@ -130,6 +134,24 @@ async function saveAsNote(
       `Save failed: ${err instanceof Error ? err.message : 'unknown'}`,
     );
   }
+}
+
+/**
+ * Build a vault path under `folder` for a `base`-named note that does not
+ * already exist. Returns `<folder>/<base>.md` when free, else the first
+ * free `<folder>/<base>-N.md` (N ≥ 2). Bounded probe so a pathological
+ * vault can't spin forever; falls back to a random suffix at the cap.
+ */
+export function uniqueSavePath(app: App, folder: string, base: string): string {
+  const first = normalizePath(`${folder}/${base}.md`);
+  if (!app.vault.getAbstractFileByPath(first)) return first;
+  for (let n = 2; n < 1000; n++) {
+    const candidate = normalizePath(`${folder}/${base}-${n}.md`);
+    if (!app.vault.getAbstractFileByPath(candidate)) return candidate;
+  }
+  // Astronomically unlikely; keep the save rather than failing.
+  const rand = Math.random().toString(36).slice(2, 8);
+  return normalizePath(`${folder}/${base}-${rand}.md`);
 }
 
 /**

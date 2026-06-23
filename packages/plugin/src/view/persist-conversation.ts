@@ -9,7 +9,7 @@
  */
 import type { App } from 'obsidian';
 import type { ChatSession } from '../chat-session';
-import { saveConversation } from '../conversation-store';
+import { saveConversation } from '../conversation-save';
 import { estimateTurnCost } from '../pricing';
 
 export async function persistConversation(
