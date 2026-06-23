@@ -19,10 +19,11 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  normalizeSettings,
+  parseDomainList,
   DEFAULT_SETTINGS,
   type SkaldSettings,
 } from './settings';
+import { normalizeSettings } from './settings-normalize';
 import { providerCapabilities } from './provider-capabilities';
 
 describe('normalizeSettings: provider coercion', () => {
@@ -169,5 +170,50 @@ describe('normalizeSettings: valid settings round-trip unchanged', () => {
     const snapshot = JSON.stringify(input);
     normalizeSettings(input);
     expect(JSON.stringify(input)).toBe(snapshot);
+  });
+});
+
+describe('parseDomainList', () => {
+  it('splits on newlines and commas, trimming each entry', () => {
+    expect(parseDomainList('a.com\nb.com, c.com')).toEqual(['a.com', 'b.com', 'c.com']);
+  });
+  it('drops empty entries and surrounding whitespace', () => {
+    expect(parseDomainList('  a.com  ,\n , \n b.com ')).toEqual(['a.com', 'b.com']);
+  });
+  it('de-duplicates', () => {
+    expect(parseDomainList('a.com\na.com\nb.com\na.com')).toEqual(['a.com', 'b.com']);
+  });
+  it('returns [] for empty / whitespace-only input', () => {
+    expect(parseDomainList('')).toEqual([]);
+    expect(parseDomainList('  \n , \n ')).toEqual([]);
+  });
+});
+
+describe('DEFAULT_SETTINGS — web-tools security posture', () => {
+  it('ships web tools OFF by default (exfil channel closed)', () => {
+    expect(DEFAULT_SETTINGS.webToolsEnabled).toBe(false);
+  });
+  it('ships an empty allow-list by default', () => {
+    expect(DEFAULT_SETTINGS.webFetchAllowedDomains).toEqual([]);
+  });
+});
+
+describe('normalizeSettings: web-tools fields (data.json trust boundary)', () => {
+  it('preserves a real enabled + allow-list (does not reset on load)', () => {
+    const out = normalizeSettings({
+      webToolsEnabled: true,
+      webFetchAllowedDomains: ['a.com', 'b.com'],
+    });
+    expect(out.webToolsEnabled).toBe(true);
+    expect(out.webFetchAllowedDomains).toEqual(['a.com', 'b.com']);
+  });
+  it('coerces a non-boolean webToolsEnabled to the safe default (off)', () => {
+    expect(normalizeSettings({ webToolsEnabled: 'yes' }).webToolsEnabled).toBe(false);
+  });
+  it('drops non-array / non-string domain values', () => {
+    expect(normalizeSettings({ webFetchAllowedDomains: 'a.com' }).webFetchAllowedDomains).toEqual([]);
+    expect(
+      normalizeSettings({ webFetchAllowedDomains: ['ok.com', 5, null, 'two.com'] }).webFetchAllowedDomains,
+    ).toEqual(['ok.com', 'two.com']);
   });
 });

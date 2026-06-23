@@ -30,7 +30,22 @@ export function rewriteOpenRouterTools(req: ChatRequest): ChatRequest {
       return { type: OR_WEB_SEARCH };
     }
     if (type && ANTHROPIC_WEB_FETCH_TYPES.includes(type)) {
-      return { type: OR_WEB_FETCH };
+      // SECURITY: carry the web_fetch domain guard through the rewrite.
+      // OpenRouter does not currently enforce Anthropic's allowed_domains
+      // / blocked_domains, so on OpenRouter routes the allow-list is NOT
+      // a guarantee — the off-by-default gate (webToolsEnabled) is the
+      // load-bearing exfiltration defense there. We still forward the
+      // fields so the restriction takes effect if/when OpenRouter honors
+      // them, rather than silently dropping the operator's intent.
+      const src = t as Record<string, unknown>;
+      const rewritten: Record<string, unknown> = { type: OR_WEB_FETCH };
+      if (Array.isArray(src.allowed_domains)) {
+        rewritten.allowed_domains = src.allowed_domains;
+      }
+      if (Array.isArray(src.blocked_domains)) {
+        rewritten.blocked_domains = src.blocked_domains;
+      }
+      return rewritten;
     }
     return t;
   });

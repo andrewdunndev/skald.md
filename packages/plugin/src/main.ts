@@ -3,9 +3,9 @@ import { SkaldView, VIEW_TYPE_SKALD } from './view';
 import {
   SkaldSettingTab,
   DEFAULT_SETTINGS,
-  normalizeSettings,
   type SkaldSettings,
 } from './settings';
+import { normalizeSettings } from './settings-normalize';
 import { Logger } from './logger';
 import { ConversationSearchModal } from './conversation-search';
 import { CaptureService } from './capture';

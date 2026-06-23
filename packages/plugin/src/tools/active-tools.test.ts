@@ -19,7 +19,7 @@ function toolNames(defs: ReadonlyArray<{ name?: string; type?: string }>): strin
 }
 
 describe('buildActiveTools', () => {
-  it('includes read + write + server tools always (memory-independent)', () => {
+  it('includes read + write tools always (memory-independent)', () => {
     const out = buildActiveTools({ memoryEnabled: false, memoryPath: '' });
     const names = toolNames(out);
     // Every read tool present
@@ -30,13 +30,83 @@ describe('buildActiveTools', () => {
     for (const t of WRITE_TOOLS) {
       expect(names).toContain(t.name as string);
     }
-    // Server tools (web_search, web_fetch) — present by name. Their
-    // type pin (e.g. web_search_20260209) tracks the Anthropic
-    // version; the toolNames helper prefers .name when both are
-    // set so the assertion lands on the stable identifier.
+  });
+
+  it('OMITS web tools by default (webToolsEnabled defaults to off)', () => {
+    // SECURITY: web_fetch is a prompt-injection exfiltration channel, so
+    // the default catalog must NOT include it. This test fails if the
+    // default flips back to always-on.
+    const out = buildActiveTools({ memoryEnabled: false, memoryPath: '' });
+    const names = toolNames(out);
+    for (const t of SERVER_TOOLS) {
+      expect(
+        names,
+        `${t.name} must NOT appear when webToolsEnabled is unset`,
+      ).not.toContain(t.name as string);
+    }
+    expect(names).not.toContain('web_fetch');
+    expect(names).not.toContain('web_search');
+  });
+
+  it('OMITS web tools when webToolsEnabled is explicitly false', () => {
+    const out = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      webToolsEnabled: false,
+    });
+    const names = toolNames(out);
+    expect(names).not.toContain('web_fetch');
+    expect(names).not.toContain('web_search');
+  });
+
+  it('INCLUDES web tools when webToolsEnabled is true', () => {
+    const out = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      webToolsEnabled: true,
+    });
+    const names = toolNames(out);
     for (const t of SERVER_TOOLS) {
       expect(names).toContain(t.name as string);
     }
+  });
+
+  it('applies allowed_domains to web_fetch when a list is configured', () => {
+    const out = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      webToolsEnabled: true,
+      webFetchAllowedDomains: ['en.wikipedia.org', 'docs.anthropic.com'],
+    });
+    const webFetch = out.find(
+      (t) => (t as Record<string, unknown>).name === 'web_fetch',
+    ) as Record<string, unknown> | undefined;
+    expect(webFetch).toBeDefined();
+    expect(webFetch?.allowed_domains).toEqual([
+      'en.wikipedia.org',
+      'docs.anthropic.com',
+    ]);
+    // web_search must NOT carry the allow-list (it's a fetch-only guard).
+    const webSearch = out.find(
+      (t) => (t as Record<string, unknown>).name === 'web_search',
+    ) as Record<string, unknown> | undefined;
+    expect(webSearch?.allowed_domains).toBeUndefined();
+  });
+
+  it('does NOT set allowed_domains when the list is empty', () => {
+    const out = buildActiveTools({
+      memoryEnabled: false,
+      memoryPath: '',
+      webToolsEnabled: true,
+      webFetchAllowedDomains: [],
+    });
+    const webFetch = out.find(
+      (t) => (t as Record<string, unknown>).name === 'web_fetch',
+    ) as Record<string, unknown> | undefined;
+    expect(webFetch).toBeDefined();
+    // Empty list → no restriction key (an empty allowed_domains would be
+    // read by Anthropic as "allow nothing" and break all fetches).
+    expect(webFetch?.allowed_domains).toBeUndefined();
   });
 
   it('EXCLUDES memory tools when memoryEnabled is false', () => {
@@ -85,6 +155,7 @@ describe('buildActiveTools', () => {
       memoryEnabled: false,
       memoryPath: '',
       model: 'claude-haiku-4-5',
+      webToolsEnabled: true,
     });
     const haikuExpected = serverToolsForModel('claude-haiku-4-5');
     // Every haiku server tool should appear in the built list.
@@ -103,6 +174,7 @@ describe('buildActiveTools', () => {
       memoryEnabled: false,
       memoryPath: '',
       model: 'claude-sonnet-4-6',
+      webToolsEnabled: true,
     });
     const sonnetExpected = serverToolsForModel('claude-sonnet-4-6');
     for (const expected of sonnetExpected) {

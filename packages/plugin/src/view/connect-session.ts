@@ -101,6 +101,12 @@ export function connectSession(
         // Source the live model the same way dispatch does (modelProvider
         // is cbs.getModelValue()) so the two can't diverge mid-session.
         model: cbs.getModelValue(),
+        // SECURITY: web_fetch is a prompt-injection exfiltration channel
+        // (a malicious note can induce a fetch leaking vault contents in
+        // the URL). Gate it behind the operator-controlled toggle and the
+        // optional domain allow-list. See docs/security-model.md.
+        webToolsEnabled: plugin.settings.webToolsEnabled,
+        webFetchAllowedDomains: plugin.settings.webFetchAllowedDomains,
       }),
     async (name, input, toolUseId) => {
       const res = await executeTool(name, input, toolUseId, {

