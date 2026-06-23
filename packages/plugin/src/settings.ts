@@ -111,6 +111,14 @@ export interface SkaldSettings {
    * (thinking tokens count against output). Never sent to OpenRouter.
    */
   thinkingEnabled: boolean;
+  /**
+   * Compact large tool results before they enter the model context.
+   * Uniform JSON arrays are encoded as TOON (compact tabular notation);
+   * other JSON is minified; plain text has repeated lines collapsed.
+   * The byte cap (capResult) remains the hard backstop. Default: true.
+   * Disable if a downstream model misreads TOON output.
+   */
+  compactToolResults: boolean;
 }
 
 /** Re-export for backwards-compatible imports. */
@@ -140,6 +148,7 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   capturePromptPath: '',
   startersPath: 'Skald/Starters.md',
   thinkingEnabled: false,
+  compactToolResults: true,
 };
 
 export class SkaldSettingTab extends PluginSettingTab {
@@ -187,6 +196,21 @@ export class SkaldSettingTab extends PluginSettingTab {
         .addToggle((t) => {
           t.setValue(this.plugin.settings.thinkingEnabled).onChange(async (v) => {
             this.plugin.settings.thinkingEnabled = v;
+            await this.plugin.saveSettings();
+          });
+        });
+
+      // Tool-result compaction toggle.
+      new Setting(containerEl)
+        .setName('Compact tool results (reduces token usage)')
+        .setDesc(
+          'Shrinks large tool outputs before they enter the model context: uniform JSON arrays ' +
+          'become compact TOON tables; other JSON is minified; repeated text lines are collapsed. ' +
+          'Disable if your model misreads compact output.',
+        )
+        .addToggle((t) => {
+          t.setValue(this.plugin.settings.compactToolResults).onChange(async (v) => {
+            this.plugin.settings.compactToolResults = v;
             await this.plugin.saveSettings();
           });
         });
