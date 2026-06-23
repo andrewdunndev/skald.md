@@ -23,6 +23,9 @@ importers:
       '@skald/protocol':
         specifier: workspace:*
         version: link:../protocol
+      '@toon-format/toon':
+        specifier: ^2.3.0
+        version: 2.3.0
     devDependencies:
       '@types/node':
         specifier: ^22.0.0
@@ -528,6 +531,9 @@ packages:
     resolution: {integrity: sha512-hPt/bgL5cE+Qp+/TPHBqptcAgPzgj46mPcg/16zNUmbQk0j+mOEQV/+Lqu8QRtDV3Ek95Q6FeFITpuhl6OTsAA==}
     cpu: [x64]
     os: [win32]
+
+  '@toon-format/toon@2.3.0':
+    resolution: {integrity: sha512-/Ew9etdRQKVMnm9fDaCG0JjyAOK/O7T0M97oum1aW4W+UR8ZhVVPBanIV7oWgHBiGlnVxV9M55PWQCHofDV07w==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -1293,6 +1299,8 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.60.3':
     optional: true
+
+  '@toon-format/toon@2.3.0': {}
 
   '@types/chai@5.2.3':
     dependencies:
