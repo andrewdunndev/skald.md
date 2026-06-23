@@ -212,7 +212,10 @@ export class SkaldView extends ItemView {
       onResume: (file) =>
         void resumeConversation(file, {
           app: this.app,
-          session: this.session,
+          // Getter, not a snapshot: connect() reassigns this.session, and
+          // resumeConversation must hydrate the post-connect live session
+          // (the one send() dispatches through), not the detached original.
+          getSession: () => this.session,
           connect: () => this.connect(),
           messageList: this.messageList,
           dropSessionState: () => this.dropSessionState(),
