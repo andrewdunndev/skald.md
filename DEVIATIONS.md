@@ -82,9 +82,17 @@ change.
 **Current exceptions** (also listed in `scripts/check-size.mjs` for
 machine-readability):
 
-_None._ Every TS source file is currently under the 400-line cap.
-Past deviations (view.ts, worker/src/index.ts, tools.ts) have all
-been refactored into per-responsibility modules.
+| File | Cap | Expires | Next move |
+|------|-----|---------|-----------|
+| `packages/plugin/src/view.ts` | 415 | 2026-09-22 | Extract `setStatus` + status-row setup into `view/status-row.ts` |
+
+Past deviations (worker/src/index.ts, tools.ts) have all been
+refactored into per-responsibility modules.
+
+**2026-06-23 — view.ts:** a11y fix (fix/a11y-theme) added `role="status"` +
+`aria-live` on statusEl and a non-color error-icon cue, pushing the file to
+409 lines. The correct fix is to extract the status-row setup and `setStatus`
+into `view/status-row.ts` (9 lines of logic; the deviation expires 2026-09-22).
 
 **Why deviations exist at all:** files that house complete
 subsystems whose decomposition is a real refactor, not a renaming

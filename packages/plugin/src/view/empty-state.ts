@@ -175,15 +175,18 @@ export function renderEmptyState(
 ): HTMLDivElement {
   const wrap = parent.createDiv({ cls: 'skald-empty' });
 
+  // Icon is purely decorative — the heading below is the accessible name (D).
   const icon = wrap.createDiv({ cls: 'skald-empty-icon' });
+  icon.setAttr('aria-hidden', 'true');
   setIcon(icon, 'sparkles');
 
-  wrap.createEl('div', {
+  // Real heading element so AT can navigate via heading shortcuts (F).
+  wrap.createEl('h2', {
     cls: 'skald-empty-title',
     text: 'Your vault, on call.',
   });
 
-  wrap.createEl('div', {
+  wrap.createEl('p', {
     cls: 'skald-empty-subtitle',
     text:
       'Tap a starter, type a question, or attach notes with @ to give Claude context.',
@@ -212,7 +215,9 @@ export function renderChipsInto(
       attr: { type: 'button' },
     });
     if (chip.icon) {
+      // Icon is decorative — the chip label span is the button text (D).
       const ic = btn.createSpan({ cls: 'skald-empty-chip-icon' });
+      ic.setAttr('aria-hidden', 'true');
       setIcon(ic, chip.icon);
     }
     btn.createSpan({ cls: 'skald-empty-chip-label', text: chip.label });
