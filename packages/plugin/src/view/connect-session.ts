@@ -14,6 +14,7 @@ import { ChatSession } from '../chat-session';
 import { buildActiveTools, executeTool } from '../tools';
 import type { WriteProposal } from '../tools';
 import { loadSystemPrompt } from './system-prompt';
+import { resolveBannerSpec } from './setup-banner';
 import { providerCapabilities } from '../provider-capabilities';
 import { compactToolResult } from '../tool-compact';
 
@@ -54,7 +55,27 @@ export function connectSession(
   };
 
   const handlers: TransportHandlers = {
-    onOpen: () => cbs.setStatus('Connected', 'connected'),
+    onOpen: () => {
+      // The transport opens synchronously with no handshake, so "open" only
+      // means the client is wired up — not that a chat can actually succeed.
+      // Gate the positive (green) status on the SAME readiness check the
+      // setup banner uses (resolveBannerSpec === null ⇒ the active provider's
+      // key/endpoint is present). Otherwise "Connected" would contradict the
+      // "add your key" banner sitting right above it.
+      const s = plugin.settings;
+      const ready =
+        resolveBannerSpec({
+          provider: s.provider ?? 'anthropic',
+          anthropicApiKey: s.anthropicApiKey,
+          openrouterApiKey: s.openrouterApiKey,
+          openaiBaseUrl: s.openaiBaseUrl,
+        }) === null;
+      if (ready) {
+        cbs.setStatus('Connected', 'connected');
+      } else {
+        cbs.setStatus('No API key — add it in Settings → Skald.');
+      }
+    },
     onClose: (code: number, reason: string) => {
       cbs.setStatus(`Disconnected (${code}${reason ? `: ${reason}` : ''})`);
       drainIfInFlight('Connection lost mid-stream — reconnect and resend.');
