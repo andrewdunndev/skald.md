@@ -9,10 +9,11 @@
  * Styles in plugin/styles.css (.skald-privacy-notice).
  */
 
-import { Setting } from 'obsidian';
+import { Notice, Setting } from 'obsidian';
 import type { Provider } from '@skald/protocol';
 import type SkaldPlugin from '../main';
 import { ModelSuggest } from '../model-suggest';
+import { validateOpenAiBaseUrl } from '../openai-base-url';
 
 export const ANTHROPIC_MODELS = [
   { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 (default)' },
@@ -179,7 +180,18 @@ function renderOpenaiBlock(
       t.setPlaceholder('https://llm.dunn.dev/v1')
         .setValue(plugin.settings.openaiBaseUrl)
         .onChange(async (v) => {
-          plugin.settings.openaiBaseUrl = v.trim();
+          const trimmed = v.trim();
+          const result = validateOpenAiBaseUrl(trimmed);
+          if (!result.ok) {
+            t.inputEl.addClass('skald-input-invalid');
+            new Notice(`Skald: ${result.error}`);
+            // Do not persist an insecure base URL — leave the prior
+            // value in place so prompts/keys are never dispatched in
+            // cleartext to a remote host.
+            return;
+          }
+          t.inputEl.removeClass('skald-input-invalid');
+          plugin.settings.openaiBaseUrl = trimmed;
           await plugin.saveSettings();
         });
     });
