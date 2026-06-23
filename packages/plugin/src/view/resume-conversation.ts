@@ -91,7 +91,9 @@ export async function resumeConversation(
     usage: parsed.meta.usage,
   });
 
-  await ctx.messageList.flushRender(session.getMessages(), null);
+  // Pass forceScroll=true so the view opens at the tail of the loaded
+  // history, regardless of where the container scroll currently sits.
+  await ctx.messageList.flushRender(session.getMessages(), null, true);
 
   if (parsed.meta.usage) {
     const total = session.getTotalUsage();
