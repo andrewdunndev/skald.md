@@ -42,6 +42,8 @@ export function providerCapabilities(provider: Provider): ProviderCapabilities {
       return { promptCaching: true, extendedThinking: true, citations: true };
     case 'openrouter':
       return { promptCaching: false, extendedThinking: false, citations: false };
+    case 'openai':
+      return { promptCaching: false, extendedThinking: false, citations: false };
     default:
       return assertNever(provider);
   }
@@ -58,6 +60,8 @@ export function reasoningModel(settings: SkaldSettings): string {
       return settings.defaultModel;
     case 'openrouter':
       return settings.openrouterModel;
+    case 'openai':
+      return settings.openaiModel || '';
     default:
       return assertNever(settings.provider);
   }
@@ -77,6 +81,8 @@ export function utilityModel(settings: SkaldSettings): string {
       return 'claude-haiku-4-5';
     case 'openrouter':
       return 'anthropic/claude-haiku-4-5';
+    case 'openai':
+      return settings.openaiModel || '';
     default:
       return assertNever(settings.provider);
   }

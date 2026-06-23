@@ -8,6 +8,9 @@ export interface SetupBannerInput {
   anthropicApiKey: string;
   /** Trimmed OpenRouter API key from settings. */
   openrouterApiKey: string;
+  /** Trimmed OpenAI-compatible base URL from settings. The openai banner
+   * gates on a base URL (the key is optional for self-hosted endpoints). */
+  openaiBaseUrl: string;
 }
 
 /**
@@ -23,6 +26,16 @@ export interface BannerSpec {
 }
 
 export function resolveBannerSpec(input: SetupBannerInput): BannerSpec | null {
+  // OpenAI-compatible: gate on the base URL, not a key (self-hosted
+  // endpoints may need no auth).
+  if (input.provider === 'openai') {
+    if (input.openaiBaseUrl.trim()) return null;
+    return {
+      title: 'Add your endpoint',
+      detail: 'OpenAI-compatible base URL — Settings → Skald (e.g. https://llm.dunn.dev/v1).',
+    };
+  }
+
   const activeKey =
     input.provider === 'openrouter'
       ? input.openrouterApiKey.trim()

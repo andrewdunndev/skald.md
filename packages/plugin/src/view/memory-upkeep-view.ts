@@ -52,8 +52,16 @@ export async function runMemoryUpkeepView(opts: {
     const resolvedProvider = provider ?? settings.provider ?? 'anthropic';
     const apiKey = resolvedProvider === 'openrouter'
       ? settings.openrouterApiKey
-      : settings.anthropicApiKey;
-    if (!apiKey) return;
+      : resolvedProvider === 'openai'
+        ? settings.openaiApiKey
+        : settings.anthropicApiKey;
+    const baseUrl = resolvedProvider === 'openai' ? settings.openaiBaseUrl : undefined;
+    // OpenAI-compatible endpoints may need no key; gate on base URL instead.
+    if (resolvedProvider === 'openai') {
+      if (!baseUrl) return;
+    } else if (!apiKey) {
+      return;
+    }
 
     // Snapshot the conversation identity at trigger time. The model call and
     // approval dialog are async; if the user starts a new chat or resumes a
@@ -71,6 +79,7 @@ export async function runMemoryUpkeepView(opts: {
       model: utilityModel(settings),
       provider: resolvedProvider,
       apiKey,
+      baseUrl,
     });
     if (!proposed) return;
 

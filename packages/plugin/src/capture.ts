@@ -122,6 +122,12 @@ export interface CaptureServiceConfig {
   defaultModel: string;
   /** Default OpenRouter model id. */
   openrouterModel: string;
+  /** OpenAI-compatible Bearer token. */
+  openaiApiKey: string;
+  /** OpenAI-compatible model id. */
+  openaiModel: string;
+  /** OpenAI-compatible base URL. */
+  openaiBaseUrl: string;
   captureFolder: string;
   /** Vault-relative path of a prompt-template note. Empty → use
    * the kind-default prompt baked into this module. */
@@ -146,8 +152,18 @@ async function directCapture(
   const apiKey =
     provider === 'openrouter'
       ? cfg.openrouterApiKey.trim()
-      : cfg.anthropicApiKey.trim();
-  if (!apiKey) {
+      : provider === 'openai'
+        ? cfg.openaiApiKey.trim()
+        : cfg.anthropicApiKey.trim();
+  const baseUrl = provider === 'openai' ? cfg.openaiBaseUrl.trim() : undefined;
+  // OpenAI-compatible endpoints may need no key; gate on base URL instead.
+  if (provider === 'openai') {
+    if (!baseUrl) {
+      throw new Error(
+        'No OpenAI-compatible base URL configured. Add it in plugin settings (openaiBaseUrl).',
+      );
+    }
+  } else if (!apiKey) {
     const which = provider === 'openrouter' ? 'OpenRouter' : 'Anthropic';
     const field =
       provider === 'openrouter' ? 'openrouterApiKey' : 'anthropicApiKey';
@@ -161,11 +177,16 @@ async function directCapture(
     );
   }
   const model =
-    provider === 'openrouter' ? cfg.openrouterModel : cfg.defaultModel;
+    provider === 'openrouter'
+      ? cfg.openrouterModel
+      : provider === 'openai'
+        ? cfg.openaiModel
+        : cfg.defaultModel;
 
   const res = await utilityComplete(provider, apiKey, model, {
     userPrompt: prompt,
     maxTokens: 2048,
+    baseUrl,
   });
 
   if (!res.ok) {

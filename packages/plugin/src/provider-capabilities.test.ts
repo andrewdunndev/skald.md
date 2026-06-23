@@ -22,6 +22,7 @@ interface MinimalSettings {
   provider: Provider;
   defaultModel: string;
   openrouterModel: string;
+  openaiModel: string;
   utilityModel?: string;
 }
 
@@ -30,6 +31,7 @@ function makeSettings(overrides: Partial<MinimalSettings> = {}): MinimalSettings
     provider: 'anthropic',
     defaultModel: 'claude-sonnet-4-6',
     openrouterModel: 'anthropic/claude-sonnet-4-6',
+    openaiModel: '',
     utilityModel: '',
     ...overrides,
   };
@@ -53,6 +55,14 @@ describe('providerCapabilities', () => {
       citations: false,
     });
   });
+
+  it('openai disables caching, thinking, and citations', () => {
+    expect(providerCapabilities('openai')).toEqual({
+      promptCaching: false,
+      extendedThinking: false,
+      citations: false,
+    });
+  });
 });
 
 // ── utilityModel ──────────────────────────────────────────────────────────
@@ -68,9 +78,20 @@ describe('utilityModel: provider × override matrix', () => {
     ['openrouter, no override → namespaced default', 'openrouter', '', 'anthropic/claude-haiku-4-5'],
     ['anthropic, override wins', 'anthropic', 'my-local-model', 'my-local-model'],
     ['openrouter, override wins', 'openrouter', 'meta-llama/llama-3-8b', 'meta-llama/llama-3-8b'],
+    ['openai, override wins', 'openai', 'qwen2.5-32b', 'qwen2.5-32b'],
   ] as const)('%s', (_label, provider, override, expected) => {
     const s = makeSettings({ provider, utilityModel: override });
     expect(utilityModel(s as never)).toBe(expected);
+  });
+
+  it('openai, no override → settings.openaiModel', () => {
+    const s = makeSettings({ provider: 'openai', openaiModel: 'qwen2.5-14b', utilityModel: '' });
+    expect(utilityModel(s as never)).toBe('qwen2.5-14b');
+  });
+
+  it('openai, no override and no openaiModel → empty string', () => {
+    const s = makeSettings({ provider: 'openai', openaiModel: '', utilityModel: '' });
+    expect(utilityModel(s as never)).toBe('');
   });
 });
 
@@ -85,5 +106,10 @@ describe('reasoningModel: returns configured chat model', () => {
   it('openrouter → settings.openrouterModel', () => {
     const s = makeSettings({ provider: 'openrouter', openrouterModel: 'openai/gpt-5' });
     expect(reasoningModel(s as never)).toBe('openai/gpt-5');
+  });
+
+  it('openai → settings.openaiModel', () => {
+    const s = makeSettings({ provider: 'openai', openaiModel: 'qwen2.5-14b' });
+    expect(reasoningModel(s as never)).toBe('qwen2.5-14b');
   });
 });

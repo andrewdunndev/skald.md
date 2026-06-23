@@ -33,6 +33,9 @@ export default class SkaldPlugin extends Plugin {
       openrouterApiKey: this.settings.openrouterApiKey,
       defaultModel: this.settings.defaultModel,
       openrouterModel: this.settings.openrouterModel,
+      openaiApiKey: this.settings.openaiApiKey,
+      openaiModel: this.settings.openaiModel,
+      openaiBaseUrl: this.settings.openaiBaseUrl,
       captureFolder: this.settings.capturesFolder,
       promptPath: this.settings.capturePromptPath,
     }));

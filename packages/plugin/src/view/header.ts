@@ -48,23 +48,31 @@ export function renderHeader(
       void hooks.onModelChange(modelSelect.value);
     });
   } else {
-    // OpenRouter: hundreds-of-models catalog. The chat header shows
-    // the active model as a non-editable label; model selection
-    // lives in settings (ModelSuggest fuzzy search). The hidden
-    // <select> below is a stand-in so `.value` keeps working — its
-    // single option carries the user's configured OpenRouter model.
+    // OpenRouter / OpenAI-compatible: free-text / catalog model. The
+    // chat header shows the active model as a non-editable label;
+    // model selection lives in settings. The hidden <select> below is
+    // a stand-in so `.value` keeps working — its single option carries
+    // the user's configured model for the active provider.
+    const isOpenai = provider === 'openai';
+    const activeModel = isOpenai ? settings.openaiModel : settings.openrouterModel;
+    const fallback = isOpenai ? '' : 'anthropic/claude-sonnet-4-6';
     const label = header.createEl('span', {
       cls: 'skald-model-label',
-      text: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
+      text: activeModel || fallback,
     });
-    label.setAttr('title', 'Active OpenRouter model. Change in settings.');
+    label.setAttr(
+      'title',
+      isOpenai
+        ? 'Active OpenAI-compatible model. Change in settings.'
+        : 'Active OpenRouter model. Change in settings.',
+    );
     modelSelect = header.createEl('select', {
       cls: 'skald-model skald-model-hidden',
       attr: { 'aria-label': 'Model' },
     });
     const opt = modelSelect.createEl('option', {
-      text: settings.openrouterModel,
-      value: settings.openrouterModel || 'anthropic/claude-sonnet-4-6',
+      text: activeModel,
+      value: activeModel || fallback,
     });
     opt.selected = true;
   }

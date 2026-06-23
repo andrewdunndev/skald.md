@@ -2,14 +2,17 @@
  * Shared provider-agnostic utility-model completion helper.
  *
  * Used by rerank, memory-upkeep, and capture for their one-shot
- * non-streaming model calls. Both supported providers ('anthropic' and
- * 'openrouter') speak the Anthropic Messages wire format, so this helper
- * stays Anthropic-shaped throughout.
+ * non-streaming model calls. 'anthropic' and 'openrouter' speak the
+ * Anthropic Messages wire format and share a content-block parse path.
  *
  * OpenRouter exposes an Anthropic-compatible /v1/messages endpoint that
  * accepts the same body shape and returns the same content-block response.
  * Using that endpoint (rather than the OpenAI /chat/completions compat
- * surface) lets all callers share a single parse path.
+ * surface) lets the two Anthropic-shaped callers share a single parse.
+ *
+ * 'openai' targets an OpenAI-compatible /chat/completions endpoint at a
+ * caller-supplied baseUrl: Bearer auth, OpenAI request body (no
+ * cache_control), and a string content parse (choices[0].message.content).
  *
  * Soft-fail contract: returns { ok: false } on any non-2xx response
  * rather than throwing, so callers decide how to handle failures.
@@ -35,13 +38,22 @@ export async function utilityComplete(
     userPrompt: string;
     maxTokens: number;
     cacheSystem?: boolean;
+    /** Base URL for an OpenAI-compatible endpoint (provider==='openai').
+     * Ignored for anthropic/openrouter. */
+    baseUrl?: string;
   },
 ): Promise<UtilityResult> {
   const caps = providerCapabilities(provider);
 
-  // Build the request URL and headers per provider.
+  // Build the request URL, headers, and body per provider. OpenAI-compatible
+  // endpoints use the /chat/completions wire shape; anthropic/openrouter use
+  // the Anthropic Messages shape.
   let url: string;
   let headers: Record<string, string>;
+  let body: Record<string, unknown>;
+  // Whether the response parses as OpenAI choices (string) vs Anthropic
+  // content blocks.
+  let parseShape: 'anthropic' | 'openai' = 'anthropic';
 
   switch (provider) {
     case 'anthropic':
@@ -51,6 +63,7 @@ export async function utilityComplete(
         'anthropic-version': '2023-06-01',
         'content-type': 'application/json',
       };
+      body = buildAnthropicBody(model, opts, caps.promptCaching);
       break;
     case 'openrouter':
       url = 'https://openrouter.ai/api/v1/messages';
@@ -60,34 +73,32 @@ export async function utilityComplete(
         'HTTP-Referer': 'https://github.com/skald/skald',
         'X-OpenRouter-Title': 'skald',
       };
+      body = buildAnthropicBody(model, opts, caps.promptCaching);
       break;
+    case 'openai': {
+      const base = (opts.baseUrl ?? '').replace(/\/$/, '');
+      url = `${base}/chat/completions`;
+      headers = {
+        Authorization: `Bearer ${apiKey}`,
+        'content-type': 'application/json',
+      };
+      // OpenAI request shape: a flat messages array with an optional
+      // leading system message. Never carries cache_control.
+      body = {
+        model,
+        max_tokens: opts.maxTokens,
+        messages: [
+          ...(opts.system ? [{ role: 'system', content: opts.system }] : []),
+          { role: 'user', content: opts.userPrompt },
+        ],
+      };
+      parseShape = 'openai';
+      break;
+    }
     default: {
       const _exhaustive: never = provider;
       void _exhaustive;
       return { ok: false, text: null, status: 0, errorText: 'unknown provider' };
-    }
-  }
-
-  // Build the request body (Anthropic Messages shape).
-  const body: Record<string, unknown> = {
-    model,
-    max_tokens: opts.maxTokens,
-    messages: [{ role: 'user', content: opts.userPrompt }],
-  };
-
-  // Add system prompt only when non-empty, applying cache_control when
-  // the provider supports prompt caching and opts.cacheSystem is set.
-  if (opts.system) {
-    if (opts.cacheSystem && caps.promptCaching) {
-      body.system = [
-        {
-          type: 'text',
-          text: opts.system,
-          cache_control: { type: 'ephemeral', ttl: '1h' },
-        },
-      ];
-    } else {
-      body.system = opts.system;
     }
   }
 
@@ -101,13 +112,16 @@ export async function utilityComplete(
 
   const ok = resp.status >= 200 && resp.status < 300;
 
-  // Parse Anthropic-shaped content blocks.
-  const text = (
-    (resp.json?.content ?? []) as Array<{ type?: string; text?: string }>
-  )
-    .filter((b) => b.type === 'text' && typeof b.text === 'string')
-    .map((b) => b.text as string)
-    .join('\n');
+  // Parse per response shape.
+  const text =
+    parseShape === 'openai'
+      ? ((resp.json?.choices?.[0]?.message?.content as string | undefined) ?? '')
+      : (
+          (resp.json?.content ?? []) as Array<{ type?: string; text?: string }>
+        )
+          .filter((b) => b.type === 'text' && typeof b.text === 'string')
+          .map((b) => b.text as string)
+          .join('\n');
 
   if (!ok) {
     return {
@@ -119,4 +133,33 @@ export async function utilityComplete(
   }
 
   return { ok: true, text, status: resp.status };
+}
+
+/** Build the Anthropic Messages request body shared by the anthropic and
+ * openrouter providers. Applies cache_control on the system block only when
+ * the provider supports prompt caching and opts.cacheSystem is set. */
+function buildAnthropicBody(
+  model: string,
+  opts: { system?: string; userPrompt: string; maxTokens: number; cacheSystem?: boolean },
+  promptCaching: boolean,
+): Record<string, unknown> {
+  const body: Record<string, unknown> = {
+    model,
+    max_tokens: opts.maxTokens,
+    messages: [{ role: 'user', content: opts.userPrompt }],
+  };
+  if (opts.system) {
+    if (opts.cacheSystem && promptCaching) {
+      body.system = [
+        {
+          type: 'text',
+          text: opts.system,
+          cache_control: { type: 'ephemeral', ttl: '1h' },
+        },
+      ];
+    } else {
+      body.system = opts.system;
+    }
+  }
+  return body;
 }

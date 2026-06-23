@@ -215,6 +215,11 @@ export function formatTurnStatus(input: {
     : '';
   const stop =
     input.stopReason !== 'end_turn' ? ` · ${input.stopReason}` : '';
-  const via = input.provider === 'openrouter' ? ' · openrouter' : '';
+  const via =
+    input.provider === 'openrouter'
+      ? ' · openrouter'
+      : input.provider === 'openai'
+        ? ' · openai'
+        : '';
   return `Connected · last turn${via}: ${input.usage.input_tokens ?? 0} in / ${input.usage.output_tokens ?? 0} out${cache}${stop}`;
 }
