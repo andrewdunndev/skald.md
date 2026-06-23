@@ -26,6 +26,8 @@ interface OmnisearchApi {
 /**
  * Hard cap on most tool results. Above this we truncate + add a footer.
  *
+ * Measured in real UTF-8 bytes (capResult encodes before comparing).
+ *
  * Decision (2026-06-22, ADR 0010): retain at 4 096 bytes (densified).
  * Compaction now runs BEFORE this cap for the three large-output tools
  * (read_note / list_notes / search_vault), so the model receives more
@@ -42,14 +44,35 @@ export const MAX_TOOL_RESULT_BYTES = 4096;
  * range-read path. */
 export const MAX_NOTE_BYTES = 16384;
 
+const UTF8 = new TextEncoder();
+
+/** UTF-8 byte length of a string (the cap is measured in real bytes). */
+function byteLength(s: string): number {
+  return UTF8.encode(s).length;
+}
+
 /**
- * Truncate a tool result string to `cap` bytes when it exceeds the cap.
- * Appends a human-readable footer so Claude knows it's seeing a partial view
- * and can narrow via limit: N or range args.
- *
- * When `compact` is true, `compactToolResult` runs on the text BEFORE the
- * length check/truncate, so densified content survives the budget (e.g. more
- * table rows fit within the same cap).  Footer/backstop behaviour unchanged.
+ * Largest prefix of `s` whose UTF-8 encoding is ≤ `capBytes` bytes, cut on a
+ * code-point boundary — the for..of iterator yields whole code points, so the
+ * cut can never split a surrogate pair into a lone surrogate.
+ */
+function sliceToByteBudget(s: string, capBytes: number): string {
+  let used = 0;
+  let out = '';
+  for (const ch of s) {
+    const n = byteLength(ch);
+    if (used + n > capBytes) break;
+    used += n;
+    out += ch;
+  }
+  return out;
+}
+
+/**
+ * Truncate a tool result to `cap` UTF-8 bytes when it exceeds the cap, on a
+ * code-point boundary (never splits a surrogate pair), with a footer so Claude
+ * knows it's a partial view. When `compact` is true, `compactToolResult` runs
+ * BEFORE the length check so densified content survives the budget.
  */
 export function capResult(
   text: string,
@@ -58,9 +81,10 @@ export function capResult(
   compact = false,
 ): string {
   const working = compact ? compactToolResult(text).text : text;
-  if (working.length <= cap) return working;
-  const totalKB = Math.round(working.length / 1024);
-  return working.slice(0, cap) + `\n\n…truncated (showed first ${cap >= 1024 ? `${Math.round(cap / 1024)}KB` : `${cap}B`} of ${totalKB}KB total — ${footer})`;
+  const totalBytes = byteLength(working);
+  if (totalBytes <= cap) return working;
+  const totalKB = Math.round(totalBytes / 1024);
+  return sliceToByteBudget(working, cap) + `\n\n…truncated (showed first ${cap >= 1024 ? `${Math.round(cap / 1024)}KB` : `${cap}B`} of ${totalKB}KB total — ${footer})`;
 }
 
 export const READ_ONLY_TOOLS: ToolDefinition[] = [
