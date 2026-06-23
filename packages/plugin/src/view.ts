@@ -94,6 +94,8 @@ export class SkaldView extends ItemView {
 
     const statusRow = root.createDiv({ cls: 'skald-status-row' });
     this.statusEl = statusRow.createDiv({ cls: 'skald-status' });
+    // Announce status changes to AT (WCAG 4.1.3).
+    this.statusEl.setAttrs({ role: 'status', 'aria-live': 'polite' });
     const reconnectBtn = statusRow.createEl('button', {
       cls: 'clickable-icon skald-icon-btn',
       attr: { 'aria-label': 'Reconnect' },
@@ -393,8 +395,15 @@ export class SkaldView extends ItemView {
   }
 
   private setStatus(text: string, modifier?: 'connected' | 'error'): void {
-    this.statusEl.setText(text);
+    this.statusEl.empty();
     this.statusEl.removeClass('connected', 'error');
     if (modifier) this.statusEl.addClass(modifier);
+    if (modifier === 'error') {
+      // WCAG 1.4.1: non-color cue alongside the red text.
+      const iconEl = this.statusEl.createSpan({ cls: 'skald-status-icon' });
+      setIcon(iconEl, 'alert-circle');
+      iconEl.setAttr('aria-hidden', 'true');
+    }
+    this.statusEl.createSpan({ text });
   }
 }

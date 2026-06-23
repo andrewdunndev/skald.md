@@ -88,6 +88,11 @@ export class MessageList {
   constructor(parent: HTMLElement, ctx: MessageListContext) {
     this.ctx = ctx;
     this.messagesEl = parent.createDiv({ cls: 'skald-messages' });
+    // role="log" marks this as an append-only message stream so screen
+    // readers apply correct semantics (WCAG 1.3.1, fix E). The dedicated
+    // LiveRegion handles polite turn announcements; this role gives
+    // the structural context for AT navigation.
+    this.messagesEl.setAttrs({ role: 'log', 'aria-label': 'Chat messages' });
     this.renderEmptyState();
   }
 
@@ -231,6 +236,9 @@ export class MessageList {
 
   private appendRow(): void {
     const el = this.messagesEl.createDiv({ cls: 'skald-msg' });
+    // role="listitem" pairs with the parent role="log" container so
+    // AT can navigate message turns individually (fix E).
+    el.setAttr('role', 'listitem');
     el.createSpan({ cls: 'skald-msg-who' });
     const body = el.createDiv({ cls: 'skald-msg-body' });
     const component = new Component();
@@ -260,6 +268,8 @@ export class MessageList {
     if (whoEl) {
       whoEl.empty();
       const avatar = whoEl.createSpan({ cls: 'skald-msg-avatar' });
+      // Icon is purely decorative — the text label carries the name (D).
+      avatar.setAttr('aria-hidden', 'true');
       setIcon(avatar, msg.role === 'user' ? 'user' : 'sparkles');
       whoEl.createSpan({
         cls: 'skald-msg-label',

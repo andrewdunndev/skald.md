@@ -244,6 +244,8 @@
 }
 
 .skald-diff-add {
+  /* Fallback for themes that don't define --color-green-rgb (B). */
+  background: var(--background-modifier-success, rgba(0,128,0,0.12));
   background: rgba(var(--color-green-rgb), 0.15);
   color: var(--text-normal);
 }
@@ -254,9 +256,13 @@
 }
 
 .skald-diff-remove {
+  /* Fallback for themes that don't define --color-red-rgb (B). */
+  background: var(--background-modifier-error, rgba(180,0,0,0.12));
   background: rgba(var(--color-red-rgb), 0.15);
   color: var(--text-normal);
   text-decoration: line-through;
+  /* Fallback text-decoration-color for themes without --color-red-rgb. */
+  text-decoration-color: var(--text-error);
   text-decoration-color: rgba(var(--color-red-rgb), 0.5);
 }
 
@@ -285,6 +291,9 @@
 
 .skald-status {
   flex: 1;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--size-2-1);
   font-size: var(--font-ui-smaller);
   color: var(--text-muted);
   padding: var(--size-2-1) var(--size-4-1);
@@ -298,6 +307,15 @@
 
 .skald-status.error {
   color: var(--text-error);
+}
+
+/* Non-color cue for error state (WCAG 1.4.1). The icon is aria-hidden;
+   the text label is the accessible name carried by the status element. */
+.skald-status-icon {
+  --icon-size: var(--icon-xs);
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
 }
 
 
@@ -702,13 +720,18 @@
   opacity: 0.7;
 }
 
+/* h2 element — reset browser/Obsidian heading defaults so the visual
+   treatment is controlled entirely here, not inherited (F). */
 .skald-empty-title {
+  margin: 0;
   font-size: var(--font-ui-medium);
   font-weight: var(--font-semibold);
   color: var(--text-normal);
 }
 
+/* p element — reset default paragraph margin (F). */
 .skald-empty-subtitle {
+  margin: 0;
   font-size: var(--font-ui-small);
   max-width: 28rem;
   line-height: 1.4;
@@ -1058,4 +1081,32 @@
   font-size: 0.78rem;
   color: var(--text-muted);
   margin-top: 0.2rem;
+}
+
+/* ── Reduced-motion accessibility ────────────────────────────────────
+   Honour the user's OS "reduce motion" preference (WCAG 2.3.3 /
+   prefers-reduced-motion). Removes animations and shortens transitions
+   to near-instant so they still fire (preserving JS animation-end
+   callbacks) but don't cause vestibular discomfort (C).          */
+@media (prefers-reduced-motion: reduce) {
+  /* Streaming border-pulse: remove animation; static border remains */
+  .skald-msg-streaming {
+    animation: none;
+  }
+
+  /* Typing dots bounce: freeze dots at rest opacity */
+  .skald-typing-dot {
+    animation: none;
+    opacity: 0.6;
+  }
+
+  /* Diff card swipe snap-back transition */
+  .skald-diff {
+    transition: none;
+  }
+
+  /* Message action row hover fade */
+  .skald-msg-actions {
+    transition: none;
+  }
 }

@@ -45,7 +45,14 @@ const SOURCE_ROOTS = [
  * `DEVIATIONS.md` — when one entry resolves (the file gets
  * refactored under cap), remove from both.
  */
-const DEVIATIONS = [];
+const DEVIATIONS = [
+  {
+    file: 'packages/plugin/src/view.ts',
+    cap: 415,
+    expires: '2026-09-22',
+    note: 'a11y additions (role/status/error-icon) pushed past 400; extract setStatus + status-row setup to view/status-row.ts',
+  },
+];
 
 async function walk(dir) {
   const out = [];
