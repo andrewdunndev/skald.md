@@ -102,7 +102,12 @@ export class ChatSession {
       return;
     }
     if (msg.type === 'done') {
-      void this.finalize(msg.stop_reason, msg.usage, msg.provider);
+      if (!this.inFlight) return; // guard: mid-stream error already cleared inFlight
+      void this.finalize(msg.stop_reason, msg.usage, msg.provider).catch((err) => {
+        this.inFlight = null;
+        this.handlers.onError(err instanceof Error ? err.message : 'Unexpected error.');
+        this.handlers.onUpdate();
+      });
       return;
     }
     if (msg.type === 'error') {
@@ -160,47 +165,43 @@ export class ChatSession {
 
   private async dispatch(): Promise<void> {
     const id = crypto.randomUUID();
-    this.inFlight = {
-      id,
-      blocks: [],
-      usage: { input_tokens: 0, output_tokens: 0 },
-    };
+    this.inFlight = { id, blocks: [], usage: { input_tokens: 0, output_tokens: 0 } };
 
-    let system: string | undefined;
-    try {
-      system = await this.systemProvider();
+    try { // outer catch: sync throw clears inFlight + surfaces onError
+      let system: string | undefined;
+      try {
+        system = await this.systemProvider();
+      } catch (err) {
+        this.inFlight = null;
+        this.handlers.onError(err instanceof Error ? err.message : 'Failed to build system prompt.');
+        this.handlers.onUpdate();
+        return;
+      }
+
+      const { provider, apiKey, baseUrl } = this.providerConfigProvider();
+      const payload: ChatRequest = {
+        model: this.modelProvider(),
+        messages: compactStaleToolResults(windowHistory(this.messages)),
+        max_tokens: 4096,
+      };
+      if (system) payload.system = system;
+      const tools = this.toolDefinitionsProvider();
+      if (tools.length > 0) payload.tools = tools;
+
+      const msg: ClientMessage = { type: 'chat', id, payload, provider };
+      if (apiKey) {
+        if (provider === 'openrouter') msg.openrouter_api_key = apiKey;
+        else if (provider === 'openai') msg.openai_api_key = apiKey;
+        else msg.anthropic_api_key = apiKey;
+      }
+      if (provider === 'openai' && baseUrl) msg.openai_base_url = baseUrl;
+      this.transport.send(msg);
+      this.handlers.onUpdate();
     } catch (err) {
       this.inFlight = null;
-      this.handlers.onError(err instanceof Error ? err.message : 'Failed to build system prompt.');
+      this.handlers.onError(err instanceof Error ? err.message : 'Unexpected error starting request.');
       this.handlers.onUpdate();
-      return;
     }
-
-    const { provider, apiKey, baseUrl } = this.providerConfigProvider();
-
-    const payload: ChatRequest = {
-      model: this.modelProvider(),
-      messages: compactStaleToolResults(windowHistory(this.messages)),
-      max_tokens: 4096,
-    };
-    if (system) payload.system = system;
-    const tools = this.toolDefinitionsProvider();
-    if (tools.length > 0) payload.tools = tools;
-
-    const msg: ClientMessage = {
-      type: 'chat',
-      id,
-      payload,
-      provider,
-    };
-    if (apiKey) {
-      if (provider === 'openrouter') msg.openrouter_api_key = apiKey;
-      else if (provider === 'openai') msg.openai_api_key = apiKey;
-      else msg.anthropic_api_key = apiKey;
-    }
-    if (provider === 'openai' && baseUrl) msg.openai_base_url = baseUrl;
-    this.transport.send(msg);
-    this.handlers.onUpdate();
   }
 
   private handleChunk(event: string, data: unknown): void {
@@ -252,6 +253,15 @@ export class ChatSession {
       if (d.usage && this.inFlight) {
         this.inFlight.usage = { ...this.inFlight.usage, ...d.usage };
       }
+    } else if (event === 'error') {
+      // Mid-stream SSE error (overloaded_error etc.) — clear inFlight so the
+      // composer unlocks; trailing done is ignored (handleServer guards inFlight).
+      const ep = d as Record<string, any>;
+      const m = (ep?.error as Record<string, unknown> | undefined)?.message;
+      this.inFlight = null;
+      this.handlers.onError(m != null ? String(m) : typeof ep?.message === 'string' ? ep.message : 'Stream error from provider.');
+      this.handlers.onUpdate();
+      return;
     }
 
     this.handlers.onUpdate();
@@ -285,11 +295,7 @@ export class ChatSession {
   }
 
   private async executeToolsAndContinue(blocks: ContentBlock[]): Promise<void> {
-    // Fix 3: clear the registry per continuation leg. document_index below is
-    // per-request (0-based within THIS dispatch), so the registry must match
-    // THIS request, not accumulate across legs (a per-turn-only clear left
-    // leg-1 at index 0 for a leg-2 citation to mis-resolve; sendUserMessage
-    // keeps its clear as defense).
+    // Clear per-leg: document_index is per-request; accumulating across legs mis-resolves.
     this.documentRegistry.clear();
 
     const toolUses = blocks.filter(
@@ -302,25 +308,15 @@ export class ChatSession {
     const writeUses: typeof toolUses = [];
     for (const block of toolUses) {
       const name = (block as Record<string, unknown>).name as string;
-      if (isReadOnlyTool(name)) {
-        readUses.push(block);
-      } else {
-        writeUses.push(block);
-      }
+      if (isReadOnlyTool(name)) readUses.push(block);
+      else writeUses.push(block);
     }
 
     // Map from tool_use_id → result block for reassembly in original order.
     const resultMap = new Map<string, ContentBlock>();
 
-    const toResultBlock = (
-      id: string,
-      res: { content: string; is_error?: boolean },
-    ): ContentBlock => {
-      const rb: ContentBlock = {
-        type: 'tool_result',
-        tool_use_id: id,
-        content: res.content,
-      };
+    const toResultBlock = (id: string, res: { content: string; is_error?: boolean }): ContentBlock => {
+      const rb: ContentBlock = { type: 'tool_result', tool_use_id: id, content: res.content };
       if (res.is_error) (rb as Record<string, unknown>).is_error = true;
       return rb;
     };
@@ -365,11 +361,9 @@ export class ChatSession {
       return resultMap.get(id)!;
     });
 
-    // Citations path (Anthropic): append a document block per successful
-    // read_note so the Citations API can ground to exact char spans
-    // (document_index 0-based across the turn). Fix 2: the body travels ONCE
-    // (in source.data); collapse the matching tool_result.content to the path
-    // so it isn't sent twice (~2x input tokens/read). Errors don't collapse.
+    // Citations path: append document blocks for read_note results so the
+    // Citations API can ground citations. Body travels once in source.data;
+    // the tool_result.content is collapsed to the path to avoid duplication.
     if (this.citationsEnabledProvider?.() ?? false) {
       let docIdx = 0;
       for (const block of toolUses) {
@@ -379,7 +373,10 @@ export class ChatSession {
         const res = resultMap.get(b.id as string) as Record<string, unknown> | undefined;
         const body = res && !res.is_error ? (res.content as string) : null;
         if (!path || !body || !res) continue;
-        results.push(buildDocumentBlock(path, body) as unknown as ContentBlock);
+        let docBlock: ContentBlock;
+        try { docBlock = buildDocumentBlock(path, body) as unknown as ContentBlock; }
+        catch { continue; }
+        results.push(docBlock);
         // Collapse the body out of the tool_result (same obj in `results`);
         // it now lives once in the doc block.
         res.content = `[${path}]`;
