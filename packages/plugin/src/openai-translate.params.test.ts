@@ -244,3 +244,57 @@ describe('edge cases', () => {
     expect(msgs.filter((m) => m.role === 'user')).toHaveLength(2);
   });
 });
+
+// ── 5. Thinking-only assistant turn guard ────────────────────────────────────
+
+describe('thinking-only assistant turn guard (Step 3)', () => {
+  it('omits an assistant message that has only thinking blocks (no content, no tool_calls)', () => {
+    // A turn where the assistant emitted only a <thinking> block is not
+    // representable in OpenAI shape (neither content nor tool_calls).
+    // The rewriter must skip it rather than push { role:'assistant' }.
+    const req = baseReq({
+      messages: [
+        { role: 'user', content: 'think hard' },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'thinking', thinking: '<internal thought>' },
+          ] as ChatRequest['messages'][0]['content'],
+        },
+        { role: 'user', content: 'follow up' },
+      ],
+    });
+    const msgs = (requestBodyForOpenAI(req).messages) as Array<Record<string, unknown>>;
+    // No assistant message should appear — it was thinking-only.
+    expect(msgs.filter((m) => m.role === 'assistant')).toHaveLength(0);
+    // Both user messages should still be present.
+    expect(msgs.filter((m) => m.role === 'user')).toHaveLength(2);
+  });
+
+  it('emits an assistant message that has only tool_calls (no content) correctly', () => {
+    // A tool-only assistant turn is valid in OpenAI shape.
+    const req = baseReq({
+      messages: [
+        { role: 'user', content: 'go' },
+        {
+          role: 'assistant',
+          content: [
+            { type: 'tool_use', id: 'c1', name: 'read_note', input: { path: 'x.md' } },
+          ] as ChatRequest['messages'][0]['content'],
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'tool_result', tool_use_id: 'c1', content: 'body' },
+          ] as ChatRequest['messages'][0]['content'],
+        },
+      ],
+    });
+    const msgs = (requestBodyForOpenAI(req).messages) as Array<Record<string, unknown>>;
+    const asst = msgs.find((m) => m.role === 'assistant');
+    expect(asst).toBeDefined();
+    // content absent is fine for a tool-only turn.
+    expect(asst?.content).toBeUndefined();
+    expect(Array.isArray(asst?.tool_calls)).toBe(true);
+  });
+});

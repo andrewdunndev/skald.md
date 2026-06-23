@@ -191,6 +191,14 @@ export function requestBodyForOpenAI(req: ChatRequest): Record<string, unknown> 
         // thinking / redacted_thinking → drop (fall through)
       }
 
+      // Guard: if the turn was all-thinking (no text, no tool calls), do not
+      // push an assistant message with neither content nor tool_calls — some
+      // OpenAI-compatible servers reject such a message shape.
+      if (textParts.length === 0 && toolCalls.length === 0) {
+        // Skip this assistant turn entirely (thinking-only turns have no
+        // conversational content to replay).
+        continue;
+      }
       const assistantMsg: OAIAssistantMessage = { role: 'assistant' };
       if (textParts.length > 0) assistantMsg.content = textParts.join('');
       if (toolCalls.length > 0) assistantMsg.tool_calls = toolCalls;
