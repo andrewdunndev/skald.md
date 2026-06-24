@@ -18,7 +18,6 @@ export type FolderSettingKey =
   | 'chatsFolder'
   | 'savedNotesFolder'
   | 'logsFolder'
-  | 'personasFolder'
   | 'commandsFolder'
   | 'capturesFolder';
 

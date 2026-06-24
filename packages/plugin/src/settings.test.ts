@@ -107,7 +107,7 @@ describe('normalizeSettings: openaiBaseUrl clamp (https enforcement)', () => {
   });
 
   it('keeps a valid https base URL unchanged', () => {
-    const url = 'https://llm.dunn.dev/v1';
+    const url = 'https://example.com/v1';
     expect(normalizeSettings({ openaiBaseUrl: url }).openaiBaseUrl).toBe(url);
   });
 
@@ -157,7 +157,7 @@ describe('normalizeSettings: valid settings round-trip unchanged', () => {
       provider: 'openai',
       anthropicApiKey: 'sk-ant-xyz',
       openaiApiKey: 'oai-xyz',
-      openaiBaseUrl: 'https://llm.dunn.dev/v1',
+      openaiBaseUrl: 'https://example.com/v1',
       openaiModel: 'qwen2.5-14b',
       memoryEnabled: false,
       thinkingEnabled: true,
