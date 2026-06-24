@@ -165,10 +165,12 @@ export function formatUsageFooter(total: Usage, model: string): string {
   const outK = ((total.output_tokens ?? 0) / 1000).toFixed(1);
   const cachedRead = total.cache_read_input_tokens ?? 0;
   const cachedPart =
-    cachedRead > 0 ? `+${(cachedRead / 1000).toFixed(1)}k(cached)` : '';
+    cachedRead > 0 ? `+${(cachedRead / 1000).toFixed(1)}kc` : '';
   const cost = estimateTurnCost(total, model);
   const costPart = cost > 0 ? ` · ${formatCostUSD(cost)}` : '';
-  return `${inK}k${cachedPart} in · ${outK}k out${costPart}`;
+  // Compact single-line form (must not wrap on mobile): ↑ input (fresh, plus
+  // "+Nkc" = cached read), ↓ output, then cost.
+  return `${inK}k${cachedPart} ↑ ${outK}k ↓${costPart}`;
 }
 
 /**

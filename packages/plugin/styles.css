@@ -584,8 +584,9 @@
 .skald-input {
   flex: 1;
   resize: none;
-  min-height: 2rem;
-  max-height: 8rem;
+  min-height: 2.5rem;
+  max-height: 12rem;
+  overflow-y: auto;
   font: inherit;
   background: transparent;
   border: none;
@@ -1003,6 +1004,11 @@
   text-align: right;
   padding: var(--size-2-1) var(--size-4-2);
   opacity: 0.75;
+  /* Single line — never wrap into extra vertical space. On a narrow screen the
+     left (token detail) clips; the right-aligned cost stays visible. */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* ── Polish sweep: first-run setup banner ────────────────────────── */
