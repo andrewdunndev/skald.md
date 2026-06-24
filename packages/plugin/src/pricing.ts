@@ -164,13 +164,17 @@ export function formatUsageFooter(total: Usage, model: string): string {
   const inK = ((total.input_tokens ?? 0) / 1000).toFixed(1);
   const outK = ((total.output_tokens ?? 0) / 1000).toFixed(1);
   const cachedRead = total.cache_read_input_tokens ?? 0;
-  const cachedPart =
+  const cacheWrite = total.cache_creation_input_tokens ?? 0;
+  const readPart =
     cachedRead > 0 ? `+${(cachedRead / 1000).toFixed(1)}kc` : '';
+  const writePart =
+    cacheWrite > 0 ? `+${(cacheWrite / 1000).toFixed(1)}kw` : '';
   const cost = estimateTurnCost(total, model);
   const costPart = cost > 0 ? ` · ${formatCostUSD(cost)}` : '';
-  // Compact single-line form (must not wrap on mobile): ↑ input (fresh, plus
-  // "+Nkc" = cached read), ↓ output, then cost.
-  return `${inK}k${cachedPart} ↑ ${outK}k ↓${costPart}`;
+  // Compact single-line form (must not wrap on mobile): ↑ input — fresh, plus
+  // "+Nkc" cache READ (cheap prefix hit) and/or "+Nkw" cache WRITE (the prefix
+  // was (re)cached; repeated writes across turns = cache busting); ↓ output.
+  return `${inK}k${readPart}${writePart} ↑ ${outK}k ↓${costPart}`;
 }
 
 /**

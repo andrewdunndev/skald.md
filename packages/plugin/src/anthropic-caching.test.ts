@@ -46,6 +46,25 @@ describe('applyAnthropicCaching', () => {
     expect(out.tools).toBeUndefined();
   });
 
+  it('array system: caches the stable (first) block, leaves trailing volatile blocks uncached', () => {
+    const out = applyAnthropicCaching(
+      baseReq({
+        system: [
+          { type: 'text', text: 'stable prefix' },
+          { type: 'text', text: 'volatile memory note' },
+        ] as unknown as ChatRequest['system'],
+      }),
+    );
+    const blocks = out.system as Array<Record<string, unknown>>;
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].text).toBe('stable prefix');
+    expect(blocks[0].cache_control).toEqual({ type: 'ephemeral', ttl: '1h' });
+    // The memory block sits after the breakpoint — uncached, so a memory
+    // rewrite doesn't re-cache the stable prefix.
+    expect(blocks[1].text).toBe('volatile memory note');
+    expect(blocks[1].cache_control).toBeUndefined();
+  });
+
   // ── Moving history breakpoint (3rd breakpoint) ──────────────────────────
 
   it('places a cache_control on the last block of the second-to-last message when >= 2 messages', () => {

@@ -95,7 +95,7 @@ export class ChatSession {
   constructor(
     private readonly transport: SkaldTransport,
     private readonly modelProvider: () => string,
-    private readonly systemProvider: () => Promise<string | undefined>,
+    private readonly systemProvider: () => Promise<ChatRequest['system']>,
     private readonly providerConfigProvider: () => ProviderConfig,
     private readonly toolDefinitionsProvider: () => ToolDefinition[],
     private readonly toolExecutor: ToolExecutor,
@@ -240,7 +240,7 @@ export class ChatSession {
     this.inFlight = { id, blocks: [], usage: { input_tokens: 0, output_tokens: 0 } };
 
     try { // outer catch: sync throw clears inFlight + surfaces onError
-      let system: string | undefined;
+      let system: ChatRequest['system'];
       try {
         system = await this.systemProvider();
       } catch (err) {

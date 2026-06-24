@@ -16,6 +16,7 @@
  */
 
 import { TFile, TFolder, normalizePath, type App } from 'obsidian';
+import type { SystemBlock } from '@skald/protocol';
 import { buildMemorySection } from '../memory-prompt';
 import { buildPersonaSection } from '../persona-prompt';
 import { buildSkaldBaseline } from './skald-baseline';
@@ -34,7 +35,7 @@ export const MAX_HARNESS_BYTES = 16_384;
 export async function loadSystemPrompt(
   app: App,
   settings: SkaldSettings,
-): Promise<string | undefined> {
+): Promise<string | SystemBlock[] | undefined> {
   const parts: string[] = [];
 
   parts.push(
@@ -58,13 +59,22 @@ export async function loadSystemPrompt(
   const harnessSection = await loadHarnessContext(app, settings.harnessFolder);
   if (harnessSection) parts.push(harnessSection);
 
+  // Memory is the one VOLATILE section — memory-upkeep rewrites the memory
+  // note between turns. Keep it in its own trailing system block so the
+  // caching layer can leave it uncached (re-sent fresh, but it's small)
+  // WITHOUT busting the cached stable prefix above. See applyAnthropicCaching:
+  // the cache breakpoint lands on the stable block, not on memory.
   const memorySection = await buildMemorySection(app, {
     enabled: settings.memoryEnabled,
     path: settings.memoryPath,
   });
-  if (memorySection) parts.push(memorySection);
 
-  return parts.length > 0 ? parts.join('\n\n---\n\n') : undefined;
+  const stable = parts.join('\n\n---\n\n');
+  if (!memorySection) return stable || undefined;
+  return [
+    { type: 'text', text: stable },
+    { type: 'text', text: memorySection },
+  ];
 }
 
 /**

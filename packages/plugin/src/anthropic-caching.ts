@@ -53,11 +53,23 @@ const CACHE_CONTROL_1H = { type: 'ephemeral', ttl: '1h' } as const;
 export function applyAnthropicCaching(req: ChatRequest): ChatRequest {
   const out: ChatRequest = { ...req };
 
-  // Wrap plain string system as a cached text block.
+  // System caching. A plain string becomes one cached block (whole system
+  // cached). A block array is loadSystemPrompt's [stable, …volatile] shape:
+  // put the breakpoint on the FIRST (stable) block only, so the stable prefix
+  // stays cached while a trailing volatile block — the memory note, which
+  // memory-upkeep rewrites between turns — is re-sent fresh WITHOUT busting
+  // the cached prefix. (Caching is prefix-based, so the memory block sits
+  // after the stable breakpoint; re-processing it does not re-write the ~10k
+  // stable prefix or the tools block.)
   if (typeof out.system === 'string' && out.system.length > 0) {
     out.system = [
       { type: 'text', text: out.system, cache_control: { ...CACHE_CONTROL_1H } },
     ];
+  } else if (Array.isArray(out.system) && out.system.length > 0) {
+    const blocks = out.system.map((b) => ({ ...(b as Record<string, unknown>) }));
+    for (const b of blocks) delete b.cache_control;
+    blocks[0] = { ...blocks[0], cache_control: { ...CACHE_CONTROL_1H } };
+    out.system = blocks as ChatRequest['system'];
   }
 
   // Cache breakpoint on the last tool so Anthropic caches the tool
