@@ -48,7 +48,6 @@ const BASE_SETTINGS = {
   logsFolder: '',
   memoryEnabled: false,
   memoryPath: '',
-  personasFolder: '',
   activePersona: '',
   commandsFolder: '',
   capturesFolder: '',

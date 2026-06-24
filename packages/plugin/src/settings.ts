@@ -75,12 +75,10 @@ export interface SkaldSettings {
   memoryPath: string;
   /**
    * Phase 9b: personas.
-   * personasFolder: where the user keeps persona notes.
    * activePersona: vault-relative path of the active persona note.
    *   Empty → no persona. The note's body (frontmatter stripped)
    *   prefixes the system prompt.
    */
-  personasFolder: string;
   activePersona: string;
   /**
    * Phase 9a: slash commands.
@@ -164,7 +162,6 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   logsFolder: '',
   memoryEnabled: true,
   memoryPath: 'Skald/Memory.md',
-  personasFolder: 'Skald/Personas',
   activePersona: '',
   commandsFolder: 'Skald/Commands',
   capturesFolder: 'Skald/Captures',

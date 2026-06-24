@@ -74,7 +74,6 @@ export function normalizeSettings(stored: unknown): SkaldSettings {
   out.chatsFolder = str('chatsFolder');
   out.logsFolder = str('logsFolder');
   out.memoryPath = str('memoryPath');
-  out.personasFolder = str('personasFolder');
   out.activePersona = str('activePersona');
   out.commandsFolder = str('commandsFolder');
   out.capturesFolder = str('capturesFolder');
