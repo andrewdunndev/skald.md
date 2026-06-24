@@ -17,6 +17,11 @@
 
 default:
   image: registry.gitlab.com/dunn.dev/pipeline/ci:2.7.0
+  # Pin to the storr docker runner (estate convention, matches cycle).
+  # Untagged, jobs land on any runner in the pool — including carmine's
+  # custom (QEMU) executor, which has no node and fails at `npm`. Tagging
+  # routes every job to the storr docker executor, which honors `image:`.
+  tags: [storr]
   cache:
     key:
       files:
