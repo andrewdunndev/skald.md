@@ -22,6 +22,8 @@ on-device tier reaches its ceiling. 0009 opens the direct tier to
 self-hosted models over a plain OpenAI-compatible endpoint, switchable
 alongside Anthropic. 0010 compacts tool output before it hits the
 context, the third token lever after caching (0003) and history (0004).
+0011 shrinks the cached prefix itself to a small shim and fetches heavy
+context on demand, revisiting what 0003 front-loads.
 
 ## Index
 
@@ -37,3 +39,4 @@ context, the third token lever after caching (0003) and history (0004).
 | [0008](0008-agent-host-tier.md) | Agent-host tier for the heavy path | Proposed (exploring) |
 | [0009](0009-openai-compatible-provider.md) | OpenAI-compatible provider for self-hosted models | Proposed |
 | [0010](0010-tool-result-compaction.md) | Tool-result compaction | Accepted |
+| [0011](0011-progressive-context-disclosure.md) | Progressive context disclosure (shim prefix + on-demand context) | Proposed (exploring) |
