@@ -23,6 +23,8 @@ import { MarkdownRenderer, type App, type Component } from 'obsidian';
 import type { ContentBlock } from '@skald/protocol';
 import { renderDiffCard } from './diff-card';
 import { renderErrorBlock } from './error-block';
+import { describeToolUse } from './tool-labels';
+export { describeToolUse };
 import type { WriteProposal } from '../tools';
 import { citationLabel, citationPath, type CitationLocation } from '../citations';
 
@@ -132,6 +134,13 @@ export async function renderBlock(
     });
     return;
   }
+
+  // Document blocks are citation/grounding context attached to a user turn
+  // (citations.ts) — sent to the model so it can cite sources, NOT user-facing
+  // content. The attachment is already surfaced (the composer chip + the
+  // "Sources:" line + the read tool_result), so render nothing rather than a
+  // jarring "(unhandled block: document)".
+  if (type === 'document') return;
 
   // Unknown block type — friendly placeholder instead of JSON dump.
   // Non-developer users find JSON in chat jarring; developers can
@@ -291,42 +300,6 @@ async function renderWebFetchResult(
     return;
   }
   body.createSpan({ text: '(empty fetch)' });
-}
-
-/**
- * Human-readable label for a tool_use. Single-line summary that
- * fits in the collapsed-tool-call row; raw JSON args don't appear
- * to non-developers.
- */
-export function describeToolUse(name: string, input: unknown): string {
-  const i = (input as Record<string, any>) ?? {};
-  switch (name) {
-    case 'read_note':
-      return `📖 Reading ${i.path ?? '?'}`;
-    case 'list_notes': {
-      const where = i.folder ? ` in \`${i.folder}\`` : '';
-      const limit = i.limit ? ` (limit ${i.limit})` : '';
-      return `📋 Listing notes${where}${limit}`;
-    }
-    case 'search_vault':
-      return `🔍 Searching vault for "${i.query ?? '?'}"`;
-    case 'current_note':
-      return `📍 Reading the current note`;
-    case 'metadata':
-      return `ℹ️ Metadata for ${i.path ?? '?'}`;
-    case 'web_search':
-      return `🌐 Web search: "${i.query ?? '?'}"`;
-    case 'web_fetch':
-      return `🌐 Fetching ${i.url ?? '?'}`;
-    case 'write_note':
-      return `✏️ Write ${i.path ?? '?'}`;
-    case 'edit_note':
-      return `✏️ Edit ${i.path ?? '?'}`;
-    case 'append_to_note':
-      return `➕ Append to ${i.path ?? '?'}`;
-    default:
-      return `🔧 ${name}`;
-  }
 }
 
 /**

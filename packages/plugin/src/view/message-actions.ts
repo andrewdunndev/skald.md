@@ -232,26 +232,23 @@ function renderSourcesFooter(
 }
 
 /**
- * Vault-action badge — a thin line above the action row summarizing
- * what tools the assistant turn touched. Visible signal of the
- * "default to vault action" prompt working. When nothing fired, an
- * italic "no vault action" reminds the user to ask "where would
- * this land?"
+ * Vault-action badge — a thin line summarizing what the vault touched on
+ * this turn. Only rendered when there IS an action.
+ *
+ * The old design also showed an idle "no vault action" badge when nothing
+ * fired. In practice that was pure noise (it rendered on every plain-text
+ * turn) AND read as a false negative: an edit's `tool_use` lives on the
+ * assistant turn while its result lands on the NEXT turn, so the turn that
+ * requested an edit showed "no vault action" even though it edited. Absence
+ * of a badge already communicates "no vault change," so we suppress the idle
+ * case entirely.
  */
 function renderVaultActionBadge(row: HTMLElement, msg: Message): void {
   const summary = summarizeVaultActions(msg);
+  if (!hasAnyAction(summary)) return;
   const badge = row.createDiv({ cls: 'skald-vault-badge' });
-  if (hasAnyAction(summary)) {
-    badge.setText(formatSummary(summary));
-    badge.addClass('skald-vault-badge-active');
-  } else {
-    badge.setText('💭 no vault action');
-    badge.addClass('skald-vault-badge-idle');
-    setTooltip(
-      badge,
-      "Claude answered without reading or writing to your vault. If you want this in a note, ask: 'where should this land?'",
-    );
-  }
+  badge.setText(formatSummary(summary));
+  badge.addClass('skald-vault-badge-active');
 }
 
 async function appendToCurrent(
