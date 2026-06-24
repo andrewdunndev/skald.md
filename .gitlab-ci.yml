@@ -7,9 +7,16 @@
 #
 # Caches the pnpm store keyed on the lockfile so subsequent runs reuse
 # the resolution work.
+#
+# Image: the estate's shared CI builder from dunn.dev/pipeline (Fedora +
+# node + npm + tooling), pulled from GitLab's registry. NOT Docker Hub's
+# `node:22` — the self-hosted runner pulls that unauthenticated and hits
+# Docker Hub's anon rate limit, which intermittently failed jobs at the
+# image-pull step. skald is pnpm; the shared image is npm-based, so we
+# bootstrap pnpm with `npm i -g` (corepack isn't guaranteed on the image).
 
 default:
-  image: node:22
+  image: registry.gitlab.com/dunn.dev/pipeline/ci:2.7.0
   cache:
     key:
       files:
@@ -17,8 +24,7 @@ default:
     paths:
       - .pnpm-store/
   before_script:
-    - corepack enable
-    - corepack prepare pnpm@11.1.1 --activate
+    - npm install -g pnpm@11.1.1
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
 
