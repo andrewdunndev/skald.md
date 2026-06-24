@@ -195,6 +195,18 @@ describe('formatUsageFooter', () => {
     const out = formatUsageFooter(usage, 'claude-sonnet-4-6');
     expect(out).not.toContain('cached');
   });
+
+  it('shows cache WRITE with +Nkw when cache_creation_input_tokens > 0', () => {
+    const usage = {
+      input_tokens: 800,
+      output_tokens: 200,
+      cache_creation_input_tokens: 10900,
+    };
+    const out = formatUsageFooter(usage, 'claude-sonnet-4-6');
+    // "+Nkw" surfaces a cache (re)write so repeated writes (= busting) are visible.
+    expect(out).toContain('+10.9kw');
+    expect(out).not.toContain('kc'); // no read part this turn
+  });
 });
 
 describe('formatSessionFooter', () => {

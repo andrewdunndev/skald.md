@@ -1,7 +1,9 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
 exports[`loadSystemPrompt: drift tripwire > full stack (persona + harness + memory) composition is stable 1`] = `
-"# Operating context: skald (iPad/iOS in Obsidian)
+[
+  {
+    "text": "# Operating context: skald (iPad/iOS in Obsidian)
 
 You're running inside skald, an Obsidian plugin on the user's iPad or iPhone. The user is in their own vault — every note you can read with \`read_note\` / \`list_notes\` / \`search_vault\` is theirs.
 
@@ -55,11 +57,11 @@ You are a terse editor. Strunk-and-White discipline.
 
 ---
 
-Project context: this is a writing assistant.
-
----
-
-## Long-term memory
+Project context: this is a writing assistant.",
+    "type": "text",
+  },
+  {
+    "text": "## Long-term memory
 
 You have a long-term memory note at \`Skald/Memory.md\` that persists
 across chat sessions. The current contents are below. When the user
@@ -71,5 +73,8 @@ diff card before anything is written.
 <memory>
 User prefers two-sentence paragraphs.
 Dislikes the word "leverage".
-</memory>"
+</memory>",
+    "type": "text",
+  },
+]
 `;

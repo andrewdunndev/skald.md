@@ -84,14 +84,21 @@ describe('loadSystemPrompt: optional sections gate on their inputs', () => {
     expect(out).not.toContain('Bailey is allergic to chicken.');
   });
 
-  it('injects the memory note body when memory is enabled', async () => {
+  it('puts the memory note in its own trailing system block, isolated from the stable prefix', async () => {
+    // Memory is volatile (memory-upkeep rewrites it), so loadSystemPrompt
+    // returns a [stable, memory] block array — the caching layer keeps the
+    // breakpoint on the stable block so a memory rewrite doesn't re-cache the
+    // prefix. The memory body must live in block[1], NOT in the stable prefix.
     const app = mockApp({ 'Skald/Memory.md': 'Bailey is allergic to chicken.' });
-    const out =
-      (await loadSystemPrompt(
-        app,
-        direct({ memoryEnabled: true, memoryPath: 'Skald/Memory.md' }),
-      )) ?? '';
-    expect(out).toContain('Bailey is allergic to chicken.');
+    const out = await loadSystemPrompt(
+      app,
+      direct({ memoryEnabled: true, memoryPath: 'Skald/Memory.md' }),
+    );
+    expect(Array.isArray(out)).toBe(true);
+    const blocks = out as Array<{ type: string; text: string }>;
+    expect(blocks).toHaveLength(2);
+    expect(blocks[0].text).not.toContain('Bailey is allergic to chicken.');
+    expect(blocks[1].text).toContain('Bailey is allergic to chicken.');
   });
 
   it('composes persona + harness CLAUDE.md when configured', async () => {
