@@ -3,7 +3,12 @@
   flex-direction: column;
   height: 100%;
   gap: var(--size-2-2);
-  padding: var(--size-4-2);
+  /* iOS safe-area insets: Obsidian mobile sets viewport-fit=cover so
+     env() resolves. max() keeps a minimum pad on non-notched devices. */
+  padding-top: max(var(--size-4-2), env(safe-area-inset-top));
+  padding-bottom: max(var(--size-4-2), env(safe-area-inset-bottom));
+  padding-left: max(var(--size-4-2), env(safe-area-inset-left));
+  padding-right: max(var(--size-4-2), env(safe-area-inset-right));
 }
 
 .skald-header {
@@ -274,8 +279,10 @@
 
 .skald-diff-actions {
   display: flex;
-  gap: var(--size-2-1);
-  justify-content: flex-end;
+  /* Spread approve and reject to opposite ends so a mis-tap cannot
+     flip the decision. Reject sits left, approve right (natural
+     destructive-left / confirm-right pattern). */
+  justify-content: space-between;
   padding: var(--size-2-2) var(--size-4-2);
   background: var(--background-secondary);
   border-top: 1px solid var(--background-modifier-border);
@@ -1087,6 +1094,20 @@
   font-size: 0.78rem;
   color: var(--text-muted);
   margin-top: 0.2rem;
+}
+
+/* ── Touch-target floor (WCAG 2.5.5 / Apple HIG: 44×44 pt minimum) ─
+   coarse-pointer = touchscreen. Ensures every interactive icon button
+   meets the minimum regardless of visible size. min-width/height lets
+   flexbox still shrink the visual icon while expanding the tap area.  */
+@media (pointer: coarse) {
+  .skald-icon-btn,
+  .skald-msg-action,
+  .skald-chip-dismiss,
+  .skald-active-note-attach {
+    min-width: 44px;
+    min-height: 44px;
+  }
 }
 
 /* ── Reduced-motion accessibility ────────────────────────────────────
