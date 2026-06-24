@@ -126,6 +126,7 @@ export class Composer {
 
     const recomputePicker = () => this.notePicker.updateForCursor();
     this.inputEl.addEventListener('input', recomputePicker);
+    this.inputEl.addEventListener('input', () => this.autoGrow());
     this.inputEl.addEventListener('click', recomputePicker);
     this.inputEl.addEventListener('keyup', (e) => {
       if (
@@ -181,6 +182,7 @@ export class Composer {
 
   clearInput(): void {
     this.inputEl.value = '';
+    this.autoGrow();
   }
 
   clearImages(): void {
@@ -216,6 +218,18 @@ export class Composer {
    */
   focus(): void {
     this.inputEl.focus({ preventScroll: true });
+  }
+
+  /**
+   * Grow the textarea to fit its content (up to the CSS max-height, then it
+   * scrolls). Called on input + after programmatic value changes so the
+   * composer sizes up with longer entries instead of staying a fixed 2 rows.
+   * height is a dynamic per-content value, so it must be set inline here.
+   */
+  private autoGrow(): void {
+    const el = this.inputEl;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
   }
 
   /**
