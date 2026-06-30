@@ -16,7 +16,7 @@
 # bootstrap pnpm with `npm i -g` (corepack isn't guaranteed on the image).
 
 default:
-  image: registry.gitlab.com/dunn.dev/pipeline/ci:2.7.0
+  image: registry.gitlab.com/dunn.dev/pipeline/ci:3.0.0@sha256:0d359a5ea2cac539a2717b4140103b2827bd87b59ef156e0b8c05a10d44f029a
   # Pin to the storr docker runner (estate convention, matches cycle).
   # Untagged, jobs land on any runner in the pool — including carmine's
   # custom (QEMU) executor, which has no node and fails at `npm`. Tagging
