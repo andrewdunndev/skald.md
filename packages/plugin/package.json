@@ -13,8 +13,8 @@
     "@toon-format/toon": "^2.3.0"
   },
   "devDependencies": {
-    "@types/node": "^22.0.0",
-    "esbuild": "^0.25.0",
-    "obsidian": "^1.7.2"
+    "@types/node": "22.19.19",
+    "esbuild": "0.25.12",
+    "obsidian": "1.12.3"
   }
 }
