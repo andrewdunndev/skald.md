@@ -29,6 +29,9 @@ export default defineConfig({
   test: {
     environment: 'node',
     include: ['packages/*/src/**/*.test.ts'],
+    // vitest 4's restoreAllMocks no longer clears call state between tests
+    // (v3 did); clearMocks restores that invariant suite-wide.
+    clearMocks: true,
     coverage: {
       provider: 'v8',
       include: ['packages/*/src/**/*.ts'],
