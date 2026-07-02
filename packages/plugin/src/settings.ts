@@ -189,7 +189,7 @@ export class SkaldSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
+  override display(): void {
     const { containerEl } = this;
     containerEl.empty();
     const redisplay = () => this.display();
