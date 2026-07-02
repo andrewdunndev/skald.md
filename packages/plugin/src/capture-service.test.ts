@@ -89,8 +89,7 @@ function makeCfg(
 // ── tests ─────────────────────────────────────────────────────────────────
 
 describe('CaptureService.run()', () => {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let spy: ReturnType<typeof vi.spyOn<any, any>>;
+  let spy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     spy = vi.spyOn(obsidian, 'requestUrl');
