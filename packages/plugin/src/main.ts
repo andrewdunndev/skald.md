@@ -17,7 +17,7 @@ import {
 } from './slash-commands';
 
 export default class SkaldPlugin extends Plugin {
-  settings: SkaldSettings = DEFAULT_SETTINGS;
+  override settings: SkaldSettings = DEFAULT_SETTINGS;
   logger!: Logger;
   private captureService!: CaptureService;
   /**
