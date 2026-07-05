@@ -279,11 +279,15 @@ describe('runMemoryUpkeepView: memory-note TOCTOU guard', () => {
     // routed through an unguarded vault.modify (the original bug) or if
     // the snapshot comparison is dropped.
     proposeMemoryUpkeep.mockResolvedValue('new memory body');
-    // Spy on the Notice constructor. mockImplementation keeps it `new`-able
-    // (the real class needs `new`); we only care that it was instantiated.
+    // Spy on the Notice constructor. mockImplementation must be a real
+    // `function` (vitest 4 requires function/class shape for a constructable
+    // mock — an arrow function throws "is not a constructor" under `new`);
+    // we only care that it was instantiated.
     const noticeSpy = vi
       .spyOn(obsidianMod, 'Notice')
-      .mockImplementation(() => ({}) as obsidianMod.Notice);
+      .mockImplementation(function () {
+        return {} as obsidianMod.Notice;
+      });
     const { app, vault } = makeApp({
       onDiskContent: 'MANUALLY EDITED memory body — keep me!',
     });
