@@ -1,4 +1,4 @@
-<svg viewBox="0 0 1200 430" width="1200" height="430" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="skald hero — vault-native Claude client for Obsidian. Mobile-first, BYO Anthropic key, your CF Worker, your vault.">
+<svg viewBox="0 0 1200 430" width="1200" height="430" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="skald hero — vault-native Claude client for Obsidian. Mobile-first, BYO API key, direct to the model, your vault.">
   <rect x="0" y="0" width="1200" height="430" fill="#f4f4f4"/>
   <g font-family="IBM Plex Sans, Helvetica, Arial, sans-serif">
 
@@ -10,7 +10,7 @@
   <!-- title block: y 60-200, left -->
   <text x="60" y="138" font-size="72" font-weight="700" fill="#4a6741" letter-spacing="-2">skald</text>
   <text x="60" y="172" font-size="14" fill="#404040">vault-native Claude in Obsidian, mobile first.</text>
-  <text x="60" y="192" font-size="14" fill="#404040">your CF Worker, your Anthropic key, your vault.</text>
+  <text x="60" y="192" font-size="14" fill="#404040">your key, your model, your vault.</text>
 
   <!-- italic tagline: y 222 -->
   <text x="60" y="222" font-size="12" font-style="italic" fill="#404040">a Claude client that lives where you write.</text>
@@ -48,8 +48,8 @@
   <!-- tile 2: top-right — POSTURE -->
   <rect x="850" y="84" width="270" height="130" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1"/>
   <text x="868" y="106" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">POSTURE</text>
-  <text x="868" y="152" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">BYO worker</text>
-  <text x="868" y="178" font-size="11" fill="#404040">your CF account, your keys, your data</text>
+  <text x="868" y="152" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">BYO key</text>
+  <text x="868" y="178" font-size="11" fill="#404040">your key, your data, no middleman</text>
   <text x="868" y="200" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">NO SHARED BACKEND · NO SKALD AUTH</text>
 
   <!-- tile 3: bottom-left — OUT -->
@@ -62,13 +62,13 @@
   <!-- tile 4: bottom-right — REACH -->
   <rect x="850" y="224" width="270" height="130" rx="3" fill="#ffffff" stroke="#e0e0e0" stroke-width="1"/>
   <text x="868" y="246" font-size="10" font-weight="700" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">REACH</text>
-  <text x="868" y="292" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">vault MCP</text>
-  <text x="868" y="318" font-size="11" fill="#404040">Claude Code, Cursor, Claude Desktop</text>
-  <text x="868" y="340" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">STREAMABLE HTTP · BEARER AUTH</text>
+  <text x="868" y="292" font-size="34" font-weight="700" fill="#4a6741" letter-spacing="-0.5">any model</text>
+  <text x="868" y="318" font-size="11" fill="#404040">Anthropic · OpenRouter · OpenAI-compat</text>
+  <text x="868" y="340" font-size="9" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="0.6">TWO-TIER CASCADE · BYO ENDPOINT</text>
 
   <!-- bottom metadata row -->
   <line x1="60" y1="386" x2="1140" y2="386" stroke="#e0e0e0" stroke-width="1"/>
-  <text x="60"   y="412" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">OBSIDIAN · CLOUDFLARE · ANTHROPIC · MCP · MOBILE</text>
-  <text x="1140" y="412" text-anchor="end" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">MIT · GITLAB.COM/DUNN.DEV/SKALD</text>
+  <text x="60"   y="412" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">OBSIDIAN · ANTHROPIC · OPENROUTER · MOBILE</text>
+  <text x="1140" y="412" text-anchor="end" font-size="10" font-weight="600" font-family="IBM Plex Mono, Menlo, monospace" fill="#707070" letter-spacing="1.4">MIT · GITLAB.COM/DUNN.DEV/SKALD.MD</text>
   </g>
 </svg>

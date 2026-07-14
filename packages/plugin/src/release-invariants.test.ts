@@ -7,7 +7,7 @@
  * confuse first-time installers.
  *
  * Every assertion here directly corresponds to a documented bug
- * (see campaigns/scribian/notes/prelaunch-audit-2026-06-20.md):
+ * (each traces to a finding from the 2026-06-20 prelaunch audit):
  *
  *  (A) manifest.version must be present in versions.json so Obsidian
  *      knows which minimum app version applies. The release workflow

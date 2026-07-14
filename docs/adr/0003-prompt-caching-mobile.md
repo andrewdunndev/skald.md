@@ -85,8 +85,8 @@ Caching is Anthropic-only, gated by `providerCapabilities('anthropic')
 ## References
 
 - [ADR 0001: Direct mode over the Cloudflare Worker](0001-direct-mode-over-cloudflare-worker.md)
-- [ADR 0004: Cache-aware context compaction](0004-cache-aware-context-compaction.md)
-- [ADR 0006: Citation document caching allocation](0006-citation-document-caching.md)
+- [ADR 0004: Context-budget windowing + compaction](0004-context-budget-windowing-compaction.md)
+- [ADR 0006: Citations as grounding + token dedup](0006-citations-grounding-dedup.md)
 - `packages/plugin/src/anthropic-caching.ts`
 - `packages/plugin/src/direct-transport.ts` (`buildDispatch`)
 - `packages/plugin/src/provider-capabilities.ts`

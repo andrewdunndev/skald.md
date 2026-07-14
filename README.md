@@ -3,7 +3,7 @@
 # skald
 
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![status](https://img.shields.io/badge/status-pre--alpha-orange)]()
+[![status](https://img.shields.io/badge/status-pre--release-yellow)](CHANGELOG.md)
 
 **Mobile-first AI companion for Obsidian. Install the plugin, paste your
 API key, chat. No server to deploy, nothing to host.**
