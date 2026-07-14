@@ -16,3 +16,6 @@ claims/
 # Stryker mutation-testing artifacts
 .stryker-tmp/
 reports/mutation/
+
+# Coverage reports — generated, and embed absolute local paths
+coverage/

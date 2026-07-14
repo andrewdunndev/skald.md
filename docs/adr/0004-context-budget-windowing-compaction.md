@@ -112,6 +112,6 @@ before whole turns are cut (hard drop).
 ## References
 
 - [ADR 0001: Direct mode over the Cloudflare Worker](0001-direct-mode-over-cloudflare-worker.md)
-- [ADR 0003: Prompt caching strategy](0003-prompt-caching-strategy.md)
+- [ADR 0003: Prompt caching on mobile](0003-prompt-caching-mobile.md)
 - `packages/plugin/src/history-window.ts` (`windowHistory`, `compactStaleToolResults`)
 - `packages/plugin/src/chat-session.ts` (composition point)

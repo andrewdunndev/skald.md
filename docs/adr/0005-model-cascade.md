@@ -103,8 +103,8 @@ elsewhere in the project.
 
 - [ADR 0001: Direct mode over the Cloudflare Worker](0001-direct-mode-over-cloudflare-worker.md)
 - [ADR 0002: Lexical retrieval + LLM reranking](0002-lexical-retrieval-llm-reranking.md)
-- [ADR 0003: Prompt caching strategy](0003-prompt-caching.md)
-- [ADR 0007: Memory upkeep](0007-memory-upkeep.md)
+- [ADR 0003: Prompt caching on mobile](0003-prompt-caching-mobile.md)
+- [ADR 0007: Vault-as-memory](0007-vault-as-memory.md)
 - `packages/plugin/src/provider-capabilities.ts` (`reasoningModel`, `utilityModel`)
 - `tools/rerank.ts` (`rerankCandidates`)
 - `memory-upkeep.ts` (`proposeMemoryUpkeep`)
