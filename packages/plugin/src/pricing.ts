@@ -15,6 +15,15 @@
  *   - claude-sonnet-4-6: $3 / $15, cache_read $0.30, cache_write $6.00
  *   - claude-haiku-4-5: $1 / $5, cache_read $0.10, cache_write $2.00
  *
+ * Claude 5 family added 2026-07-26 (Opus 5 GA), first-party rates:
+ *   - claude-fable-5: $10 / $50 input/output
+ *   - claude-opus-5: $5 / $25 input/output (same tier as 4.8/4.7)
+ *   - claude-sonnet-5: $3 / $15 standard rate (Anthropic is running an
+ *     introductory $2/$10 rate through 2026-08-31; this table uses the
+ *     standard post-intro rate deliberately, matching every other entry
+ *     here being a steady-state price with no expiry — the estimate will
+ *     OVERSTATE actual spend until the intro window ends 2026-08-31)
+ *
  * cache_write rates above are the 1-HOUR-TTL write rate (2x base
  * input), because skald writes its system+tools prefix with a
  * 1-hour TTL (see anthropic-caching.ts) to survive multi-minute
@@ -47,6 +56,33 @@ export interface ModelPricing {
 /** Pricing table keyed by canonical model id (Anthropic names) and
  * by an OpenRouter-style namespaced fallback. */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
+  // Fable 5: $10/M input, $50/M output — Anthropic's most capable
+  // widely-released model, priced above the Opus tier. Cache rates
+  // follow the same pattern as every other row: cache_read = 0.1x
+  // input ($1), cache_write (1-hour TTL) = 2x input ($20).
+  'claude-fable-5': {
+    input: 10,
+    output: 50,
+    cacheRead: 1,
+    cacheWrite: 20,
+  },
+  // Opus 5: same tier pricing as Opus 4.8/4.7 ($5/$25) — the model's
+  // per-token price did not change at GA, only the tier's capability.
+  'claude-opus-5': {
+    input: 5,
+    output: 25,
+    cacheRead: 0.5,
+    cacheWrite: 10,
+  },
+  // Sonnet 5: same steady-state tier pricing as Sonnet 4.6 ($3/$15).
+  // Anthropic's temporary intro rate ($2/$10 through 2026-08-31) is
+  // deliberately NOT used here — see the file-header note.
+  'claude-sonnet-5': {
+    input: 3,
+    output: 15,
+    cacheRead: 0.3,
+    cacheWrite: 6,
+  },
   // Opus 4.8: $5/M input, $25/M output. Cache rates follow the
   // standard pattern: cache_read = 0.1x input ($0.50), cache_write
   // (1-hour TTL) = 2x input ($10). Source: Anthropic models page,
