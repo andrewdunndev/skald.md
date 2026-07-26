@@ -22,6 +22,21 @@ default:
   # custom (QEMU) executor, which has no node and fails at `npm`. Tagging
   # routes every job to the storr docker executor, which honors `image:`.
   tags: [storr]
+  # Resilience net for the storr runner's egress: get_sources clone timeouts
+  # off that host land as script_failure (not runner_system_failure), and a
+  # genuinely hung job would otherwise run to whatever GitLab's project-wide
+  # default timeout is with zero retry. 15m ceiling — every job here normally
+  # completes in 20-30s (observed), so this only ever fires on a real hang.
+  # Mirrors nomograph/pipeline's per-job retry/timeout convention. server_timeout_running
+  # / server_timeout_canceling (not the deprecated job_execution_timeout — GitLab
+  # 19.1 split it into these two; confirmed via this project's own ci/lint output)
+  # cover a job that hangs past `timeout:`. Deliberately does NOT include
+  # script_failure — that would also silently retry a genuinely broken
+  # test/lint/build failure, masking real breakage.
+  timeout: 15m
+  retry:
+    max: 2
+    when: [runner_system_failure, stuck_or_timeout_failure, scheduler_failure, api_failure, unknown_failure, server_timeout_running, server_timeout_canceling]
   cache:
     key:
       files:
