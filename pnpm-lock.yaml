@@ -33,8 +33,8 @@ importers:
         specifier: workspace:*
         version: link:../protocol
       '@toon-format/toon':
-        specifier: ^2.3.0
-        version: 2.3.1
+        specifier: ^4.0.0
+        version: 4.1.0
     devDependencies:
       '@types/node':
         specifier: 24.13.3
@@ -693,8 +693,8 @@ packages:
       '@stryker-mutator/core': 9.6.1
       vitest: '>=2.0.0'
 
-  '@toon-format/toon@2.3.1':
-    resolution: {integrity: sha512-sWqEMeAJGMda9qRrfPKrX3C4c33CO9SJuvJzzrcBEn5sbDB+k6pSLkDsfN0rVnLQwR97MV3sDgVbcxQNsq8xVw==}
+  '@toon-format/toon@4.1.0':
+    resolution: {integrity: sha512-dBB3pkEx9QYvHnHR6rtkaBAh+7x4W/oA5ONur4G0fh7Ow69PbPuM7OFxzNRABqyxC0t6SZ3RixiGbCuaFjPDAQ==}
 
   '@types/chai@5.2.3':
     resolution: {integrity: sha512-Mw558oeA9fFbv65/y4mHtXDs9bPnFMZAL/jxdPFUpOHHIXX91mcgEHbS5Lahr+pwZFR8A7GQleRWeI6cGFC2UA==}
@@ -2097,7 +2097,7 @@ snapshots:
       tslib: 2.8.1
       vitest: 4.1.10(@types/node@24.13.3)(@vitest/coverage-v8@4.1.10)(vite@7.3.6(@types/node@24.13.3))
 
-  '@toon-format/toon@2.3.1': {}
+  '@toon-format/toon@4.1.0': {}
 
   '@types/chai@5.2.3':
     dependencies:

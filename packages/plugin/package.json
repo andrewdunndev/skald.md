@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@skald/protocol": "workspace:*",
-    "@toon-format/toon": "^2.3.0"
+    "@toon-format/toon": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "24.13.3",
