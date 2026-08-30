@@ -9,4 +9,4 @@ allowBuilds:
 # Force re-resolution to a satisfying vite; pinned to the 7.x line since the
 # estate holds standalone vite 8 behind approval.
 overrides:
-  vite: ^7.3.6
+  vite: ^8.0.0
