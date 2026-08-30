@@ -6,7 +6,6 @@ allowBuilds:
 # vitest 4.1.9 hard-requires vite ^6||^7||^8 (dependencies AND peerDependencies),
 # but the lockfile carried over a stale vite@5.4.21 transitive resolution from
 # the vitest 3.x era that pnpm didn't re-validate on a specifier-only bump.
-# Force re-resolution to a satisfying vite; pinned to the 7.x line since the
-# estate holds standalone vite 8 behind approval.
+# Force re-resolution to a satisfying vite.
 overrides:
   vite: ^8.0.0
