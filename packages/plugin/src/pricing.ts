@@ -24,6 +24,9 @@
  *     here being a steady-state price with no expiry — the estimate will
  *     OVERSTATE actual spend until the intro window ends 2026-08-31)
  *
+ * Fable 5.1 added 2026-09-02, first-party rates:
+ *   - claude-fable-5-1: $10 / $50 input/output (identical to claude-fable-5)
+ *
  * cache_write rates above are the 1-HOUR-TTL write rate (2x base
  * input), because skald writes its system+tools prefix with a
  * 1-hour TTL (see anthropic-caching.ts) to survive multi-minute
@@ -61,6 +64,15 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
   // follow the same pattern as every other row: cache_read = 0.1x
   // input ($1), cache_write (1-hour TTL) = 2x input ($20).
   'claude-fable-5': {
+    input: 10,
+    output: 50,
+    cacheRead: 1,
+    cacheWrite: 20,
+  },
+  // Fable 5.1: same pricing as Fable 5 ($10/$50) — cache rates follow
+  // the same multipliers as the Fable 5 row above: cache_read = 0.1x
+  // input ($1), cache_write (1-hour TTL) = 2x input ($20).
+  'claude-fable-5-1': {
     input: 10,
     output: 50,
     cacheRead: 1,
