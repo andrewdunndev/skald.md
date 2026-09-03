@@ -6,7 +6,6 @@
   reason: |
     No HTML surface. The project has no Astro consumer to declare
     token imports in.
-  expires: 2099-01-01
   owner: andrew@dunn.dev
 
 - standard: design-system
@@ -14,5 +13,4 @@
   reason: |
     Same root cause as the global.css deviation above. Not an Astro
     consumer; no package.json to declare @dunn.dev/reference in.
-  expires: 2099-01-01
   owner: andrew@dunn.dev
