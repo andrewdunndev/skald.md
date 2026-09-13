@@ -17,11 +17,7 @@
 
 default:
   image: registry.gitlab.com/dunn.dev/pipeline/ci:4.6.0@sha256:d7bd7eabf06c54b38675a2642e37e16518b0308976626bf9fde70b644ee61130
-  # Pin to the storr docker runner (estate convention, matches cycle).
-  # Untagged, jobs land on any runner in the pool — including carmine's
-  # custom (QEMU) executor, which has no node and fails at `npm`. Tagging
-  # routes every job to the storr docker executor, which honors `image:`.
-  tags: [storr]
+  # Untagged: jobs run on the shared SaaS runners. No self-hosted runner in the group accepts untagged jobs.
   # Resilience net for the storr runner's egress: get_sources clone timeouts
   # off that host land as script_failure (not runner_system_failure), and a
   # genuinely hung job would otherwise run to whatever GitLab's project-wide
