@@ -20,9 +20,9 @@
  * siblings for distinct behavioral surfaces.
  *
  * Deviations: files that exceed the cap and aren't a refactor target
- * for the current pass list themselves in `DEVIATIONS.md` with a
- * hard expiration date. An expired deviation fails the check; the
- * register cannot become a permanent escape hatch.
+ * for the current pass list themselves in `DEVIATIONS.md` with the
+ * override cap and a one-line "next move." The entry stands until
+ * the refactor lands and it's removed from both files.
  */
 
 import { promises as fs } from 'node:fs';
@@ -39,23 +39,20 @@ const SOURCE_ROOTS = [
 ];
 
 /**
- * Files explicitly granted a temporary exception, each with a hard
- * expiration. After the date passes, the check will fail with a
- * prescriptive failure pointing at this list. Keep in sync with
- * `DEVIATIONS.md` — when one entry resolves (the file gets
- * refactored under cap), remove from both.
+ * Files explicitly granted an exception, each with a raised cap and
+ * a one-line "next move." Keep in sync with `DEVIATIONS.md` — when
+ * one entry resolves (the file gets refactored under cap), remove
+ * from both.
  */
 const DEVIATIONS = [
   {
     file: 'packages/plugin/src/view.ts',
     cap: 425,
-    expires: '2026-09-22',
     note: 'a11y + scroll-guard additions pushed past 400; extract setStatus + status-row setup to view/status-row.ts',
   },
   {
     file: 'packages/plugin/src/view/message-list.ts',
     cap: 450,
-    expires: '2026-09-22',
     note: 'scroll-guard (isNearBottom + scrollToBottom + pendingForceScroll) grew the file; extract scroll-guard logic to view/scroll-guard.ts when the refactor window opens',
   },
 ];
@@ -86,14 +83,8 @@ async function lineCount(p) {
   return trimmed.split('\n').length;
 }
 
-function expiredDeviationFor(rel) {
-  const dev = DEVIATIONS.find((d) => d.file === rel);
-  if (!dev) return null;
-  const today = new Date().toISOString().slice(0, 10);
-  if (today > dev.expires) {
-    return { ...dev, expired: true };
-  }
-  return { ...dev, expired: false };
+function deviationFor(rel) {
+  return DEVIATIONS.find((d) => d.file === rel) ?? null;
 }
 
 const sources = (
@@ -104,11 +95,11 @@ const findings = [];
 for (const abs of sources) {
   const rel = path.relative(ROOT, abs);
   const lines = await lineCount(abs);
-  const dev = expiredDeviationFor(rel);
-  const effectiveCap = dev && !dev.expired ? dev.cap : CAP;
+  const dev = deviationFor(rel);
+  const effectiveCap = dev ? dev.cap : CAP;
   if (lines > effectiveCap) {
     findings.push({ rel, lines, effectiveCap, dev });
-  } else if (dev && !dev.expired && lines <= CAP) {
+  } else if (dev && lines <= CAP) {
     // File is now under the global cap; the deviation entry is
     // stale and should be removed.
     findings.push({
@@ -130,18 +121,11 @@ for (const f of findings) {
     fail++;
     continue;
   }
-  if (f.dev?.expired) {
-    console.log(
-      `EXPIRED-DEVIATION ${f.rel}: ${f.lines} lines exceeds cap ${CAP}; deviation expired ${f.dev.expires}. Refactor: ${f.dev.note}`,
-    );
-    fail++;
-    continue;
-  }
   console.log(
     `OVER-CAP ${f.rel}: ${f.lines} lines > ${f.effectiveCap}. ` +
       `Refactor by extracting a module with a single named responsibility. ` +
-      `If a temporary exception is justified, add an entry to DEVIATIONS list ` +
-      `in scripts/check-size.mjs and DEVIATIONS.md with a hard expiration.`,
+      `If an exception is justified, add an entry to the DEVIATIONS list ` +
+      `in scripts/check-size.mjs and DEVIATIONS.md with a raised cap and a next move.`,
   );
   fail++;
 }

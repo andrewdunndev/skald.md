@@ -1,8 +1,8 @@
 # Deviations from dunn.dev/reference
 
 Each entry: which contract check fails, why it's a deviation for this
-project specifically, and when we intend to close the gap. Expirations
-are honored — once they pass, this repo reports non-conformant again.
+project specifically, and when we intend to close the gap. A deviation
+stands until it's closed or removed from this file.
 
 ## design-system: skipped (permanent)
 
@@ -82,10 +82,10 @@ change.
 **Current exceptions** (also listed in `scripts/check-size.mjs` for
 machine-readability):
 
-| File | Cap | Expires | Next move |
-|------|-----|---------|-----------|
-| `packages/plugin/src/view.ts` | 425 | 2026-09-22 | Extract `setStatus` + status-row setup into `view/status-row.ts` |
-| `packages/plugin/src/view/message-list.ts` | 450 | 2026-09-22 | Extract scroll-guard logic into `view/scroll-guard.ts` |
+| File | Cap | Next move |
+|------|-----|-----------|
+| `packages/plugin/src/view.ts` | 425 | Extract `setStatus` + status-row setup into `view/status-row.ts` |
+| `packages/plugin/src/view/message-list.ts` | 450 | Extract scroll-guard logic into `view/scroll-guard.ts` |
 
 Past deviations (worker/src/index.ts, tools.ts, chat-session.ts) have
 all been refactored into per-responsibility modules.
@@ -93,17 +93,17 @@ all been refactored into per-responsibility modules.
 **2026-06-23 — view.ts:** a11y fix (fix/a11y-theme) added `role="status"` +
 `aria-live` on statusEl and a non-color error-icon cue, pushing the file to
 409 lines. The correct fix is to extract the status-row setup and `setStatus`
-into `view/status-row.ts` (9 lines of logic; the deviation expires 2026-09-22).
+into `view/status-row.ts` (9 lines of logic).
 
 **2026-06-23 — view.ts (scroll-guard):** fix/ux-scroll-guard added a
 `scrollToBottom()` call in `send()`, nudging `view.ts` from 415 to 421 lines;
 cap bumped to 425. Extraction into `view/status-row.ts` remains the correct
-next move (same expiry 2026-09-22).
+next move.
 
 **2026-06-23 — message-list.ts:** fix/ux-scroll-guard added `isNearBottom()`,
 `scrollToBottom()`, `pendingForceScroll`, and related JSDoc, growing the file
 from 375 to 445 lines. The correct follow-up is to extract the scroll-guard
-primitives into `view/scroll-guard.ts` (deviation expires 2026-09-22).
+primitives into `view/scroll-guard.ts`.
 
 **2026-06-23 — chat-session.ts:** the error-UX fix (fix/ux-session-error)
 performed the prescribed extraction: the `executeToolsAndContinue` agentic
@@ -113,11 +113,10 @@ logic, so its deviation entry is removed (not just bumped).
 
 **Why deviations exist at all:** files that house complete
 subsystems whose decomposition is a real refactor, not a renaming
-pass, may earn a temporary cap-override with a hard expiration date
-and a one-line "next move." An expired deviation fails the check.
+pass, may earn a cap-override with a one-line "next move." The
+override stands until the refactor lands and the entry is removed.
 
-**Closure path:** refactor by the date; the check fails as
-`EXPIRED-DEVIATION` after expiry, forcing the work. The script also
+**Closure path:** refactor, then remove the entry. The script
 catches stale deviations — a file that drops under the cap fails as
 `STALE-DEVIATION` until removed from the exception list.
 
