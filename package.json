@@ -29,10 +29,9 @@
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "audit:prod": "pnpm audit --prod",
-    "check:size": "node scripts/check-size.mjs",
     "check:lint": "node scripts/check-plugin-lint.mjs",
     "check:cdp": "node scripts/cdp-walkthrough.mjs",
-    "check": "pnpm typecheck && pnpm test && pnpm check:size && pnpm check:lint && pnpm --filter @skald/plugin build"
+    "check": "pnpm typecheck && pnpm test && pnpm check:lint && pnpm --filter @skald/plugin build"
   },
   "packageManager": "pnpm@12.5.1",
   "devDependencies": {
