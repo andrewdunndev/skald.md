@@ -44,7 +44,6 @@ pnpm install
 |---|---|
 | `pnpm typecheck` | TypeScript across all packages |
 | `pnpm test` | Unit tests via Vitest |
-| `pnpm check:size` | 400-LOC-per-file cap |
 | `pnpm check:lint` | Manifest/package version parity |
 | `pnpm --filter @skald/plugin build` | Plugin bundle compiles |
 

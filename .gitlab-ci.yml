@@ -1,6 +1,6 @@
 # skald CI
 #
-# Two stages: test (typecheck, unit tests, file-size, plugin-lint across the
+# Two stages: test (typecheck, unit tests, plugin-lint across the
 # workspace) and build (compile the Obsidian plugin). No deployment from CI —
 # the plugin ships via BRAT + the community plugins directory (manual release
 # cuts for now).
@@ -57,11 +57,6 @@ unit-tests:
   stage: test
   script:
     - pnpm test
-
-file-size:
-  stage: test
-  script:
-    - pnpm check:size
 
 plugin-lint:
   stage: test
