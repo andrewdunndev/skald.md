@@ -16,7 +16,7 @@
 # bootstrap pnpm with `npm i -g` (corepack isn't guaranteed on the image).
 
 default:
-  image: registry.gitlab.com/dunn.dev/pipeline/ci:4.6.1@sha256:6377e271d20bfd9a578752a8c63b9bcc1bf34f840ef984d985b99747c848269d
+  image: registry.gitlab.com/dunn.dev/pipeline/ci:4.7.0@sha256:6ff6223edf8722bef1e9bf889ddcdb428f934c4bce7b7c4fe1a58a4737464f60
   # Untagged: jobs run on the shared SaaS runners. No self-hosted runner in the group accepts untagged jobs.
   # Resilience net for the storr runner's egress: get_sources clone timeouts
   # off that host land as script_failure (not runner_system_failure), and a
