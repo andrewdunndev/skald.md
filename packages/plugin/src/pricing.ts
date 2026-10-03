@@ -27,6 +27,10 @@
  * Fable 5.1 added 2026-09-02, first-party rates:
  *   - claude-fable-5-1: $10 / $50 input/output (identical to claude-fable-5)
  *
+ * Opus 5.5 and Sonnet 5.5 added 2026-10-02, first-party rates:
+ *   - claude-opus-5-5: $4 / $20 input/output
+ *   - claude-sonnet-5-5: $2 / $10 input/output
+ *
  * cache_write rates above are the 1-HOUR-TTL write rate (2x base
  * input), because skald writes its system+tools prefix with a
  * 1-hour TTL (see anthropic-caching.ts) to survive multi-minute
@@ -77,6 +81,23 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     output: 50,
     cacheRead: 1,
     cacheWrite: 20,
+  },
+  // Opus 5.5: $4/M input, $20/M output. Cache rates follow the standard
+  // pattern: cache_read = 0.05x input ($0.20), cache_write (1-hour TTL)
+  // = 2x input ($8).
+  'claude-opus-5-5': {
+    input: 4,
+    output: 20,
+    cacheRead: 0.2,
+    cacheWrite: 8,
+  },
+  // Sonnet 5.5: $2/M input, $10/M output. cache_read = 0.1x input
+  // ($0.20), cache_write (1-hour TTL) = 2x input ($4).
+  'claude-sonnet-5-5': {
+    input: 2,
+    output: 10,
+    cacheRead: 0.2,
+    cacheWrite: 4,
   },
   // Opus 5: same tier pricing as Opus 4.8/4.7 ($5/$25) — the model's
   // per-token price did not change at GA, only the tier's capability.

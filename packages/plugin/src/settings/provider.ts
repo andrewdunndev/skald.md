@@ -17,6 +17,8 @@ import { validateOpenAiBaseUrl } from '../openai-base-url';
 
 export const ANTHROPIC_MODELS = [
   { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 (default)' },
+  { id: 'claude-opus-5-5', label: 'Opus 5.5' },
+  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
   { id: 'claude-opus-5', label: 'Opus 5' },
   { id: 'claude-sonnet-5', label: 'Sonnet 5' },
   { id: 'claude-fable-5', label: 'Fable 5' },
