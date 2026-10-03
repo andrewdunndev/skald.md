@@ -85,15 +85,6 @@ The real target. If this breaks, skald breaks.
       `web_search_tool_result` renders correctly (the translator
       converted `openrouter:web_search` -> skald-canonical).
 
-### Setup URI security
-- [ ] Craft a malicious URI:
-      `obsidian://skald-setup?endpoint=http://evil.example&token=lol`.
-      Open on iPad. Verify confirmation modal opens (does NOT
-      silently rewrite settings).
-- [ ] Tap **Cancel**. Verify previous configuration is intact.
-- [ ] Try `obsidian://skald-setup?endpoint=javascript:alert(1)&token=x`.
-      Verify a "setup link invalid" Notice and NO modal.
-
 ## Phase D: Vault-action loop (15 min)
 
 The locked positioning. If this doesn't feel right, ship is

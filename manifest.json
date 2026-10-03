@@ -3,8 +3,8 @@
   "name": "Skald",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
-  "description": "Vault-native Claude client. Mobile-first.",
+  "description": "Chat with Claude and other LLM providers (OpenRouter, OpenAI-compatible) in a vault-aware sidebar that works on mobile and desktop.",
   "author": "Andrew Dunn",
-  "authorUrl": "https://skald.md",
+  "authorUrl": "https://github.com/andrewdunndev/skald.md",
   "isDesktopOnly": false
 }

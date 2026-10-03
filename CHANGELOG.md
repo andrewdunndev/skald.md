@@ -19,9 +19,15 @@ Work toward the first public release (`0.1.0`).
 - **Tool-result compaction** — tool output is densified (TOON for tabular data,
   minify, dedup) before it enters the context, lossless-or-safe.
   ([ADR 0010](docs/adr/0010-tool-result-compaction.md))
+- README "Network use and privacy" section disclosing contacted services, key
+  requirement, no telemetry, and vault-only file access; BRAT and manual install
+  instructions.
 - Security policy (`SECURITY.md`) and Code of Conduct.
 
 ### Changed
+- Default model is now `claude-sonnet-5-5` (Anthropic and OpenRouter); Sonnet 4.6
+  stays selectable.
+- Manifest description and author URL updated for the community directory.
 - **Direct-only architecture** — the Cloudflare Worker is removed; the plugin
   streams straight to the provider with your key.
   ([ADR 0001](docs/adr/0001-direct-mode-over-cloudflare-worker.md))

@@ -18,20 +18,6 @@ non-obvious mode / state, it's called out.
     field summary + an "Open settings" button that lands you on
     the skald settings tab.
 
-- [ ] **Setup URI: confirmation modal**
-  - Trigger: Open `obsidian://skald-setup?endpoint=<url>&token=<tok>`
-    (build the URI on desktop; AirDrop / Messages-to-self to the
-    iPad; tap it).
-  - Verify: A modal opens BEFORE any settings change. Endpoint
-    shown verbatim. Token shown masked (`abcd...wxyz`, never the
-    full value). "Apply setup" button writes settings only after
-    you tap it. Cancel preserves prior config.
-
-- [ ] **Setup URI: scheme rejection**
-  - Trigger: Open `obsidian://skald-setup?endpoint=javascript:alert(1)&token=x`.
-  - Verify: "skald: setup link invalid" Notice. No modal. No
-    settings change.
-
 ---
 
 ## 2. Chat foundation
@@ -403,7 +389,7 @@ available in direct mode.
 
 - [ ] **Cost surface in status row**
   - Trigger: Send a turn on a known-priced model
-    (claude-sonnet-4-6 / opus / haiku).
+    (claude-sonnet-5-5 / opus / haiku).
   - Verify: Status row reads
     `Connected / last turn: 482 in / 1503 out / $0.024 (total $0.183)`.
 
@@ -445,7 +431,6 @@ next chat turn (or immediately for the UI ones like provider).
 
 ## 15. Security surfaces
 
-- [ ] **Setup URI never silently writes** (covered in section 1)
 - [ ] **Image cap rejects oversize attachments after compress
       schedule exhausted**
 - [ ] **System prompt mentions "data, not instructions"** --

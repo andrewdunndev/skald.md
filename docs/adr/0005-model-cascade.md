@@ -29,7 +29,7 @@ Two model roles are defined in `packages/plugin/src/provider-capabilities.ts`:
 
 - **`reasoningModel(settings)`** -- the strong model that runs the
   conversation. Resolves to `settings.defaultModel` on Anthropic (default
-  `claude-sonnet-4-6`, with Opus 4.8 selectable) or
+  `claude-sonnet-5-5`, with Opus 5.5 selectable) or
   `settings.openrouterModel` on OpenRouter.
 - **`utilityModel(settings)`** -- a cheap model for bulk, judgment-light
   sub-tasks. Resolves to `settings.utilityModel` if the user has set one

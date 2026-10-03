@@ -16,9 +16,9 @@ import { ModelSuggest } from '../model-suggest';
 import { validateOpenAiBaseUrl } from '../openai-base-url';
 
 export const ANTHROPIC_MODELS = [
-  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6 (default)' },
+  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5 (default)' },
+  { id: 'claude-sonnet-4-6', label: 'Sonnet 4.6' },
   { id: 'claude-opus-5-5', label: 'Opus 5.5' },
-  { id: 'claude-sonnet-5-5', label: 'Sonnet 5.5' },
   { id: 'claude-opus-5', label: 'Opus 5' },
   { id: 'claude-sonnet-5', label: 'Sonnet 5' },
   { id: 'claude-fable-5', label: 'Fable 5' },
@@ -143,7 +143,7 @@ function renderOpenRouterBlock(
       'OpenRouter model id (namespaced, e.g. anthropic/claude-opus-4-7, openai/gpt-5.2, meta-llama/llama-3.3-70b-instruct). Type to search the catalog.',
     )
     .addText((t) => {
-      t.setPlaceholder('anthropic/claude-sonnet-4-6').setValue(
+      t.setPlaceholder('anthropic/claude-sonnet-5-5').setValue(
         plugin.settings.openrouterModel,
       );
       t.onChange(async (v) => {

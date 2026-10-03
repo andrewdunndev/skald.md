@@ -9,17 +9,18 @@
 API key, chat. No server to deploy, nothing to host.**
 
 skald is a Claude client that lives where you write. It streams
-responses from Anthropic (or OpenRouter) directly -- no relay,
-no shared backend, no account beyond your API key. Reads and writes
+responses from Anthropic, OpenRouter, or any OpenAI-compatible
+endpoint directly -- no relay, no shared backend, no account beyond
+your provider key. Reads and writes
 your vault under explicit user approval. Searches the web inline.
 Conversations save back into your vault as markdown. iOS share-sheet
 capture turns anything you share from another app into a
 Claude-processed vault note.
 
 > **Status:** pre-release. Feature-complete for v1 -- direct mode,
-> multi-provider (Anthropic + OpenRouter), vault tools with approval,
+> multi-provider (Anthropic, OpenRouter, OpenAI-compatible), vault tools with approval,
 > vault-as-memory, share-sheet capture. Awaiting the final on-device
-> test pass; BRAT + community plugins listing to follow.
+> test pass. Not yet listed in the Obsidian community plugins directory.
 
 > **Project home:** Skald is developed on **GitLab**
 > ([dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md)) -- CI, code review,
@@ -34,22 +35,28 @@ Architecture decisions are recorded in [`docs/adr/`](docs/adr/).
 
 ### 1. Install the plugin
 
-Today: manual install. Copy `packages/plugin/dist/{manifest.json,
-main.js, styles.css, versions.json}` into your vault's
-`.obsidian/plugins/skald/` folder, enable the plugin in Obsidian.
+**BRAT (recommended while pre-release).** Install
+[BRAT](https://github.com/TfTHacker/obsidian42-brat), run **BRAT: Add a
+beta plugin for testing**, and enter `andrewdunndev/skald.md`. BRAT
+installs the latest release and keeps it updated.
 
-See [`docs/installing-the-plugin.md`](docs/installing-the-plugin.md)
-for the full path, including the upcoming BRAT route.
+**Manual.** Copy `main.js`, `manifest.json`, `styles.css`, and `versions.json`
+from the latest release (or build them: `pnpm install && pnpm
+--filter @skald/plugin build`, output in `packages/plugin/dist/`) into
+`<vault>/.obsidian/plugins/skald/`, then enable **Skald** under
+Settings -> Community plugins.
+
+Details in [`docs/installing-the-plugin.md`](docs/installing-the-plugin.md).
 
 ### 2. Add your API key
 
 Open Obsidian -> Settings -> Skald. The four core settings:
 
-1. **Provider** -- Anthropic (default) or OpenRouter
+1. **Provider** -- Anthropic (default), OpenRouter, or OpenAI-compatible
 2. **API key** -- your `sk-ant-...` from
    [console.anthropic.com](https://console.anthropic.com/) (or your
-   OpenRouter key)
-3. **Default model** -- `claude-sonnet-4-6` pre-filled
+   OpenRouter / OpenAI-compatible key and base URL)
+3. **Default model** -- `claude-sonnet-5-5` pre-filled
 4. **Memory** -- toggle on to keep a long-term memory note across
    sessions
 
@@ -69,7 +76,7 @@ Two packages in one repo:
 1. **`packages/plugin/`** -- the Obsidian community plugin. Chat pane,
    markdown-rendered messages (mermaid, tables, math, internal links),
    diff-card approval for vault edits, server-side web search,
-   per-conversation Anthropic / OpenRouter provider switching,
+   per-conversation Anthropic / OpenRouter / OpenAI-compatible provider switching,
    a long-term memory note Claude can read and propose updates to,
    and token-economy controls (prompt caching, history + tool-result
    compaction) so a direct-to-API chat stays cheap.
@@ -90,7 +97,7 @@ tool-result compaction -- is documented in
 Obsidian plugin (iOS / iPad / desktop)
     |  HTTPS streaming -- anthropic-dangerous-direct-browser-access header
     v
-api.anthropic.com/v1/messages    (or openrouter.ai/api/v1/messages)
+api.anthropic.com/v1/messages    (or openrouter.ai, or your OpenAI-compatible /v1 endpoint)
 ```
 
 Plugin owns conversation history. Vault tools execute locally inside
@@ -103,9 +110,31 @@ default ([security model](docs/security-model.md)). One mode, no seams.
 > agent-host (`claude -p` / Claude Agent SDK) the phone connects to.
 > Exploring, no dates. See [`docs/adr/0008-agent-host-tier.md`](docs/adr/0008-agent-host-tier.md).
 
+## Network use and privacy
+
+- **Account required.** Skald needs an API key or account with at least
+  one provider; there is no Skald service or account.
+- **Remote services contacted**, only to run your chats and only with
+  the provider you select:
+  - Anthropic (`api.anthropic.com`) -- chat, tool use, and the
+    provider-side `web_search` / `web_fetch` server tools, which run on
+    Anthropic's infrastructure.
+  - OpenRouter (`openrouter.ai`) -- chat and web search when selected;
+    the public model catalog (`/api/v1/models`, no key sent) populates
+    the model picker.
+  - A user-configured OpenAI-compatible endpoint -- chat only, at the
+    base URL you enter (HTTPS, or loopback for local servers).
+- **What is sent:** your messages, the notes you attach or that Claude
+  reads through vault tools, and the memory note when enabled. Nothing
+  is sent until you send a turn.
+- **No telemetry.** No analytics, tracking, or crash reporting; Skald
+  contacts no server of its own.
+- **Files outside the vault** are never accessed. Skald reads and
+  writes only inside your vault, and writes only after your approval.
+
 ## Trust model
 
-Your Anthropic (or OpenRouter) API key lives in the plugin's
+Your Anthropic (or OpenRouter / OpenAI-compatible) API key lives in the plugin's
 `data.json` inside your vault. People who sync their vault via
 Obsidian Sync should be aware the key travels in the sync payload --
 Obsidian Sync is E2EE with your sync password, but the key is plaintext
