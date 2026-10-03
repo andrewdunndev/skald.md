@@ -328,13 +328,13 @@ describe('runMemoryUpkeepView: memory-note TOCTOU guard', () => {
 });
 
 describe('runMemoryUpkeepView: provider-agnostic model', () => {
-  it('passes utilityModel(settings), honoring the utilityModel override', async () => {
-    // utilityModel resolves the override; the view must forward whatever
+  it('passes utilityModel(settings)', async () => {
+    // The view must forward whatever utilityModel returns,
     // it returns, not a hardcoded id. Passes on correct code; FAILS
     // under mutation "hardcode the model" (e.g. 'claude-haiku-4-5').
     utilityModel.mockReturnValue('my/override-model');
     proposeMemoryUpkeep.mockResolvedValue(null); // no-op proposal, stops early
-    const settings = makeSettings({ utilityModel: 'my/override-model' });
+    const settings = makeSettings();
     const { app } = makeApp();
     await runMemoryUpkeepView({
       app,

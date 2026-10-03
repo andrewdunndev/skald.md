@@ -8,9 +8,7 @@
  * file changes required.
  *
  * reasoningModel: the user's configured chat model for the active provider.
- * utilityModel:   cheap model for rerank + future memory upkeep.
- *   Resolution: settings.utilityModel override → provider default.
- *   Set to point the cheap/utility role at any model incl. a local one.
+ * utilityModel:   cheap per-provider default for rerank and memory upkeep.
  */
 
 import type { Provider } from './protocol';
@@ -88,14 +86,10 @@ export function reasoningModel(settings: SkaldSettings): string {
 }
 
 /**
- * Cheap/utility model for rerank and future memory upkeep.
- * Resolution order:
- *   1. settings.utilityModel (when non-empty) — user override, may point
- *      at any model including a local one
- *   2. per-provider default (the cheapest capable Haiku-tier model)
+ * Cheap/utility model for rerank and memory upkeep: the per-provider default
+ * (the cheapest capable Haiku-tier model).
  */
 export function utilityModel(settings: SkaldSettings): string {
-  if (settings.utilityModel) return settings.utilityModel;
   switch (settings.provider) {
     case 'anthropic':
       return 'claude-haiku-4-5';

@@ -80,13 +80,6 @@ export function normalizeSettings(stored: unknown): SkaldSettings {
   out.capturePromptPath = str('capturePromptPath');
   out.startersPath = str('startersPath');
 
-  // utilityModel is optional (string | undefined). Keep a stored string,
-  // otherwise leave it as the default (empty string).
-  out.utilityModel =
-    typeof raw.utilityModel === 'string'
-      ? raw.utilityModel
-      : DEFAULT_SETTINGS.utilityModel;
-
   // Boolean-typed settings.
   out.memoryEnabled = bool('memoryEnabled');
   out.captureEnabled = bool('captureEnabled');

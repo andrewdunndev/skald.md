@@ -10,8 +10,7 @@
  * Provider-agnostic: the endpoint is selected by provider via the
  * shared utilityComplete helper. Both 'anthropic' and 'openrouter' use
  * the Anthropic Messages wire format (/v1/messages endpoint). The model
- * is resolveUtilityModel (Haiku tier by default, overridable via
- * settings.utilityModel).
+ * is the per-provider utility default (Haiku tier).
  *
  * Soft-fail contract: on any error (network, parse, bad key) the
  * function returns null and logs a warning. The caller never needs to

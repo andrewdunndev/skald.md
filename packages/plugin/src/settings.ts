@@ -52,11 +52,6 @@ export interface SkaldSettings {
    * Catalog ids are slash-namespaced: `anthropic/claude-...`,
    * `openai/...`, `meta-llama/...`, etc. */
   openrouterModel: string;
-  /**
-   * Utility model override for cheap tasks (rerank, future memory upkeep).
-   * // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
-   */
-  utilityModel?: string;
   harnessFolder: string;
   savedNotesFolder: string;
   chatsFolder: string;
@@ -152,8 +147,6 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   openaiModel: '',
   defaultModel: 'claude-sonnet-5-5',
   openrouterModel: 'anthropic/claude-sonnet-5-5',
-  // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
-  utilityModel: '',
   harnessFolder: '.claude',
   savedNotesFolder: 'Skald/Saved',
   chatsFolder: 'Skald/Chats',
