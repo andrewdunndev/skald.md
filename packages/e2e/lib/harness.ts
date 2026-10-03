@@ -6,6 +6,7 @@ const SHOTS = path.resolve(import.meta.dirname, '../out/screenshots');
 
 export const NEW_CHAT = '.skald-header [aria-label="New chat"]';
 export const FAKE_KEY = 'sk-ant-e2e-fixture';
+export const KEY_SECRET = 'skald-e2e-anthropic';
 
 export async function shot(name: string): Promise<void> {
   mkdirSync(SHOTS, { recursive: true });
@@ -77,12 +78,16 @@ export async function newChat(): Promise<void> {
   await $('.skald-empty').waitForExist({ timeoutMsg: 'empty state did not return after New chat' });
 }
 
-/** Sets the provider key and routes Anthropic traffic to the mock origin for the rest of the session. */
+/**
+ * Stores the provider key in Obsidian secret storage, names that secret in settings, and routes
+ * Anthropic traffic to the mock origin for the rest of the session.
+ */
 export async function pointAtMock(origin: string): Promise<void> {
-  await browser.executeObsidian(async ({ plugins }, key, base) => {
+  await browser.executeObsidian(async ({ app, plugins }, key, secret, base) => {
     const plugin = plugins.skald as any;
+    app.secretStorage.setSecret(secret, key);
     plugin.settings.provider = 'anthropic';
-    plugin.settings.anthropicApiKey = key;
+    plugin.settings.anthropicKeySecret = secret;
     await plugin.saveSettings();
     const original = window.fetch.bind(window);
     const upstream = 'https://api.anthropic.com';
@@ -90,7 +95,7 @@ export async function pointAtMock(origin: string): Promise<void> {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
       return url.startsWith(upstream) ? original(base + url.slice(upstream.length), init) : original(input, init);
     };
-  }, FAKE_KEY, origin);
+  }, FAKE_KEY, KEY_SECRET, origin);
 }
 
 /** Pushes finalized messages into the live chat session and renders them. */
