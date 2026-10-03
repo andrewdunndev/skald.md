@@ -32,8 +32,8 @@ masked variables and skips any provider whose variable is unset.
 
 **Still human (iOS only):** WKWebView / `capacitor://` origin behaviour
 on a real device, the Shortcut share sheet, dictation, camera and photo
-picker, keyboard and safe-area layout, touch swipe on diff cards, and
-background/resume. Items below are tagged:
+picker, keyboard and safe-area layout, and background/resume. Items
+below are tagged:
 
 - `[L1]` / `[L2]`: exercised by the automated layers; no need to repeat by hand.
 - `[iOS]`: needs the phone.
@@ -95,7 +95,7 @@ The real target. If this breaks, skald breaks.
       `search_vault`, (3) proposes a `write_note` or
       `append_to_note` with a path that makes sense, (4) the diff
       card surfaces "Informed by: search: '...'".
-- [ ] Approve via diff card OR swipe-right to approve. Verify the
+- [ ] Approve via the diff card. Verify the
       vault file actually lands. Verify haptic feedback fires on
       approve.
 
@@ -199,15 +199,6 @@ premature.
       by recency + match quality.
 - [ ] Pick a result. Verify the saved markdown opens (resume-
       into-pane is a v2 follow-up -- currently opens the file).
-
-### Diff card swipe (touch only) `[iOS]`
-- [ ] Send a turn that produces a write proposal. **On the iPad**:
-      swipe the diff card right (>70px). Verify approve fires +
-      haptic.
-- [ ] Trigger another write. Swipe left. Verify reject fires +
-      pulse-haptic pattern.
-- [ ] Trigger a third. Swipe right but release before crossing
-      threshold. Verify card snaps back via the 180ms ease-out.
 
 ## Bug discovery -> triage
 

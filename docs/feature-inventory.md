@@ -160,20 +160,6 @@ non-obvious mode / state, it's called out.
   - Verify: Diff card disappears. No file change. Tool result
     in the chat shows "User rejected the write..."
 
-- [ ] **Swipe-to-approve (iPad/iPhone only)**
-  - Trigger: Touch + drag a diff card right past ~70px.
-  - Verify: Card snaps off-screen, approve fires + short
-    haptic pulse.
-
-- [ ] **Swipe-to-reject**
-  - Trigger: Touch + drag a diff card left past ~70px.
-  - Verify: Reject fires + pulse-gap-pulse haptic.
-
-- [ ] **Swipe release before threshold -> snap back**
-  - Trigger: Drag a diff card right but release before 70px.
-  - Verify: Card returns to original position via a smooth
-    180ms ease-out.
-
 - [ ] **Concurrent-edit safety (vault.process)**
   - Trigger: Open a note in another pane, start editing
     (don't save). In skald, ask Claude to append to that

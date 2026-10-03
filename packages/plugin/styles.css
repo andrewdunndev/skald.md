@@ -168,11 +168,6 @@
   border-radius: var(--radius-s);
   background: var(--background-primary);
   overflow: hidden;
-  /* Smooth snap-back when a touch swipe is released without
-     crossing the threshold. transform during the gesture is
-     instant; only the release animates. */
-  transition: transform 0.18s ease-out;
-  touch-action: pan-y;
 }
 
 .skald-diff-header {
@@ -1131,11 +1126,6 @@
   .skald-typing-dot {
     animation: none;
     opacity: 0.6;
-  }
-
-  /* Diff card swipe snap-back transition */
-  .skald-diff {
-    transition: none;
   }
 
   /* Message action row hover fade */
