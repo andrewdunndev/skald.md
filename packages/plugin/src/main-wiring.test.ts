@@ -203,6 +203,30 @@ describe('SkaldPlugin API keys', () => {
     expect(toolCalls[0]).toEqual({ name: 'search_vault', anthropicApiKey: 'sk-ant-secret' });
   });
 
+  it('the capture link does nothing until capture is turned on', async () => {
+    const handlers = new Map<string, (d: obsidian.ObsidianProtocolData) => void>();
+    vi.spyOn(obsidian.Plugin.prototype, 'registerObsidianProtocolHandler').mockImplementation(
+      (action, cb) => void handlers.set(action, cb as never),
+    );
+    const off = harness({ ...NAMES });
+    await off.plugin.onload();
+    const offRun = vi.spyOn(off.plugin['captureService'] as CaptureService, 'handleProtocol');
+    const offLog = vi.spyOn(off.plugin['logger'], 'info');
+    handlers.get('skald-capture')!({ action: 'skald-capture', payload: 'x', kind: 'evil\nline' });
+    expect(off.plugin.settings.captureEnabled).toBe(false);
+    expect(offRun).not.toHaveBeenCalled();
+    expect(offLog).not.toHaveBeenCalled();
+
+    const on = harness({ ...NAMES, captureEnabled: true });
+    await on.plugin.onload();
+    const onRun = vi.spyOn(on.plugin['captureService'] as CaptureService, 'handleProtocol')
+      .mockResolvedValue();
+    const onLog = vi.spyOn(on.plugin['logger'], 'info');
+    handlers.get('skald-capture')!({ action: 'skald-capture', payload: 'x', kind: 'evil\nline' });
+    expect(onRun).toHaveBeenCalledOnce();
+    expect(onLog.mock.calls.flat().join(' ')).not.toContain('evil');
+  });
+
   it('sends the secret-storage key on the capture path', async () => {
     const { plugin, created } = harness({ ...NAMES });
     await plugin.onload();
@@ -213,7 +237,7 @@ describe('SkaldPlugin API keys', () => {
     } as never);
 
     const capture = plugin['captureService'] as CaptureService;
-    await capture.run({ kind: 'text', content: 'shared text', silent: true });
+    await capture.run({ content: 'shared text', silent: true });
 
     const req = spy.mock.calls[0]![0] as { headers: Record<string, string> };
     expect(req.headers['x-api-key']).toBe('sk-ant-secret');

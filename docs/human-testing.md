@@ -109,13 +109,12 @@ The real target. If this breaks, skald breaks.
       the proposed memory append, you approve, memory note grows.
 
 ### Apple Shortcut share-sheet `[iOS]`
-- [ ] In Safari, share an article via the Skald Capture
-      Shortcut (see `docs/apple-shortcut-recipe.md`).
-- [ ] Verify: Obsidian foregrounds, "skald: capturing..." Notice
-      shows, then "skald: captured -> ..." (captures always land
-      in the captures folder).
-- [ ] Open the resulting note. Verify the body is a clean
-      skald-generated summary, not raw HTML.
+- [ ] With capture off (the default), share via the Skald Capture
+      Shortcut (see `docs/share-sheet-capture.md`). Verify only a
+      Notice saying capture is off appears and no note is written.
+- [ ] Turn capture on and share an article link from Safari. Verify
+      "capturing..." then "captured -> ..." Notices, and that the
+      note keeps the link without inventing the page's content.
 
 ## Phase C: Provider + security (10 min)
 

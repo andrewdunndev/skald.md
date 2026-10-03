@@ -249,8 +249,8 @@ Captures always land in the captures folder. Auto-routing is not
 available in direct mode.
 
 - [ ] **Apple Shortcut share-sheet**
-  - Trigger: API key configured. In Safari, share an article
-    via the skald Shortcut.
+  - Trigger: API key configured, capture turned on. In Safari,
+    share an article via the skald Shortcut.
   - Verify: Obsidian foregrounds. "skald: capturing..." progress
     Notice -> "skald: captured -> X.md". Note lands in the
     captures folder.
@@ -480,8 +480,6 @@ These are documented limitations, not bugs:
   inline picker is a follow-up.
 - **Resume-into-pane on conversation search** -- opens the
   markdown file today; live-session resume is a follow-up.
-- **PDF attachment in chat composer** -- protocol accepts
-  `kind=pdf` for captures, but in-chat PDF attach isn't built.
 - **Pull-to-reconnect gesture** -- auto-reconnect handles the
   common case; pull-down gesture is unimplemented.
 - **Semantic / vector vault search** -- lexical (Omnisearch BM25

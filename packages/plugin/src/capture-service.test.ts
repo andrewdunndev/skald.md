@@ -100,7 +100,6 @@ describe('CaptureService.run()', () => {
     spy.mockResolvedValue(anthropicResp('# Flowers\nRed tulips.'));
     const svc = new CaptureService(app, () => makeCfg());
     const result = await svc.run({
-      kind: 'text',
       content: 'tulips are beautiful',
       silent: true,
     });
@@ -119,7 +118,7 @@ describe('CaptureService.run()', () => {
       () => makeCfg({ anthropicApiKey: '' }),
     );
     await expect(
-      svc.run({ kind: 'text', content: 'hello', silent: true }),
+      svc.run({ content: 'hello', silent: true }),
     ).rejects.toThrow('No Anthropic API key');
     expect(spy).not.toHaveBeenCalled();
   });
@@ -135,7 +134,7 @@ describe('CaptureService.run()', () => {
           utilityModel: 'claude-haiku-4-5',
         }),
     );
-    await svc.run({ kind: 'text', content: 'some content', silent: true });
+    await svc.run({ content: 'some content', silent: true });
     expect(spy).toHaveBeenCalledOnce();
     const body = JSON.parse(
       (spy.mock.calls[0][0] as Record<string, unknown>).body as string,
@@ -160,7 +159,6 @@ describe('CaptureService.run()', () => {
     const { app, created } = makeAppWithCollision(collisionPath);
     const svc = new CaptureService(app, () => makeCfg());
     const result = await svc.run({
-      kind: 'text',
       content: 'tulips are beautiful',
       silent: true,
     });
@@ -173,5 +171,38 @@ describe('CaptureService.run()', () => {
     // Exactly one note must have been created (no silent drop).
     expect(created).toHaveLength(1);
     expect(created[0].body).toBe('# Flowers\nRed tulips.');
+  });
+});
+
+describe('CaptureService.handleProtocol()', () => {
+  it.each(['image', 'pdf', 'url', 'text\nforged log line'])(
+    'refuses kind=%j without calling the provider or writing',
+    async (kind) => {
+      const spy = vi.spyOn(obsidian, 'requestUrl');
+      const { app, created } = makeApp();
+      const svc = new CaptureService(app, () => makeCfg());
+      await svc.handleProtocol({
+        action: 'skald-capture',
+        kind,
+        payload: 'inbox/photo.png',
+      });
+      expect(spy).not.toHaveBeenCalled();
+      expect(created).toHaveLength(0);
+    },
+  );
+
+  it.each([undefined, 'text'])('captures kind=%j as text', async (kind) => {
+    const spy = vi.spyOn(obsidian, 'requestUrl');
+    spy.mockResolvedValue(anthropicResp('# Note\nBody.') as never);
+    const { app, created } = makeApp();
+    const svc = new CaptureService(app, () => makeCfg());
+    await svc.handleProtocol({
+      action: 'skald-capture',
+      ...(kind ? { kind } : {}),
+      payload: encodeURIComponent('https://example.com'),
+      silent: 'true',
+    });
+    expect(spy).toHaveBeenCalledOnce();
+    expect(created).toHaveLength(1);
   });
 });

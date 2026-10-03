@@ -86,16 +86,9 @@ export type ClientMessage =
  * bounding a malicious payload. */
 export const CAPTURE_MAX_PROMPT_BYTES = 100 * 1024;
 
-/** Per-kind default prompt text for capture. Centralised here so all
- * plugin paths use the same prompts — changing the prompt in one place
- * changes it everywhere. */
-export const CAPTURE_DEFAULT_PROMPTS: Record<string, string> = {
-  url: 'The user shared this URL from their phone. Open it (or use what you know about it) and write a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, list any action items, suggest tags (Obsidian #tag format).',
-  text: 'The user shared this text from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, suggest tags.',
-  image:
-    'The user shared this image from their phone (you have access to it as an image attachment). Describe what is shown, transcribe any visible text, and write a vault-ready capture note: title (≤8 words), description, any extracted text, suggested tags.',
-  pdf: 'The user shared this PDF from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, identify any action items, suggest tags.',
-};
+/** Default capture prompt; a settings note can replace it. */
+export const CAPTURE_PROMPT =
+  'The user shared this text from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, suggest tags. If it is only a link, keep the link and do not guess at what the page says.';
 
 /** Extract the title from a model-generated capture body.
  * Contract: first H1 if present, else first non-empty line,

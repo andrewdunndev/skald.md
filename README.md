@@ -13,9 +13,9 @@ responses from Anthropic, OpenRouter, or any OpenAI-compatible
 endpoint directly -- no relay, no shared backend, no account beyond
 your provider key. Reads and writes
 your vault under explicit user approval. Searches the web inline.
-Conversations save back into your vault as markdown. iOS share-sheet
-capture turns anything you share from another app into a
-Claude-processed vault note.
+Conversations save back into your vault as markdown. Optional
+[share-sheet capture](docs/share-sheet-capture.md) turns text you
+share on iOS into a vault note.
 
 > **Status:** pre-release. Feature-complete for v1 -- direct mode,
 > multi-provider (Anthropic, OpenRouter, OpenAI-compatible), vault tools with approval,
@@ -127,11 +127,12 @@ default ([security model](docs/security-model.md)). One mode, no seams.
     base URL you enter (HTTPS, or loopback for local servers).
 - **What is sent:** your messages, the notes you attach or that Claude
   reads through vault tools, and the memory note when enabled. Nothing
-  is sent until you send a turn.
+  is sent until you send a turn, or share text with capture turned on.
 - **No telemetry.** No analytics, tracking, or crash reporting; Skald
   contacts no server of its own.
-- **Files outside the vault** are never accessed. Skald reads and
-  writes only inside your vault, and writes only after your approval.
+- **Files outside the vault** are never accessed. Claude's changes to
+  your notes wait for your approval; Skald itself saves conversations,
+  logs and captures.
 
 ## Trust model
 

@@ -17,17 +17,14 @@ describe('parseCaptureParams', () => {
     ).toBeNull();
   });
 
-  it('parses a URL kind with a URL-encoded payload', () => {
+  it('takes a shared URL as plain text from a URL-encoded payload', () => {
     const out = parseCaptureParams({
       action: 'skald-capture',
-      kind: 'url',
       payload: encodeURIComponent('https://example.com/foo?bar=baz'),
     });
     expect(out).toEqual<CaptureParams>({
-      kind: 'url',
       content: 'https://example.com/foo?bar=baz',
       title: undefined,
-      prompt: undefined,
       silent: false,
     });
   });
@@ -43,41 +40,27 @@ describe('parseCaptureParams', () => {
     });
     // btoa/atob is byte-level; the encoded form preserves utf-8.
     expect(out?.content).toBe(original);
-    expect(out?.kind).toBe('text');
   });
 
-  it('defaults kind to "text" when unrecognized', () => {
+  it('preserves the title hint and silent flag', () => {
     const out = parseCaptureParams({
       action: 'skald-capture',
-      kind: 'mystery-kind',
-      payload: 'hi',
-    });
-    expect(out?.kind).toBe('text');
-  });
-
-  it('preserves title + prompt hints + silent flag', () => {
-    const out = parseCaptureParams({
-      action: 'skald-capture',
-      kind: 'url',
       payload: encodeURIComponent('https://example.com'),
       title: 'Example dot com',
-      prompt: 'Skald/Prompts/url.md',
       silent: 'true',
     });
     expect(out?.title).toBe('Example dot com');
-    expect(out?.prompt).toBe('Skald/Prompts/url.md');
     expect(out?.silent).toBe(true);
   });
 });
 
 describe('buildCapturePrompt', () => {
   const base: CaptureParams = {
-    kind: 'text',
     content: 'A snippet of shared text.',
     silent: false,
   };
 
-  it('uses the kind-default prompt when no custom prompt is given', () => {
+  it('uses the default prompt when no custom prompt is given', () => {
     const out = buildCapturePrompt(base, null);
     expect(out).toContain('shared this text from their phone');
     expect(out).toContain('A snippet of shared text.');
@@ -105,20 +88,13 @@ describe('buildCapturePrompt', () => {
     expect(out).toContain('\n\n---\n\n');
   });
 
-  it('selects the URL prompt for kind=url', () => {
+  it('tells the model not to invent the content of a bare link', () => {
     const out = buildCapturePrompt(
-      { kind: 'url', content: 'https://example.com', silent: false },
+      { content: 'https://example.com', silent: false },
       null,
     );
-    expect(out).toContain('shared this URL');
-  });
-
-  it('selects the image prompt for kind=image', () => {
-    const out = buildCapturePrompt(
-      { kind: 'image', content: 'inbox/photo.png', silent: false },
-      null,
-    );
-    expect(out).toContain('shared this image');
+    expect(out).toContain('do not guess at what the page says');
+    expect(out).not.toMatch(/image|PDF|Open it/);
   });
 });
 

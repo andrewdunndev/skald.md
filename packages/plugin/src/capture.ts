@@ -1,5 +1,5 @@
 /**
- * iOS share-sheet + URL-scheme capture (phase 8 / 8b).
+ * iOS share-sheet capture, text only.
  *
  * Trigger: `obsidian://skald-capture?...` (fired by an Apple
  * Shortcut). Flow: parseCaptureParams → CaptureService.run() →
@@ -20,7 +20,7 @@ import {
   type ObsidianProtocolData,
 } from 'obsidian';
 import {
-  CAPTURE_DEFAULT_PROMPTS,
+  CAPTURE_PROMPT,
   CAPTURE_MAX_PROMPT_BYTES,
   extractCaptureTitle,
   type Provider,
@@ -36,25 +36,21 @@ import {
 
 export { captureFilename } from './capture-util';
 
-export type CaptureKind = 'url' | 'text' | 'image' | 'pdf';
+export const CAPTURE_OFF_NOTICE =
+  'Skald: share-sheet capture is off. Turn on "Allow share-sheet capture" in Settings → Skald → Advanced.';
+
+export const CAPTURE_TEXT_ONLY_NOTICE =
+  'Skald: capture takes text only. Share the text or link itself.';
 
 export interface CaptureParams {
-  kind: CaptureKind;
-  /** URL-decoded content payload (text body, URL, or vault-relative
-   * path of a staged binary). */
+  /** Decoded shared text; a shared URL arrives as text too. */
   content: string;
   /** Optional title hint from the share source (Safari page title,
    * etc). */
   title?: string;
-  /** Optional custom prompt path override (vault-relative). */
-  prompt?: string;
   /** If 'true', don't open the captured note after writing. */
   silent: boolean;
 }
-
-// Default prompts from protocol (single source of truth — no copy-paste).
-const defaultPromptForKind = (kind: CaptureKind): string =>
-  CAPTURE_DEFAULT_PROMPTS[kind] ?? CAPTURE_DEFAULT_PROMPTS['text']!;
 
 /**
  * Parse an Obsidian protocol-handler payload into a typed
@@ -73,35 +69,23 @@ export function parseCaptureParams(
   if (typeof raw !== 'string' || raw.length === 0) return null;
   const content = b64 ? safeAtob(raw) : safeDecodeURIComponent(raw);
   if (!content) return null;
-
-  const kindRaw = typeof data.kind === 'string' ? data.kind : 'text';
-  const kind: CaptureKind =
-    kindRaw === 'url' || kindRaw === 'image' || kindRaw === 'pdf'
-      ? kindRaw
-      : 'text';
   return {
-    kind,
     content,
     title: typeof data.title === 'string' ? data.title : undefined,
-    prompt: typeof data.prompt === 'string' ? data.prompt : undefined,
     silent: data.silent === 'true',
   };
 }
 
 /**
- * Compose the user-turn prompt that gets sent to the provider.
- * Pure; tested with concrete in/out.
- *
- *   - `params.prompt` (note path) takes precedence; the resolver
- *     reads that note's body and uses it verbatim as the system
- *     prompt prefix, with the captured content appended.
- *   - Otherwise the kind-default prompt is used.
+ * Compose the user-turn prompt that gets sent to the provider: the
+ * custom prompt note's body when set, else the default, then the
+ * shared text.
  */
 export function buildCapturePrompt(
   params: CaptureParams,
   customPromptBody: string | null,
 ): string {
-  const head = customPromptBody?.trim() || defaultPromptForKind(params.kind);
+  const head = customPromptBody?.trim() || CAPTURE_PROMPT;
   const titleHint = params.title
     ? `\n\nTitle hint from share source: ${params.title}`
     : '';
@@ -137,7 +121,7 @@ export interface CaptureServiceConfig {
   utilityModel: string;
   captureFolder: string;
   /** Vault-relative path of a prompt-template note. Empty → use
-   * the kind-default prompt baked into this module. */
+   * the default capture prompt. */
   promptPath: string;
 }
 
@@ -234,6 +218,10 @@ export class CaptureService {
   ) {}
 
   async handleProtocol(data: ObsidianProtocolData): Promise<void> {
+    if (data.kind !== undefined && data.kind !== 'text') {
+      new Notice(CAPTURE_TEXT_ONLY_NOTICE);
+      return;
+    }
     const params = parseCaptureParams(data);
     if (!params) {
       new Notice('skald: capture had no content to process.');

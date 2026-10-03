@@ -89,6 +89,7 @@ export function normalizeSettings(stored: unknown): SkaldSettings {
 
   // Boolean-typed settings.
   out.memoryEnabled = bool('memoryEnabled');
+  out.captureEnabled = bool('captureEnabled');
   out.thinkingEnabled = bool('thinkingEnabled');
   out.compactToolResults = bool('compactToolResults');
   // web_fetch is an exfiltration channel — the gate stays off unless data.json

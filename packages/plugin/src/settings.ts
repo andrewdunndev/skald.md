@@ -84,12 +84,15 @@ export interface SkaldSettings {
    */
   commandsFolder: string;
   /**
-   * Phase 8: iOS share-sheet capture.
+   * Share-sheet capture.
+   * captureEnabled: whether the skald-capture link does anything. Off
+   *   by default: any app or page that can open obsidian:// links can
+   *   fire it, and it spends the key and writes a note unapproved.
    * capturesFolder: where captured notes land. Default Skald/Captures.
    * capturePromptPath: optional vault-relative path to a custom
-   *   prompt-template note. Empty → use the kind-default prompt
-   *   baked into the capture module.
+   *   prompt-template note. Empty → use the default capture prompt.
    */
+  captureEnabled: boolean;
   capturesFolder: string;
   capturePromptPath: string;
   /**
@@ -159,6 +162,7 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   memoryPath: 'Skald/Memory.md',
   activePersona: '',
   commandsFolder: 'Skald/Commands',
+  captureEnabled: false,
   capturesFolder: 'Skald/Captures',
   capturePromptPath: '',
   startersPath: 'Skald/Starters.md',
