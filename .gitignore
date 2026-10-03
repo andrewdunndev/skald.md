@@ -20,3 +20,7 @@ reports/mutation/
 # Coverage reports — generated, and embed absolute local paths
 coverage/
 .pnpm-store/
+
+# wdio-obsidian-service downloads and e2e output
+.obsidian-cache/
+packages/e2e/out/
