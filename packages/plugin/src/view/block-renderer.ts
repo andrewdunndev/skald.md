@@ -20,6 +20,7 @@
  */
 
 import { MarkdownRenderer, type App, type Component } from 'obsidian';
+import { neutralizeRemoteMedia } from '../remote-media';
 import type { ContentBlock } from '@skald/protocol';
 import { renderDiffCard } from './diff-card';
 import { renderErrorBlock } from './error-block';
@@ -155,7 +156,8 @@ export async function renderBlock(
  * the vault root (the user's mental model of "Claude references
  * my notes"). The markdown-rendered class scopes Obsidian's
  * reading-view CSS so tables get borders, callouts get
- * backgrounds, etc.
+ * backgrounds, etc. Remote images and raw HTML are neutralized
+ * first, so rendering never fetches a URL the model wrote.
  */
 export async function renderMarkdownInto(
   el: HTMLElement,
@@ -163,7 +165,13 @@ export async function renderMarkdownInto(
   ctx: Pick<BlockContext, 'app' | 'component'>,
 ): Promise<void> {
   el.addClass('markdown-rendered');
-  await MarkdownRenderer.render(ctx.app, md, el, '', ctx.component);
+  await MarkdownRenderer.render(
+    ctx.app,
+    neutralizeRemoteMedia(md),
+    el,
+    '',
+    ctx.component,
+  );
 }
 
 // ── per-block helpers ──────────────────────────────────────────
@@ -173,16 +181,12 @@ function renderImageBlock(
   b: Record<string, unknown>,
 ): void {
   const source = b.source as Record<string, unknown> | undefined;
-  if (!source) return;
+  if (source?.type !== 'base64') return;
   const figure = parent.createDiv({ cls: 'skald-image' });
   const img = figure.createEl('img', { cls: 'skald-image-thumb' });
-  if (source.type === 'base64') {
-    const media = String(source.media_type ?? 'image/png');
-    const data = String(source.data ?? '');
-    img.src = `data:${media};base64,${data}`;
-  } else if (source.type === 'url') {
-    img.src = String((source as { url?: unknown }).url ?? '');
-  }
+  const media = String(source.media_type ?? 'image/png');
+  const data = String(source.data ?? '');
+  img.src = `data:${media};base64,${data}`;
   img.alt = 'attached image';
 }
 
