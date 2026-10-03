@@ -62,14 +62,12 @@ export interface ToolExecutor {
 }
 
 /**
- * Resolved per-turn provider configuration. `apiKey` is the
- * plugin-supplied key for the active provider, sent directly to the
- * upstream API. `provider` selects which upstream to call
- * (Anthropic or OpenRouter).
+ * Resolved per-turn provider configuration. `provider` selects which
+ * upstream to call. The key is not here: the transport reads it from
+ * secret storage when it dispatches.
  */
 export interface ProviderConfig {
   provider: Provider;
-  apiKey?: string;
   /** OpenAI-compatible base URL (provider==='openai' only). */
   baseUrl?: string;
 }
@@ -249,7 +247,7 @@ export class ChatSession {
         return;
       }
 
-      const { provider, apiKey, baseUrl } = this.providerConfigProvider();
+      const { provider, baseUrl } = this.providerConfigProvider();
       const payload: ChatRequest = {
         model: this.modelProvider(),
         // Strip synthetic skald_error display blocks before windowing —
@@ -262,11 +260,6 @@ export class ChatSession {
       if (tools.length > 0) payload.tools = tools;
 
       const msg: ClientMessage = { type: 'chat', id, payload, provider };
-      if (apiKey) {
-        if (provider === 'openrouter') msg.openrouter_api_key = apiKey;
-        else if (provider === 'openai') msg.openai_api_key = apiKey;
-        else msg.anthropic_api_key = apiKey;
-      }
       if (provider === 'openai' && baseUrl) msg.openai_base_url = baseUrl;
       this.transport.send(msg);
       this.handlers.onUpdate();

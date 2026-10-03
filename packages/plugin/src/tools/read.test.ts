@@ -10,6 +10,7 @@ import {
   runSearchVault,
 } from './read';
 import * as rerank from './rerank';
+import { executeTool } from './index';
 
 // ---------------------------------------------------------------------------
 // capResult
@@ -318,8 +319,8 @@ describe('runSearchVault — rerank integration', () => {
     ]);
 
     try {
-      const result = await runSearchVault(app, { query: 'needle', limit: 8 }, 'sk-ant-test');
-      expect(spy).toHaveBeenCalled();
+      const result = await runSearchVault(app, { query: 'needle', limit: 8 }, 'sk-ant-test', 'anthropic');
+      expect(spy).toHaveBeenCalledWith('needle', expect.any(Array), 'anthropic', 'sk-ant-test');
       expect(result.content).toContain('(reranked by utility model)');
       expect(result.content).toContain('note-7.md');
     } finally {
@@ -336,7 +337,7 @@ describe('runSearchVault — rerank integration', () => {
 
     const spy = vi.spyOn(rerank, 'rerankCandidates');
 
-    const result = await runSearchVault(app, { query: 'needle' }, 'sk-ant-test');
+    const result = await runSearchVault(app, { query: 'needle' }, 'sk-ant-test', 'anthropic');
     expect(spy).not.toHaveBeenCalled();
     expect(result.content).not.toContain('(reranked by utility model)');
 
@@ -364,5 +365,22 @@ describe('runSearchVault — rerank integration', () => {
     expect(result.content).not.toContain('(reranked by utility model)');
 
     spy.mockRestore();
+  });
+
+  it('executeTool hands the context key and provider to the search rerank', async () => {
+    const files: Record<string, string> = {};
+    for (let i = 0; i < 8; i++) files[`note-${i}.md`] = 'needle in here';
+    const spy = vi.spyOn(rerank, 'rerankCandidates').mockResolvedValue(['note-1.md: …needle…']);
+    try {
+      await executeTool('search_vault', { query: 'needle', limit: 8 }, 't1', {
+        app: makeApp(files),
+        approve: () => Promise.resolve(false),
+        anthropicApiKey: 'sk-ant-ctx',
+        provider: 'anthropic',
+      });
+      expect(spy).toHaveBeenCalledWith('needle', expect.any(Array), 'anthropic', 'sk-ant-ctx');
+    } finally {
+      spy.mockRestore();
+    }
   });
 });

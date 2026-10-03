@@ -1,5 +1,5 @@
 import { setIcon, setTooltip } from 'obsidian';
-import { MODELS } from '../settings';
+import { ANTHROPIC_MODELS } from '../settings/provider';
 import type { SkaldSettings } from '../settings';
 
 export interface HeaderHooks {
@@ -37,7 +37,7 @@ export function renderHeader(
       cls: 'skald-model',
       attr: { 'aria-label': 'Model' },
     });
-    for (const m of MODELS) {
+    for (const m of ANTHROPIC_MODELS) {
       const opt = modelSelect.createEl('option', {
         text: m.label,
         value: m.id,

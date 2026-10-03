@@ -14,6 +14,7 @@ function directInput(overrides: Partial<SetupBannerInput> = {}): SetupBannerInpu
     anthropicApiKey: 'sk-ant-live',
     openrouterApiKey: '',
     openaiBaseUrl: '',
+    openaiKeyMissing: false,
     ...overrides,
   };
 }
@@ -124,5 +125,24 @@ describe('resolveBannerSpec: openai provider', () => {
         }),
       ),
     ).toBeNull();
+  });
+
+  it('asks for the key when the picked secret is not on this device', () => {
+    const spec = resolveBannerSpec(
+      directInput({
+        provider: 'openai',
+        openaiBaseUrl: 'https://your-endpoint.example/v1',
+        openaiKeyMissing: true,
+      }),
+    );
+    expect(spec?.title).toBe('Add your API key');
+    expect(spec?.detail).toContain('not on this device');
+  });
+
+  it('asks for the endpoint first when both are missing', () => {
+    const spec = resolveBannerSpec(
+      directInput({ provider: 'openai', openaiBaseUrl: '', openaiKeyMissing: true }),
+    );
+    expect(spec?.title).toBe('Add your endpoint');
   });
 });

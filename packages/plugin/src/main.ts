@@ -7,6 +7,7 @@ import {
   type SkaldSettings,
 } from './settings';
 import { normalizeSettings } from './settings-normalize';
+import { resolveApiKeys, type ApiKeys } from './api-keys';
 import { Logger } from './logger';
 import { ConversationSearchModal } from './conversation-search';
 import { CaptureService } from './capture';
@@ -36,11 +37,9 @@ export default class SkaldPlugin extends Plugin {
 
     this.captureService = new CaptureService(this.app, () => ({
       provider: this.settings.provider,
-      anthropicApiKey: this.settings.anthropicApiKey,
-      openrouterApiKey: this.settings.openrouterApiKey,
+      ...this.apiKeys(),
       defaultModel: this.settings.defaultModel,
       openrouterModel: this.settings.openrouterModel,
-      openaiApiKey: this.settings.openaiApiKey,
       openaiModel: this.settings.openaiModel,
       openaiBaseUrl: this.settings.openaiBaseUrl,
       utilityModel: utilityModel(this.settings),
@@ -96,16 +95,23 @@ export default class SkaldPlugin extends Plugin {
   async loadSettings() {
     // data.json is a trust boundary: operator-editable AND Obsidian-Sync
     // delivered. normalizeSettings merges DEFAULT_SETTINGS for missing keys,
-    // coerces an unknown `provider` back to the default (so it can never reach
-    // the exhaustive provider switches), drops non-string/boolean fields, and
-    // CLAMPS a cleartext non-loopback openaiBaseUrl to empty so the
-    // utility/capture/memory paths can't dispatch prompts + key over the wire.
+    // drops unknown fields, coerces an unknown `provider` back to the default
+    // (so it can never reach the exhaustive provider switches), drops
+    // non-string/boolean fields, and CLAMPS a cleartext non-loopback
+    // openaiBaseUrl to empty so the utility/capture/memory paths can't
+    // dispatch prompts + key over the wire.
     const stored: unknown = await this.loadData();
     this.settings = normalizeSettings(stored);
   }
 
   async saveSettings() {
     await this.saveData(this.settings);
+  }
+
+  /** The API keys for this request, read from secret storage by the secret
+   * names in settings. Settings never carry a key value. */
+  apiKeys(): ApiKeys {
+    return resolveApiKeys(this.app.secretStorage, this.settings);
   }
 
   /**

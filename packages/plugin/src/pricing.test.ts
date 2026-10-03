@@ -291,10 +291,11 @@ describe('formatTurnStatus', () => {
 
 describe('default models', () => {
   it('are priced and offered in the model list', async () => {
-    const { DEFAULT_SETTINGS, MODELS } = await import('./settings');
+    const { DEFAULT_SETTINGS } = await import('./settings');
+    const { ANTHROPIC_MODELS } = await import('./settings/provider');
     expect(DEFAULT_SETTINGS.defaultModel).toBe('claude-sonnet-5-5');
     expect(MODEL_PRICING[DEFAULT_SETTINGS.defaultModel]).toBeDefined();
-    expect(MODELS.map((m) => m.id)).toContain(DEFAULT_SETTINGS.defaultModel);
+    expect(ANTHROPIC_MODELS.map((m) => m.id)).toContain(DEFAULT_SETTINGS.defaultModel);
     expect(DEFAULT_SETTINGS.openrouterModel).toBe(`anthropic/${DEFAULT_SETTINGS.defaultModel}`);
   });
 });

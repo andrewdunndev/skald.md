@@ -115,15 +115,15 @@ export function buildCapturePrompt(
 export interface CaptureServiceConfig {
   /** Active provider. */
   provider: Provider;
-  /** Anthropic API key. */
+  /** Anthropic API key, resolved from secret storage. */
   anthropicApiKey: string;
-  /** OpenRouter API key. */
+  /** OpenRouter API key, resolved from secret storage. */
   openrouterApiKey: string;
   /** Default Anthropic model id. */
   defaultModel: string;
   /** Default OpenRouter model id. */
   openrouterModel: string;
-  /** OpenAI-compatible Bearer token. */
+  /** OpenAI-compatible Bearer token, resolved from secret storage. */
   openaiApiKey: string;
   /** OpenAI-compatible model id. */
   openaiModel: string;
@@ -181,10 +181,8 @@ async function directCapture(
     }
   } else if (!apiKey) {
     const which = provider === 'openrouter' ? 'OpenRouter' : 'Anthropic';
-    const field =
-      provider === 'openrouter' ? 'openrouterApiKey' : 'anthropicApiKey';
     throw new Error(
-      `No ${which} API key configured. Add it in plugin settings (${field}).`,
+      `No ${which} API key in secret storage on this device. Add it in Settings → Skald.`,
     );
   }
   if (new TextEncoder().encode(prompt).length > CAPTURE_MAX_PROMPT_BYTES) {

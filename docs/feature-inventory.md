@@ -375,8 +375,8 @@ available in direct mode.
     row reads `anthropic` after each turn.
 
 - [ ] **OpenRouter swap**
-  - Trigger: Settings -> Provider -> OpenRouter. Set OpenRouter
-    API key. Pick a model via fuzzy search.
+  - Trigger: Settings -> Provider -> OpenRouter. Pick the secret
+    holding the OpenRouter API key. Pick a model via fuzzy search.
   - Verify: Header shows a model label (not a dropdown).
     Status row reads `openrouter` after each turn.
 
@@ -411,7 +411,7 @@ Core settings (always visible):
 
 Advanced expander:
 
-- [ ] **OpenRouter API key + model fuzzy picker** (when provider=openrouter)
+- [ ] **OpenRouter API key secret picker + model fuzzy picker** (when provider=openrouter)
 - [ ] **Harness folder** (CLAUDE.md + skills/ injection)
 - [ ] **Chats folder**
 - [ ] **Saved notes folder**

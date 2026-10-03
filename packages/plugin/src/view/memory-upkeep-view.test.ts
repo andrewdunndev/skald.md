@@ -26,6 +26,7 @@ vi.mock('../provider-capabilities', () => ({
 
 import { runMemoryUpkeepView, UpkeepInFlightGate } from './memory-upkeep-view';
 import type { SkaldSettings } from '../settings';
+import type { ApiKeys } from '../api-keys';
 import type { ChatSession } from '../chat-session';
 import type { ApprovalManager } from '../approval-manager';
 
@@ -80,11 +81,15 @@ function makeApprovals(decision: boolean) {
   };
 }
 
+const KEYS: ApiKeys = {
+  anthropicApiKey: 'sk-ant-test',
+  openrouterApiKey: '',
+  openaiApiKey: '',
+};
+
 function makeSettings(over: Partial<SkaldSettings> = {}): SkaldSettings {
   return {
     provider: 'anthropic',
-    anthropicApiKey: 'sk-ant-test',
-    openrouterApiKey: '',
     defaultModel: 'claude-sonnet-4-6',
     openrouterModel: '',
     memoryEnabled: true,
@@ -117,6 +122,7 @@ describe('runMemoryUpkeepView: memoryEnabled guard', () => {
     await runMemoryUpkeepView({
       app,
       settings: makeSettings({ memoryEnabled: false }),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'hi' }]),
       approvals,
       provider: 'anthropic',
@@ -137,6 +143,7 @@ describe('runMemoryUpkeepView: approval routing', () => {
     await runMemoryUpkeepView({
       app,
       settings: makeSettings({ memoryPath: 'Notes/Memory.md' }),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'remember X' }]),
       approvals,
       provider: 'anthropic',
@@ -159,6 +166,7 @@ describe('runMemoryUpkeepView: write requires approval', () => {
     await runMemoryUpkeepView({
       app,
       settings: makeSettings(),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'remember X' }]),
       approvals,
       provider: 'anthropic',
@@ -193,6 +201,7 @@ describe('runMemoryUpkeepView: in-flight guard', () => {
     const common = {
       app,
       settings: makeSettings(),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'x' }]),
       approvals,
       provider: 'anthropic' as const,
@@ -217,6 +226,7 @@ describe('runMemoryUpkeepView: in-flight guard', () => {
     const common = {
       app,
       settings: makeSettings(),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'x' }]),
       approvals: makeApprovals(true),
       provider: 'anthropic' as const,
@@ -238,6 +248,7 @@ describe('runMemoryUpkeepView: conversationId race guard', () => {
     await runMemoryUpkeepView({
       app,
       settings: makeSettings(),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'x' }], 'conv-1'),
       approvals: makeApprovals(true),
       provider: 'anthropic',
@@ -256,6 +267,7 @@ describe('runMemoryUpkeepView: conversationId race guard', () => {
     await runMemoryUpkeepView({
       app,
       settings: makeSettings(),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'x' }], 'conv-1'),
       approvals: makeApprovals(true),
       provider: 'anthropic',
@@ -294,6 +306,7 @@ describe('runMemoryUpkeepView: memory-note TOCTOU guard', () => {
     await runMemoryUpkeepView({
       app,
       settings: makeSettings(),
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'x' }], 'conv-1'),
       approvals: makeApprovals(true),
       provider: 'anthropic',
@@ -326,6 +339,7 @@ describe('runMemoryUpkeepView: provider-agnostic model', () => {
     await runMemoryUpkeepView({
       app,
       settings,
+      apiKeys: KEYS,
       session: makeSession([{ role: 'user', content: 'x' }]),
       approvals: makeApprovals(true),
       provider: 'anthropic',
@@ -333,5 +347,28 @@ describe('runMemoryUpkeepView: provider-agnostic model', () => {
     expect(utilityModel).toHaveBeenCalledWith(settings);
     const call = proposeMemoryUpkeep.mock.calls[0][0];
     expect(call.model).toBe('my/override-model');
+  });
+});
+
+describe('runMemoryUpkeepView: key from secret storage', () => {
+  const run = (apiKeys: ApiKeys, provider: 'anthropic' | 'openrouter') =>
+    runMemoryUpkeepView({
+      app: makeApp().app,
+      settings: makeSettings({ provider }),
+      apiKeys,
+      session: makeSession([{ role: 'user', content: 'x' }]),
+      approvals: makeApprovals(true),
+      provider,
+    });
+
+  it("sends the active provider's resolved key", async () => {
+    proposeMemoryUpkeep.mockResolvedValue(null);
+    await run({ ...KEYS, openrouterApiKey: 'sk-or-secret' }, 'openrouter');
+    expect(proposeMemoryUpkeep.mock.calls[0][0].apiKey).toBe('sk-or-secret');
+  });
+
+  it('skips the pass when the secret is missing on this device', async () => {
+    await run({ ...KEYS, anthropicApiKey: '' }, 'anthropic');
+    expect(proposeMemoryUpkeep).not.toHaveBeenCalled();
   });
 });

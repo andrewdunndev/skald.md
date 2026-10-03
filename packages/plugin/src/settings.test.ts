@@ -52,10 +52,10 @@ describe('normalizeSettings: provider coercion', () => {
 });
 
 describe('normalizeSettings: non-string scalar fields', () => {
-  it('drops a non-string anthropicApiKey and falls back to the default', () => {
-    const out = normalizeSettings({ anthropicApiKey: 12345 });
-    expect(out.anthropicApiKey).toBe(DEFAULT_SETTINGS.anthropicApiKey);
-    expect(typeof out.anthropicApiKey).toBe('string');
+  it('drops a non-string anthropicKeySecret and falls back to the default', () => {
+    const out = normalizeSettings({ anthropicKeySecret: 12345 });
+    expect(out.anthropicKeySecret).toBe(DEFAULT_SETTINGS.anthropicKeySecret);
+    expect(typeof out.anthropicKeySecret).toBe('string');
   });
 
   it('drops a non-string model field and falls back to the default', () => {
@@ -123,12 +123,12 @@ describe('normalizeSettings: openaiBaseUrl clamp (https enforcement)', () => {
 
 describe('normalizeSettings: missing keys + defaults merge', () => {
   it('fills every missing key from DEFAULT_SETTINGS', () => {
-    const out = normalizeSettings({ anthropicApiKey: 'sk-ant-keepme' });
-    // The provided key survives…
-    expect(out.anthropicApiKey).toBe('sk-ant-keepme');
+    const out = normalizeSettings({ anthropicKeySecret: 'anthropic-key' });
+    // The provided secret name survives…
+    expect(out.anthropicKeySecret).toBe('anthropic-key');
     // …and the rest is the default surface, fully populated.
-    const { anthropicApiKey: _ak, ...rest } = out;
-    const { anthropicApiKey: _dk, ...defRest } = DEFAULT_SETTINGS;
+    const { anthropicKeySecret: _ak, ...rest } = out;
+    const { anthropicKeySecret: _dk, ...defRest } = DEFAULT_SETTINGS;
     void _ak;
     void _dk;
     expect(rest).toEqual(defRest);
@@ -148,6 +148,16 @@ describe('normalizeSettings: missing keys + defaults merge', () => {
     const out = normalizeSettings({ provider: 'anthropic', bogusKey: 'x' });
     expect(out).not.toHaveProperty('bogusKey');
   });
+
+  it('never loads an API key value from data.json', () => {
+    const out = normalizeSettings({
+      anthropicApiKey: 'sk-ant-in-data',
+      openrouterApiKey: 'sk-or-in-data',
+      openaiApiKey: 'sk-oai-in-data',
+    });
+    expect(out).toEqual(DEFAULT_SETTINGS);
+    expect(JSON.stringify(out)).not.toContain('in-data');
+  });
 });
 
 describe('normalizeSettings: valid settings round-trip unchanged', () => {
@@ -155,8 +165,8 @@ describe('normalizeSettings: valid settings round-trip unchanged', () => {
     const valid: SkaldSettings = {
       ...DEFAULT_SETTINGS,
       provider: 'openai',
-      anthropicApiKey: 'sk-ant-xyz',
-      openaiApiKey: 'oai-xyz',
+      anthropicKeySecret: 'anthropic-key',
+      openaiKeySecret: 'openai-key',
       openaiBaseUrl: 'https://example.com/v1',
       openaiModel: 'qwen2.5-14b',
       memoryEnabled: false,
@@ -166,7 +176,7 @@ describe('normalizeSettings: valid settings round-trip unchanged', () => {
   });
 
   it('does not mutate the input object', () => {
-    const input = { provider: 'evil', anthropicApiKey: 7 } as unknown;
+    const input = { provider: 'evil', anthropicKeySecret: 7 } as unknown;
     const snapshot = JSON.stringify(input);
     normalizeSettings(input);
     expect(JSON.stringify(input)).toBe(snapshot);

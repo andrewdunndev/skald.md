@@ -60,9 +60,10 @@ automatically. No more disable/enable cycles.
 After install, open Obsidian -> Settings -> Skald.
 
 1. **Provider** -- Anthropic (default), OpenRouter, or OpenAI-compatible.
-2. **API key** -- your `sk-ant-...` from
-   [console.anthropic.com](https://console.anthropic.com/) (or your
-   OpenRouter key if using OpenRouter).
+2. **API key** -- pick or create the secret holding your `sk-ant-...`
+   from [console.anthropic.com](https://console.anthropic.com/) (or
+   your OpenRouter key if using OpenRouter). The key stays in
+   Obsidian's secret storage on this device, never in `data.json`.
 3. **Memory** -- toggle on to enable the long-term memory note.
 
 That's it. Open the chat pane via the speech-bubble ribbon icon or
@@ -77,20 +78,22 @@ goal is "one config, all devices."
    - Settings -> Sync -> "Sync community plugins" -> **on**
    - Settings -> Sync -> "Sync plugin data" -> **on**
 
-2. Configure skald once on the primary device. Both the plugin
-   code and the configuration (`data.json`) -- including the API
-   key -- replicate to other devices.
+2. Configure skald once on the primary device. The plugin code and
+   the configuration (`data.json`) replicate to other devices. The API
+   key does not: it lives in each device's Obsidian secret storage.
 
 3. New device:
    - Open the synced vault on the device
    - Wait for Obsidian Sync to pull
    - Enable skald once in Settings -> Community plugins (Sync
      doesn't auto-enable plugins)
-   - Open the chat pane -- config is already there
+   - In Settings -> Skald, add your API key to the secret the picker
+     names (once per device)
+   - Open the chat pane -- the rest of the config is already there
 
 Obsidian Sync is end-to-end encrypted between your devices (with the
-sync password). Plugin data -- including the API key -- never leaves
-that E2EE channel in plaintext. See `docs/security-model.md` for the
+sync password). Plugin data never leaves that E2EE channel in
+plaintext, and it carries no API key. See `docs/security-model.md` for the
 honest framing of what this means in practice.
 
 ## Update

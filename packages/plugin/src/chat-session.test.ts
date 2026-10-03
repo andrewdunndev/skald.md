@@ -32,7 +32,6 @@ interface HarnessOptions {
   tools?: ToolDefinition[];
   toolsRef?: { value: ToolDefinition[] };
   provider?: 'anthropic' | 'openrouter' | 'openai';
-  apiKey?: string;
   baseUrl?: string;
   toolExecutor?: (name: string, input: unknown, toolUseId: string) => Promise<{ content: string; is_error?: boolean }>;
 }
@@ -46,7 +45,7 @@ function makeHarness(opts: HarnessOptions = {}) {
     tx as unknown as import('./transport-interface').SkaldTransport,
     () => opts.model ?? 'claude-sonnet-4-6',
     async () => opts.systemRef ? opts.systemRef.value : opts.system,
-    () => ({ provider: opts.provider ?? 'anthropic', apiKey: opts.apiKey, baseUrl: opts.baseUrl }),
+    () => ({ provider: opts.provider ?? 'anthropic', baseUrl: opts.baseUrl }),
     () => opts.toolsRef ? opts.toolsRef.value : (opts.tools ?? []),
     opts.toolExecutor ?? (async () => ({ content: 'stub tool result' })),
     handlers,
@@ -121,47 +120,23 @@ describe('ChatSession.dispatch: payload shape', () => {
     expect(lastPayload(tx).tools).toBeUndefined();
   });
 
-  it('sets the wrapping provider + apiKey field for anthropic routes', async () => {
-    const { tx, session } = makeHarness({ provider: 'anthropic', apiKey: 'sk-ant-xxx' });
+  it.each(['anthropic', 'openrouter'] as const)('routes %s turns by provider and carries no key', async (provider) => {
+    const { tx, session } = makeHarness({ provider });
     await session.sendUserText('hi');
     const msg = tx.sent[0];
     if (msg.type !== 'chat') throw new Error('expected chat');
-    expect(msg.provider).toBe('anthropic');
-    expect(msg.anthropic_api_key).toBe('sk-ant-xxx');
-    expect(msg.openrouter_api_key).toBeUndefined();
+    expect(msg).toEqual({ type: 'chat', id: msg.id, payload: msg.payload, provider });
   });
 
-  it('sets the wrapping provider + apiKey field for openrouter routes', async () => {
-    const { tx, session } = makeHarness({ provider: 'openrouter', apiKey: 'or-yyy' });
-    await session.sendUserText('hi');
-    const msg = tx.sent[0];
-    if (msg.type !== 'chat') throw new Error('expected chat');
-    expect(msg.provider).toBe('openrouter');
-    expect(msg.openrouter_api_key).toBe('or-yyy');
-    expect(msg.anthropic_api_key).toBeUndefined();
-  });
-
-  it('sets openai_api_key + openai_base_url for openai routes', async () => {
+  it('sets openai_base_url for openai routes and carries no key', async () => {
     const url = 'https://your-endpoint.example/v1';
-    const { tx, session } = makeHarness({ provider: 'openai', apiKey: 'oai-zzz', baseUrl: url });
+    const { tx, session } = makeHarness({ provider: 'openai', baseUrl: url });
     await session.sendUserText('hi');
     const msg = tx.sent[0];
     if (msg.type !== 'chat') throw new Error('expected chat');
-    expect(msg.provider).toBe('openai');
-    expect(msg.openai_api_key).toBe('oai-zzz');
-    expect(msg.openai_base_url).toBe(url);
-    expect(msg.anthropic_api_key).toBeUndefined();
-    expect(msg.openrouter_api_key).toBeUndefined();
-  });
-
-  it('sets openai_base_url even with no key (keyless endpoint)', async () => {
-    const url = 'https://your-endpoint.example/v1';
-    const { tx, session } = makeHarness({ provider: 'openai', apiKey: '', baseUrl: url });
-    await session.sendUserText('hi');
-    const msg = tx.sent[0];
-    if (msg.type !== 'chat') throw new Error('expected chat');
-    expect(msg.openai_api_key).toBeUndefined();
-    expect(msg.openai_base_url).toBe(url);
+    expect(msg).toEqual({
+      type: 'chat', id: msg.id, payload: msg.payload, provider: 'openai', openai_base_url: url,
+    });
   });
 
   it('passes a multi-modal content-block array through the payload unchanged', async () => {

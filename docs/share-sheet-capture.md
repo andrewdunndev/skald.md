@@ -28,7 +28,8 @@ finished vault note. Captures always land in the captures folder.
 
 ## Setup (one-time)
 
-1. **Install skald** and configure it (paste your API key). Verify
+1. **Install skald** and configure it (pick or create the secret holding your API key
+   in Settings → Skald). Verify
    chat works first.
 2. **Install the skald capture Shortcut.** Open the iCloud share
    link from the skald repo's `shortcuts/skald-capture.shortcut`

@@ -63,9 +63,9 @@ export function normalizeSettings(stored: unknown): SkaldSettings {
     : DEFAULT_SETTINGS.provider;
 
   // String-typed settings.
-  out.anthropicApiKey = str('anthropicApiKey');
-  out.openrouterApiKey = str('openrouterApiKey');
-  out.openaiApiKey = str('openaiApiKey');
+  out.anthropicKeySecret = str('anthropicKeySecret');
+  out.openrouterKeySecret = str('openrouterKeySecret');
+  out.openaiKeySecret = str('openaiKeySecret');
   out.openaiModel = str('openaiModel');
   out.defaultModel = str('defaultModel');
   out.openrouterModel = str('openrouterModel');

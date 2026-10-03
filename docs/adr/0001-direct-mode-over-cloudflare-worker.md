@@ -22,7 +22,7 @@ vault. The original architecture shipped two connection modes:
 In practice the two-mode design worked against the product:
 
 - **It contradicts the value proposition.** The pitch is "install the
-  plugin, paste your key, chat -- nothing to host." A second mode whose
+  plugin, add your key, chat -- nothing to host." A second mode whose
   whole purpose is "now go deploy and pay for a Cloudflare Worker"
   undercuts that on the first screen.
 - **It confused the UI.** Connection mode, Worker URL, Worker token, a
@@ -78,10 +78,10 @@ Concretely:
   either on-device or via the agent-host tier.
 - **Capture auto-routing.** Shared items always land in the captures
   folder (the inbox). This was already the direct-mode behavior.
-- **Key-off-device.** The API key lives in the vault's `data.json`,
-  which syncs via Obsidian Sync. Mitigation is unchanged from the
-  direct-mode security model: set a spend limit on the Anthropic console
-  so a leaked key has bounded cost. See `docs/security-model.md`.
+- **Key-off-device.** The API key lives on the device, in Obsidian's
+  secret storage (never in `data.json`), and is entered on each device.
+  Mitigation is unchanged from the direct-mode security model: set a
+  spend limit on the Anthropic console so a leaked key has bounded cost. See `docs/security-model.md`.
 
 ### What we gain
 

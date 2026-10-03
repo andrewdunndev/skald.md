@@ -14,7 +14,7 @@ import { ChatSession } from '../chat-session';
 import { buildActiveTools, executeTool } from '../tools';
 import type { WriteProposal } from '../tools';
 import { loadSystemPrompt } from './system-prompt';
-import { resolveBannerSpec } from './setup-banner';
+import { bannerInputFor, resolveBannerSpec } from './setup-banner';
 import { providerCapabilities } from '../provider-capabilities';
 import { compactToolResult } from '../tool-compact';
 
@@ -64,14 +64,7 @@ export function connectSession(
       // setup banner uses (resolveBannerSpec === null ⇒ the active provider's
       // key/endpoint is present). Otherwise "Connected" would contradict the
       // "add your key" banner sitting right above it.
-      const s = plugin.settings;
-      const ready =
-        resolveBannerSpec({
-          provider: s.provider ?? 'anthropic',
-          anthropicApiKey: s.anthropicApiKey,
-          openrouterApiKey: s.openrouterApiKey,
-          openaiBaseUrl: s.openaiBaseUrl,
-        }) === null;
+      const ready = resolveBannerSpec(bannerInputFor(plugin)) === null;
       if (ready) {
         cbs.setStatus('Connected', 'connected');
       } else {
@@ -91,9 +84,9 @@ export function connectSession(
 
   const transport: SkaldTransport = new DirectTransport(
     {
-      getAnthropicKey: () => plugin.settings.anthropicApiKey,
-      getOpenRouterKey: () => plugin.settings.openrouterApiKey,
-      getOpenAiKey: () => plugin.settings.openaiApiKey,
+      getAnthropicKey: () => plugin.apiKeys().anthropicApiKey,
+      getOpenRouterKey: () => plugin.apiKeys().openrouterApiKey,
+      getOpenAiKey: () => plugin.apiKeys().openaiApiKey,
       getThinkingEnabled: () => plugin.settings.thinkingEnabled,
     },
     handlers,
@@ -108,14 +101,8 @@ export function connectSession(
     () => {
       const s = plugin.settings;
       const provider = s.provider ?? 'anthropic';
-      const apiKey =
-        provider === 'openrouter'
-          ? s.openrouterApiKey || undefined
-          : provider === 'openai'
-            ? s.openaiApiKey || undefined
-            : s.anthropicApiKey || undefined;
       const baseUrl = provider === 'openai' ? s.openaiBaseUrl || undefined : undefined;
-      return { provider, apiKey, baseUrl };
+      return { provider, baseUrl };
     },
     () =>
       buildActiveTools({
@@ -140,7 +127,7 @@ export function connectSession(
             informedBy: cbs.currentTurnReads(proposal.toolUseId),
           }),
         memoryPath: plugin.settings.memoryPath,
-        anthropicApiKey: plugin.settings.anthropicApiKey || undefined,
+        anthropicApiKey: plugin.apiKeys().anthropicApiKey || undefined,
         provider: plugin.settings.provider ?? 'anthropic',
         compactToolResults: plugin.settings.compactToolResults,
       });

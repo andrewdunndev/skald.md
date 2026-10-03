@@ -46,8 +46,8 @@ standard OpenAI-compatible.
 Providers are **coequal and independently configured**, and the user
 **switches** between them — one active provider at a time (not
 simultaneous mixing). This is already the settings shape (per-provider
-credentials: `anthropicApiKey`, `openrouterApiKey`, and the new
-`openaiBaseUrl` / `openaiApiKey` / `openaiModel`), so switching is
+configuration: a secret-storage key for each provider, plus the new
+`openaiBaseUrl` and `openaiModel`), so switching is
 lossless — flipping the active provider never discards another's config.
 Per-provider [capability gating](../security-model.md) (one exhaustive
 switch in `provider-capabilities.ts`) makes the switch capability-correct

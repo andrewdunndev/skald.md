@@ -55,3 +55,8 @@ Work toward the first public release (`0.1.0`).
   ([security model](docs/security-model.md)); note-body
   context is delimiter-escaped; the OpenAI base URL is restricted to HTTPS
   (loopback excepted); logs redact key-shaped values.
+- **API keys live only in Obsidian secret storage** — Settings → Skald uses
+  Obsidian's secret picker for the Anthropic, OpenRouter and OpenAI-compatible
+  keys. `data.json` holds only each secret's name, never a key, so Obsidian
+  Sync never carries one; enter your key on each device. Requires Obsidian
+  1.11.4 or later.

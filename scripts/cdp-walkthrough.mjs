@@ -264,12 +264,6 @@ async function sceneStarterPick(client) {
   await screenshot(client, '05-starter-filled');
 }
 
-// sceneSetupURI was removed: the Worker setup flow (handleSetupUri,
-// skald-setup protocol handler, *.workers.dev endpoint) no longer
-// exists. Skald is direct-only — users configure their API key
-// directly in Settings → Skald. The setup banner scene above covers
-// the first-run experience.
-
 async function sceneVaultActionBadge(client) {
   // Inject a finalized assistant turn into the chat session +
   // re-render so the vault-action badge appears. The message has

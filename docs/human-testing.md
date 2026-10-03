@@ -42,12 +42,15 @@ background/resume. Items below are tagged:
 ## Phase A: Desktop sanity (5 min)
 
 Settings, empty state, chip fill and streaming are `[L1]`; the
-Markdown rendering and saved-chat checks are `[manual]`.
+data.json, Markdown rendering and saved-chat checks are `[manual]`.
 
 The minimum-viable-baseline. If this breaks, nothing else matters.
 
 - [ ] Open Settings -> Skald. **Provider** set to Anthropic.
-      **API key** populated. Verify no error banner in the chat pane.
+      **API key** names a secret that holds your key. Verify no error
+      banner in the chat pane.
+- [ ] Open `.obsidian/plugins/skald/data.json`. It names each secret
+      (`anthropicKeySecret` and so on) and holds no key.
 - [ ] Open the chat pane from the ribbon icon. Empty state renders:
       "Your vault, on call." + 5 starter chips + sparkles icon.
 - [ ] Tap "Capture this idea" chip. Composer pre-fills with the
@@ -68,10 +71,11 @@ The real target. If this breaks, skald breaks.
       Verify skald plugin auto-syncs into the device's plugins
       folder (give it ~30s).
 - [ ] Enable skald in Settings -> Community plugins.
-- [ ] Open chat pane. If the API key is already in vault data
-      (synced from desktop), no setup banner -- chat is ready
-      immediately. If not, banner shows + tapping "Open settings"
-      lands in skald's tab.
+- [ ] Open chat pane. The API key does not arrive with the synced
+      plugin data (it lives in each device's secret storage), so the
+      setup banner shows on a fresh device. Tap "Open settings",
+      verify it lands in skald's tab, and add the key to the secret
+      the picker names; the chat is then ready.
 
 ### WKWebView origin, keyboard, safe area `[iOS]`
 - [ ] Send a turn with the Anthropic key. Verify it streams (this
@@ -117,7 +121,7 @@ The real target. If this breaks, skald breaks.
 
 ### OpenRouter swap (live smoke test) `[L2]` streaming, `[manual]` web search
 - [ ] In settings, set **Provider** to OpenRouter. Set
-      **OpenRouter API key**. Select a model via fuzzy search
+      **OpenRouter API key** (pick or create its secret). Select a model via fuzzy search
       (e.g. `anthropic/claude-sonnet-4-6`).
 - [ ] Send a turn. Verify streaming works, response renders,
       cost surfaces in status row.

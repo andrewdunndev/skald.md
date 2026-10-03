@@ -12,7 +12,7 @@ import { augmentUserText } from './view/augment-user-text';
 import { readsBeforeToolUse } from './view/inflight-reads';
 import { MessageList } from './view/message-list';
 import { LiveRegion } from './view/live-region';
-import { maybeRenderSetupBanner } from './view/setup-banner';
+import { bannerInputFor, maybeRenderSetupBanner } from './view/setup-banner';
 import { connectSession } from './view/connect-session';
 import { resumeConversation } from './view/resume-conversation';
 import { resendLastTurn } from './view/resend-turn';
@@ -113,12 +113,7 @@ export class SkaldView extends ItemView {
       this,
     );
 
-    maybeRenderSetupBanner(root, this.app, {
-      provider: this.plugin.settings.provider,
-      anthropicApiKey: this.plugin.settings.anthropicApiKey,
-      openrouterApiKey: this.plugin.settings.openrouterApiKey,
-      openaiBaseUrl: this.plugin.settings.openaiBaseUrl,
-    });
+    maybeRenderSetupBanner(root, this.app, bannerInputFor(this.plugin));
 
     this.messageList = new MessageList(root, {
       app: this.app,
@@ -344,6 +339,7 @@ export class SkaldView extends ItemView {
     return runMemoryUpkeepView({
       app: this.app,
       settings: this.plugin.settings,
+      apiKeys: this.plugin.apiKeys(),
       session: this.session,
       approvals: this.approvals,
       provider,
