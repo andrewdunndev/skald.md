@@ -68,7 +68,7 @@ export function connectSession(
       if (ready) {
         cbs.setStatus('Connected', 'connected');
       } else {
-        cbs.setStatus('No API key — add it in Settings → Skald.');
+        cbs.setStatus('');
       }
     },
     onClose: (code: number, reason: string) => {

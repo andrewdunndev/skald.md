@@ -136,7 +136,7 @@ describe('SkaldPlugin API keys', () => {
 
     const status: string[] = [];
     const { session } = connectSession(plugin.app, plugin, callbacks(status));
-    expect(status).toEqual(['No API key — add it in Settings → Skald.']);
+    expect(status).toEqual(['']);
     await session.sendUserText('hello');
     expect(fetchSpy).not.toHaveBeenCalled();
   });
@@ -150,7 +150,7 @@ describe('SkaldPlugin API keys', () => {
     expect(resolveBannerSpec(bannerInputFor(plugin))?.title).toBe('Add your API key');
     const status: string[] = [];
     connectSession(plugin.app, plugin, callbacks(status));
-    expect(status).toEqual(['No API key — add it in Settings → Skald.']);
+    expect(status).toEqual(['']);
   });
 
   it('shows no openai banner when no secret is picked (endpoint needs no auth)', async () => {

@@ -144,4 +144,19 @@ describe('DirectTransport: OpenAI streaming (eventless data frames)', () => {
     expect(body.max_completion_tokens).toBe(256);
     expect(body.max_tokens).toBeUndefined();
   });
+
+  it('a fetch that never connects names the URL and CORS, and stays retryable', async () => {
+    fetchMock.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    const { transport, handlers } = makeOpenAiTransport();
+    sendOpenAiChat(transport);
+
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
+    const err = handlers.messages.find((m) => m.type === 'error');
+    expect(err).toMatchObject({
+      error:
+        "Couldn't reach the endpoint. Check the URL, or that it allows browser requests (CORS).",
+      retryable: true,
+    });
+  });
 });

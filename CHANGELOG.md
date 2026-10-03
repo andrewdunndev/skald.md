@@ -25,6 +25,10 @@ Work toward the first public release (`0.1.0`).
 - Security policy (`SECURITY.md`) and Code of Conduct.
 
 ### Changed
+- Memory is off by default. Thinking and web-tool settings are hidden for
+  OpenAI-compatible endpoints. Palette command ids are `open`,
+  `search-conversations` and `run-slash`; searching from the palette resumes the chat.
+- Linted with the official Obsidian review rules (`pnpm lint`).
 - Default model is now `claude-sonnet-5-5` (Anthropic and OpenRouter); Sonnet 4.6
   stays selectable.
 - Manifest description and author URL updated for the community directory.

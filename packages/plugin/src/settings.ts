@@ -151,7 +151,7 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   savedNotesFolder: 'Skald/Saved',
   chatsFolder: 'Skald/Chats',
   logsFolder: '',
-  memoryEnabled: true,
+  memoryEnabled: false,
   memoryPath: 'Skald/Memory.md',
   activePersona: '',
   commandsFolder: 'Skald/Commands',
@@ -205,19 +205,24 @@ export class SkaldSettingTab extends PluginSettingTab {
       renderPersonasSection(containerEl, this.plugin);
       renderCommandsSection(containerEl, this.plugin);
       renderCaptureSection(containerEl, this.plugin);
-      // Deep thinking toggle — capability-gated (Anthropic only).
-      new Setting(containerEl)
-        .setName('Deep thinking mode (slower, costs more)')
-        .setDesc(
-          'When on, Claude reasons step-by-step before responding (Anthropic only). ' +
-          'Thinking tokens count as output — budget is 8 192 tokens per turn.',
-        )
-        .addToggle((t) => {
-          t.setValue(this.plugin.settings.thinkingEnabled).onChange(async (v) => {
-            this.plugin.settings.thinkingEnabled = v;
-            await this.plugin.saveSettings();
+      // Thinking and web tools have no effect on OpenAI-compatible endpoints.
+      const toolsApply = this.plugin.settings.provider !== 'openai';
+
+      if (toolsApply) {
+        // Deep thinking toggle — capability-gated (Anthropic only).
+        new Setting(containerEl)
+          .setName('Deep thinking mode (slower, costs more)')
+          .setDesc(
+            'When on, Claude reasons step-by-step before responding (Anthropic only). ' +
+            'Thinking tokens count as output — budget is 8 192 tokens per turn.',
+          )
+          .addToggle((t) => {
+            t.setValue(this.plugin.settings.thinkingEnabled).onChange(async (v) => {
+              this.plugin.settings.thinkingEnabled = v;
+              await this.plugin.saveSettings();
+            });
           });
-        });
+      }
 
       // Tool-result compaction toggle.
       new Setting(containerEl)
@@ -236,7 +241,7 @@ export class SkaldSettingTab extends PluginSettingTab {
 
       // Web tools (web_search + web_fetch) — SECURITY-sensitive, off by
       // default. Toggling on re-renders so the allow-list field appears.
-      renderWebToolsSection(containerEl, this.plugin, redisplay);
+      if (toolsApply) renderWebToolsSection(containerEl, this.plugin, redisplay);
     }
   }
 }

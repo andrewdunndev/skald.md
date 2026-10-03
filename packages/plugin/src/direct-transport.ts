@@ -9,7 +9,11 @@ import type { SkaldTransport, TransportHandlers } from './transport-interface';
 import { SSEParser } from './sse-parser';
 import { applyAnthropicCaching } from './anthropic-caching';
 import { providerCapabilities } from './provider-capabilities';
-import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
+import {
+  ENDPOINT_UNREACHABLE_MESSAGE,
+  httpErrorMessage,
+  NETWORK_ERROR_MESSAGE,
+} from './direct-transport-errors';
 import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS, composeSignal } from './transport-timeouts';
 import { rewriteOpenRouterTools, translateOpenRouterEvent } from './openrouter-translate';
 import { buildOpenAiDispatch } from './openai-translate';
@@ -167,7 +171,8 @@ export class DirectTransport implements SkaldTransport {
         this.handlers.onMessage({
           type: 'error',
           id,
-          error: NETWORK_ERROR_MESSAGE,
+          error:
+            provider === 'openai' ? ENDPOINT_UNREACHABLE_MESSAGE : NETWORK_ERROR_MESSAGE,
           retryable: true,
         });
       }
