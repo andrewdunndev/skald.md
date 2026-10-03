@@ -39,6 +39,12 @@ export async function revealChat(): Promise<void> {
         collapsed: (app.workspace.rightSplit as any)?.collapsed,
         inputRect: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null,
         innerW: window.innerWidth,
+        inputCount: document.querySelectorAll('.skald-input').length,
+        leafShown: leaf ? (leaf.view.containerEl as HTMLElement).isShown() : null,
+        leafCount: app.workspace.getLeavesOfType('skald-chat').length,
+        activeViewType: (app.workspace as any).activeLeaf?.view?.getViewType?.(),
+        drawerActiveTab: (app.workspace.rightSplit as any)?.children?.map?.((c: any) => c.children?.map?.((l: any) => l.view?.getViewType?.())),
+        drawerCurrentTab: (app.workspace.rightSplit as any)?.currentTab,
       };
     });
   await browser.executeObsidian(async ({ plugins }) => {

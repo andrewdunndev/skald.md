@@ -1,4 +1,5 @@
 import { Plugin } from 'obsidian';
+import { revealChatLeaf } from './reveal-chat-leaf';
 import { SkaldView, VIEW_TYPE_SKALD } from './view';
 import {
   SkaldSettingTab,
@@ -139,14 +140,6 @@ export default class SkaldPlugin extends Plugin {
   }
 
   async activateView() {
-    const { workspace } = this.app;
-    let leaf = workspace.getLeavesOfType(VIEW_TYPE_SKALD)[0];
-    if (!leaf) {
-      const right = workspace.getRightLeaf(false);
-      if (!right) return;
-      leaf = right;
-      await leaf.setViewState({ type: VIEW_TYPE_SKALD, active: true });
-    }
-    workspace.revealLeaf(leaf);
+    await revealChatLeaf(this.app.workspace, VIEW_TYPE_SKALD);
   }
 }
