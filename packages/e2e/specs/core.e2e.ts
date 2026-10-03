@@ -1,7 +1,14 @@
 import { browser, $, $$, expect } from '@wdio/globals';
-import { injectTurn, newChat, openChat, shot } from '../lib/harness.js';
+import { injectTurn, newChat, openChat, revealChat, shot } from '../lib/harness.js';
 
 describe('skald core scenes', function () {
+  beforeEach(async function () {
+    // Scenes must not depend on where a previous one left the layout (mobile drawer, active leaf).
+    if (await browser.executeObsidian(({ app }) => app.workspace.getLeavesOfType('skald-chat').length > 0)) {
+      await revealChat();
+    }
+  });
+
   it('plugin-loaded: skald is enabled in the fixture vault', async function () {
     const state = await browser.executeObsidian(({ app, plugins }) => ({
       enabled: !!plugins.skald,
@@ -35,6 +42,7 @@ describe('skald core scenes', function () {
       return md.path;
     });
     expect(opened).toMatch(/\.md$/);
+    await revealChat();
     const el = await $('.skald-active-note');
     await el.waitForDisplayed();
     await expect($('.skald-active-note-label')).toHaveText(expect.stringMatching(/\S/));
@@ -86,15 +94,15 @@ describe('skald core scenes', function () {
     await shot('09-write-nudge');
   });
 
-  it('idle-badge: a text-only turn reads as no vault action', async function () {
+  it('idle-badge: a text-only turn renders no vault badge', async function () {
     await newChat();
     await injectTurn([
       { role: 'user', content: 'What is 2 + 2?' },
       { role: 'assistant', content: [{ type: 'text', text: '4.' }] },
     ]);
-    const idle = await $('.skald-vault-badge-idle');
-    await idle.waitForExist();
-    await expect(idle).toHaveText(expect.stringContaining('no vault action'));
+    await $('.skald-msg').waitForExist();
+    await expect($('.skald-msg-assistant')).toExist();
+    await expect($('.skald-vault-badge')).not.toExist();
     await shot('10-idle-badge');
   });
 
