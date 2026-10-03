@@ -127,12 +127,11 @@ default ([security model](docs/security-model.md)). One mode, no seams.
     base URL you enter (HTTPS, or loopback for local servers).
 - **What is sent:** your messages, the notes you attach or that Claude
   reads through vault tools, and the memory note when enabled. Nothing
-  is sent until you send a turn, or share text with capture turned on.
+  is sent until you send a turn or a capture.
 - **No telemetry.** No analytics, tracking, or crash reporting; Skald
   contacts no server of its own.
-- **Files outside the vault** are never accessed. Claude's changes to
-  your notes wait for your approval; Skald itself saves conversations,
-  logs and captures.
+- **Files outside the vault** are never accessed. Claude's edits wait
+  for your approval; Skald saves conversations, logs and captures.
 
 ## Trust model
 

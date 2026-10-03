@@ -60,3 +60,11 @@ Work toward the first public release (`0.1.0`).
   keys. `data.json` holds only each secret's name, never a key, so Obsidian
   Sync never carries one; enter your key on each device. Requires Obsidian
   1.11.4 or later.
+- Remote images and raw HTML in replies and saved conversations show as links
+  or text and never load, closing an exfiltration path that needs no web tools.
+- Vault tools write only `.md` notes outside dot folders, so never into
+  `.obsidian/`; a write never shows a "create" card over an existing file.
+- Share-sheet capture is off by default and text only.
+- Diff cards approve by button only; swipe-to-approve is gone.
+- Saved conversations escape `## You` / `## Claude` lines, so message text
+  cannot forge a turn on resume.
