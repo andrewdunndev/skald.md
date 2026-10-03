@@ -8,9 +8,8 @@
  * template is variable-expanded and dropped into the chat input
  * for the user to review + send.
  *
- * v1 ships as a command-palette modal rather than an inline `/`
- * picker; the inline picker mirrors the @-picker UX and lands in a
- * follow-up. Templating is Mustache-flavored without logic:
+ * Runs from a command-palette modal. Templating is Mustache-flavored
+ * without logic:
  * `{{active_note}}`, `{{active_note.title}}`, `{{date}}`. Default
  * values via `{{var|default}}`.
  *

@@ -197,7 +197,7 @@ premature.
       "Skald: Search conversations." Verify fuzzy search ranks
       by recency + match quality.
 - [ ] Pick a result. Verify the saved markdown opens (resume-
-      into-pane is a v2 follow-up -- currently opens the file).
+      into-pane is not supported; it opens the file).
 
 ## Bug discovery -> triage
 
@@ -209,8 +209,7 @@ For each unexpected behavior:
 3. Capture: Logger output (`Skald/Logs/<date>.md` if logs
    folder is configured).
 4. Triage:
-   - Reproducible + clear scope -> file as a TODO in
-     `campaigns/factory/notes/skald-followups.md`.
+   - Reproducible + clear scope -> file an issue.
    - Cosmetic + low-impact -> ship anyway, fix post-tag.
    - Functional regression -> block ship until fixed.
 

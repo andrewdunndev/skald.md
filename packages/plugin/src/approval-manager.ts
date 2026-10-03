@@ -11,13 +11,6 @@
  * the tool executor awaits the Promise returned from `request()`. The
  * manager doesn't know about DOM or vault paths beyond what's already
  * in `WriteProposal`.
- *
- * Architectural rationale (per dunn.dev/reference principles —
- * derived obligations): keeping the manager pure means a test can
- * assert "request + resolve produces approved=true" with no Obsidian
- * runtime mock. Vacuity-detection: the test asserts the resolved
- * value of the Promise + the hook callbacks fired with the right
- * args, not just "doesn't throw."
  */
 
 import type { WriteProposal } from './tools';

@@ -146,10 +146,7 @@ export function renderConversationMarkdown(
             lines.push(escapeTurnHeadings(b.text));
             lines.push('');
           } else if (t === 'thinking' && typeof b.thinking === 'string') {
-            // Hide thinking in saved output by default. Comment out the
-            // next two lines to include it.
-            // lines.push(`> _Thinking:_ ${b.thinking}`);
-            // lines.push('');
+            // Thinking is not saved.
           } else if (t === 'tool_use') {
             lines.push(`> 🔧 _${describeBlock(b)}_`);
             lines.push('');
@@ -167,7 +164,7 @@ export function renderConversationMarkdown(
             lines.push(`> 🌐 web search returned ${arr.length} results`);
             lines.push('');
           } else if (t === 'image') {
-            // Phase 7: don't dump base64 image payloads into the
+            // Don't dump base64 image payloads into the
             // conversation file. Record a placeholder so the saved
             // turn remains readable; the in-memory ChatSession still
             // holds the full block for any continuation Claude sends.

@@ -64,7 +64,7 @@ export class Composer {
     });
     const buttonRow = inputWrap.createDiv({ cls: 'skald-button-row' });
 
-    // Phase 7 (vision): file/camera picker. Available on every
+    // Vision: file/camera picker. Available on every
     // platform; on iOS the `capture="environment"` attribute opens
     // the camera UI directly. On desktop the user gets the standard
     // file picker (image-only filter).

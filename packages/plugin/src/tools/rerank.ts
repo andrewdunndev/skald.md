@@ -2,10 +2,9 @@
  * LLM-as-reranker: reorder a candidate list by relevance to a query
  * using a cheap utility model as a ranking oracle.
  *
- * Uses the shared utilityComplete helper (utility-call.ts) so rerank
- * works on any provider that the helper supports, not just Anthropic.
- * Prompt-caching (1h TTL) is applied when the active provider supports
- * it — otherwise the system block is sent as a plain string.
+ * Calls the shared utilityComplete helper (utility-call.ts). Prompt
+ * caching (1h TTL) is applied when the active provider supports it;
+ * otherwise the system block is sent as a plain string.
  *
  * Soft-fail contract: on any error (no API key, bad JSON, network
  * failure), logs to console.warn and returns the original candidates

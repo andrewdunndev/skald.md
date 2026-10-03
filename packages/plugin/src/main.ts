@@ -64,9 +64,8 @@ export default class SkaldPlugin extends Plugin {
       callback: () => this.activateView(),
     });
 
-    // Phase 10b: fuzzy-search across saved conversations with
-    // recency-weighted ranking. Opens the matched file directly;
-    // resume-into-pane is a follow-up.
+    // Fuzzy-search across saved conversations with recency-weighted
+    // ranking. Opens the matched file directly.
     this.addCommand({
       id: 'skald-search-conversations',
       name: 'Search conversations',
@@ -75,7 +74,7 @@ export default class SkaldPlugin extends Plugin {
       },
     });
 
-    // Phase 9a: slash commands. Each user-authored command note is
+    // Slash commands. Each user-authored command note is
     // a Mustache-style template; on pick, the rendered template
     // drops into the active chat input for review + send.
     this.addCommand({

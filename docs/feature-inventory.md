@@ -477,9 +477,9 @@ These are documented limitations, not bugs:
 - **Apple Shortcut signed `.shortcut` file** -- distribution is
   via the recipe doc until a signed file ships.
 - **Inline `/` slash picker** -- v1 is command-palette-only;
-  inline picker is a follow-up.
+  no inline picker.
 - **Resume-into-pane on conversation search** -- opens the
-  markdown file today; live-session resume is a follow-up.
+  markdown file today; no live-session resume.
 - **Pull-to-reconnect gesture** -- auto-reconnect handles the
   common case; pull-down gesture is unimplemented.
 - **Semantic / vector vault search** -- lexical (Omnisearch BM25
@@ -490,9 +490,8 @@ These are documented limitations, not bugs:
 
 ## Reporting
 
-For each failure: note the section + item number, then capture
-in `campaigns/factory/notes/skald-followups.md` (or wherever
-you triage). Console errors live in:
+For each failure: note the section + item number, then file an
+issue. Console errors live in:
 
 - **Desktop**: View -> Toggle Developer Tools.
 - **iOS**: connect Safari Web Inspector via USB; or check

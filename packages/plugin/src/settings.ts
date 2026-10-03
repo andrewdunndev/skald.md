@@ -57,7 +57,7 @@ export interface SkaldSettings {
   chatsFolder: string;
   logsFolder: string;
   /**
-   * Phase 6: vault-as-memory.
+   * Vault-as-memory.
    * memoryEnabled: inject memoryPath contents into the system prompt
    *   at the start of every chat. Claude can read + (with approval)
    *   write to this note across sessions for long-term state.
@@ -67,14 +67,14 @@ export interface SkaldSettings {
   memoryEnabled: boolean;
   memoryPath: string;
   /**
-   * Phase 9b: personas.
+   * Personas.
    * activePersona: vault-relative path of the active persona note.
    *   Empty → no persona. The note's body (frontmatter stripped)
    *   prefixes the system prompt.
    */
   activePersona: string;
   /**
-   * Phase 9a: slash commands.
+   * Slash commands.
    * commandsFolder: where the user keeps slash-command notes.
    */
   commandsFolder: string;
