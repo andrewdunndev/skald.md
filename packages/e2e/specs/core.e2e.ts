@@ -41,27 +41,6 @@ describe('skald core scenes', function () {
     await shot('03-setup-banner');
   });
 
-  it('active-note: opening a note shows the active-note indicator', async function () {
-    const opened = await browser.executeObsidian(async ({ app }) => {
-      const md = app.vault.getMarkdownFiles()[0];
-      await app.workspace.getLeaf().openFile(md);
-      return md.path;
-    });
-    expect(opened).toMatch(/\.md$/);
-    try {
-      await revealChat();
-    } catch (err) {
-      const mobile = await browser.executeObsidian(({ obsidian }) => obsidian.Platform.isMobile);
-      if (!mobile) throw err;
-      console.log(`SKIPPED active-note on emulateMobile: the drawer does not re-show after openFile; cause unknown (emulation or plugin), needs the iOS check. ${(err as Error).message}`);
-      this.skip(); // cause unknown: needs the iOS check in docs/human-testing.md
-    }
-    const el = await $('.skald-active-note');
-    await el.waitForDisplayed();
-    await expect($('.skald-active-note-label')).toHaveText(expect.stringMatching(/\S/));
-    await shot('04-active-note');
-  });
-
   it('starter-pick: tapping a starter chip fills the composer', async function () {
     await $('.skald-empty-chip').click();
     await browser.waitUntil(async () => (await $('.skald-input').getValue()).length > 0, {
@@ -138,5 +117,27 @@ describe('skald core scenes', function () {
     await browser.executeObsidian(({ app }) => {
       (app as any).setting.close();
     });
+  });
+
+  // Last: on emulated mobile, opening a note leaves the right drawer hidden for the rest of the session.
+  it('active-note: opening a note shows the active-note indicator', async function () {
+    const opened = await browser.executeObsidian(async ({ app }) => {
+      const md = app.vault.getMarkdownFiles()[0];
+      await app.workspace.getLeaf().openFile(md);
+      return md.path;
+    });
+    expect(opened).toMatch(/\.md$/);
+    try {
+      await revealChat();
+    } catch (err) {
+      const mobile = await browser.executeObsidian(({ obsidian }) => obsidian.Platform.isMobile);
+      if (!mobile) throw err;
+      console.log(`SKIPPED active-note on emulateMobile: the right drawer stays display:none after openFile while Obsidian reports it expanded with skald active; Obsidian emulation state, confirm on iOS. ${(err as Error).message}`);
+      this.skip(); // cause unknown: needs the iOS check in docs/human-testing.md
+    }
+    const el = await $('.skald-active-note');
+    await el.waitForDisplayed();
+    await expect($('.skald-active-note-label')).toHaveText(expect.stringMatching(/\S/));
+    await shot('04-active-note');
   });
 });
