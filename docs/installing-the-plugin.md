@@ -1,14 +1,14 @@
 # Installing the plugin
 
-Until skald lands in the Obsidian community plugins directory,
-installation is manual. Three paths exist, ordered easiest-first.
+Skald is not yet listed in the Obsidian community plugins directory.
+Install it through BRAT or by hand.
 
-## Path 1: BRAT (when releases are published)
+## Path 1: BRAT
 
-Status: **coming soon.** When the first BRAT-friendly release is cut,
-add `andrewdunndev/skald.md` (the GitHub mirror) to
+Add `andrewdunndev/skald.md` (the GitHub mirror) to
 [BRAT (Beta Reviewers Auto-update Tester)](https://github.com/TfTHacker/obsidian42-brat)
-and accept updates as they ship.
+with **BRAT: Add a beta plugin for testing**, and accept updates as
+they ship.
 
 ## Path 2: Manual copy
 
@@ -59,7 +59,7 @@ automatically. No more disable/enable cycles.
 
 After install, open Obsidian -> Settings -> Skald.
 
-1. **Provider** -- Anthropic (default) or OpenRouter.
+1. **Provider** -- Anthropic (default), OpenRouter, or OpenAI-compatible.
 2. **API key** -- your `sk-ant-...` from
    [console.anthropic.com](https://console.anthropic.com/) (or your
    OpenRouter key if using OpenRouter).
