@@ -7,7 +7,7 @@
  *     the inline block, and resendLast() re-dispatches the last user turn.
  *
  * Node-env testable: pure session logic. The view rendering of the inline
- * block + Resend button is covered by CDP/on-device, not fabricated here.
+ * block + Resend button is covered by e2e/on-device, not fabricated here.
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { ClientMessage, Message } from './protocol';

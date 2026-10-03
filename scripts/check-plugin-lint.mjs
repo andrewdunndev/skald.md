@@ -8,6 +8,7 @@
  * Rules:
  *   - manifest.json + package.json versions agree (both for
  *     root + plugin workspace)
+ *   - versions.json maps manifest.version to manifest.minAppVersion
  *   - manifest.json declares `isDesktopOnly: false` (we ship to
  *     mobile)
  *   - No `console.log` in production source — only console.warn /
@@ -84,6 +85,15 @@ async function checkVersionParity() {
       file: 'root',
       lineNo: 0,
       line: `root package.version=${rootPkg.version} !== plugin manifest.version=${manifest.version}`,
+    });
+  }
+  const versions = JSON.parse(await fs.readFile(path.join(ROOT, 'versions.json'), 'utf-8'));
+  if (versions[manifest.version] !== manifest.minAppVersion) {
+    findings.push({
+      rule: 'version-parity',
+      file: 'versions.json',
+      lineNo: 0,
+      line: `versions.json[${manifest.version}]=${versions[manifest.version]} !== manifest.minAppVersion=${manifest.minAppVersion}`,
     });
   }
   if (manifest.isDesktopOnly !== false) {

@@ -109,6 +109,6 @@ export function renderDiffCard(
   // left on <body> after approve/reject resolves.  Instead the view
   // layer (resolveApprovalUi in view.ts) restores focus to the
   // composer after a decision is made, keeping the UX intentional
-  // rather than incidental.  CDP / on-device tests cover the
+  // rather than incidental.  e2e / on-device tests cover the
   // round-trip behaviour.
 }

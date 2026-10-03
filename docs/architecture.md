@@ -88,9 +88,9 @@ Two places untrusted data enters; both are validated at a single chokepoint:
 - The **pure core** (transport, providers, parsers, tool logic) is unit-tested
   with a **coverage floor** (`vitest.config.ts` thresholds; ~84% lines,
   ratcheting toward 90%) plus **Stryker mutation testing** on the wire parsers.
-- The **Obsidian-DOM `view/` layer** is CDP-smoke-tested
-  (`scripts/cdp-walkthrough.mjs`), not unit-tested — vitest runs in a `node`
-  env with no DOM — so it is excluded from the coverage floor by design.
+- The **Obsidian-DOM `view/` layer** is covered by the e2e suite, not unit
+  tests — vitest runs in a `node` env with no DOM — so it is excluded from the
+  coverage floor by design.
 
 ## Verify
 

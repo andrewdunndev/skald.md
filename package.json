@@ -30,7 +30,6 @@
     "test:mutation": "stryker run",
     "audit:prod": "pnpm audit --prod",
     "check:lint": "node scripts/check-plugin-lint.mjs",
-    "check:cdp": "node scripts/cdp-walkthrough.mjs",
     "check:cors": "node scripts/check-cors.mjs",
     "smoke:live": "node scripts/smoke-live.mjs",
     "test:e2e": "pnpm --filter @skald/plugin build && pnpm --filter @skald/e2e test",

@@ -223,7 +223,7 @@ async function blobToAttachment(
  * null when even the smallest acceptable encoding still overshoots
  * (rare — usually means an unreadable source). Pure runtime API
  * (Canvas + createImageBitmap) — no unit-testable path; verified
- * via the CDP walkthrough on real Obsidian.
+ * on real Obsidian.
  *
  * An oversize photo (say an 8 MB JPEG into the 4 MB target) usually
  * settles in 1-2 iterations at quality ~0.8 + near-full dimensions.
