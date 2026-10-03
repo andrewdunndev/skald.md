@@ -125,7 +125,6 @@ build-plugin:
 e2e-obsidian:
   stage: e2e
   needs: ['build-plugin']
-  allow_failure: true
   timeout: 30m
   cache:
     - key:
