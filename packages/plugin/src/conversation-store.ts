@@ -199,7 +199,13 @@ function unescapeTurnHeadings(text: string): string {
   return text.replace(ESCAPED_TURN_HEADING_LINE, '$1');
 }
 
+// The one-liner carries model-written input (a query, a path, a URL).
+// Folded to one line, it cannot start a forged turn heading.
 function describeBlock(b: Record<string, any>): string {
+  return describeTool(b).replace(/\s+/g, ' ');
+}
+
+function describeTool(b: Record<string, any>): string {
   const name = b.name as string | undefined;
   const input = (b.input as Record<string, any>) ?? {};
   switch (name) {

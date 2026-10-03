@@ -104,8 +104,6 @@ export default class SkaldPlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
-  /** The API keys for this request, read from secret storage by the secret
-   * names in settings. Settings never carry a key value. */
   /** Any app or page can open the capture link, so it does nothing
    * until the user turns capture on. */
   private onCaptureLink(data: ObsidianProtocolData): void {
@@ -117,6 +115,8 @@ export default class SkaldPlugin extends Plugin {
     void this.captureService.handleProtocol(data);
   }
 
+  /** The API keys for this request, read from secret storage by the secret
+   * names in settings. Settings never carry a key value. */
   apiKeys(): ApiKeys {
     return resolveApiKeys(this.app.secretStorage, this.settings);
   }
