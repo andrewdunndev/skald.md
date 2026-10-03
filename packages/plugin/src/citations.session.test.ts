@@ -45,7 +45,7 @@ function makeHarness(opts: {
     tx as unknown as import('./transport-interface').SkaldTransport,
     () => 'claude-sonnet-4-6',
     async () => undefined,
-    () => ({ provider: 'anthropic', apiKey: 'test' }),
+    () => ({ provider: 'anthropic' }),
     () => opts.tools ?? [],
     opts.toolExecutor ?? (async () => ({ content: 'stub' })),
     handlers,

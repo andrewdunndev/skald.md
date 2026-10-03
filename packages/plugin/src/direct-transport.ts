@@ -79,10 +79,10 @@ export class DirectTransport implements SkaldTransport {
     const { id, payload, provider = 'anthropic' } = msg;
     const apiKey =
       provider === 'openrouter'
-        ? (msg.openrouter_api_key?.trim() || this.config.getOpenRouterKey().trim())
+        ? this.config.getOpenRouterKey().trim()
         : provider === 'openai'
-          ? (msg.openai_api_key?.trim() || this.config.getOpenAiKey?.().trim() || '')
-          : (msg.anthropic_api_key?.trim() || this.config.getAnthropicKey().trim());
+          ? (this.config.getOpenAiKey?.().trim() ?? '')
+          : this.config.getAnthropicKey().trim();
 
     // OpenAI endpoints may need no auth; only anthropic/openrouter require a key.
     if (!apiKey && provider !== 'openai') {

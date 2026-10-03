@@ -67,7 +67,7 @@ export class PluginSettingTab {
     void this;
   }
 }
-/** Minimal Setting stub — chainable no-ops; not instantiated in unit tests. */
+/** Minimal Setting stub — chainable no-ops; addComponent builds its component. */
 export class Setting {
   constructor(_containerEl: HTMLElement) {
     void _containerEl;
@@ -77,6 +77,30 @@ export class Setting {
   setDesc(_d: string): this { return this; }
   setHeading(): this { return this; }
   addToggle(_cb: (t: unknown) => void): this { return this; }
+  addComponent(cb: (el: HTMLElement) => unknown): this {
+    cb({} as HTMLElement);
+    return this;
+  }
+}
+/** SecretComponent stub. Each instance is recorded so a test can play the
+ * user picking a secret by calling the onChange the settings tab registered. */
+export class SecretComponent {
+  static instances: SecretComponent[] = [];
+  value = '';
+  changed: ((v: string) => unknown) | null = null;
+  constructor(_app: App, _containerEl: HTMLElement) {
+    void _app;
+    void _containerEl;
+    SecretComponent.instances.push(this);
+  }
+  setValue(v: string): this {
+    this.value = v;
+    return this;
+  }
+  onChange(cb: (v: string) => unknown): this {
+    this.changed = cb;
+    return this;
+  }
 }
 export class SuggestModal<T> {
   constructor(_app: App) {
@@ -117,4 +141,22 @@ export function requestUrl(
   _params: unknown,
 ): Promise<{ status: number; text: string; json: unknown }> {
   return Promise.reject(new Error('requestUrl: not mocked in this test'));
+}
+
+/** Minimal Plugin stub: registration calls are no-ops; tests construct the
+ * plugin with a fake app and override loadData/saveData on the instance. */
+export class Plugin {
+  settings: unknown;
+  constructor(public app: App, public manifest: unknown) {}
+  loadData(): Promise<unknown> {
+    return Promise.reject(new Error('Plugin.loadData: not mocked in this test'));
+  }
+  saveData(_data: unknown): Promise<void> {
+    return Promise.reject(new Error('Plugin.saveData: not mocked in this test'));
+  }
+  registerView(_type: string, _factory: unknown): void {}
+  addRibbonIcon(_icon: string, _title: string, _cb: unknown): void {}
+  registerObsidianProtocolHandler(_action: string, _cb: unknown): void {}
+  addCommand(_cmd: unknown): void {}
+  addSettingTab(_tab: unknown): void {}
 }

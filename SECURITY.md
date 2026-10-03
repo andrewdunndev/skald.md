@@ -4,7 +4,8 @@ Skald is a direct-only Obsidian plugin: it talks straight from your device to
 your chosen model provider using **your** API key, with no Skald-operated
 backend. The architecture and trust model are documented in
 [`docs/security-model.md`](docs/security-model.md) — read it first; it explains
-why your key lives in the vault's `data.json` and what that means.
+why your key lives in Obsidian's per-device secret storage and what that
+means.
 
 ## Reporting a vulnerability
 
@@ -40,8 +41,8 @@ credit reporters who want it once a fix ships.
 - The inherent trust in your own configured endpoint and key: Skald sends your
   key and prompts to the provider/base-URL **you** choose. A hostile endpoint
   you configure is your trust decision, not a Skald vulnerability.
-- Risks that require an attacker who already has read/write access to your
-  vault's `data.json` (i.e. local device compromise).
+- Risks that require an attacker who already controls your device or a
+  plugin running in your Obsidian (i.e. local device compromise).
 
 ## Supported versions
 

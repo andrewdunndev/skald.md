@@ -13,6 +13,7 @@ import type { ApprovalManager } from '../approval-manager';
 import { proposeMemoryUpkeep } from '../memory-upkeep';
 import { utilityModel } from '../provider-capabilities';
 import type { SkaldSettings } from '../settings';
+import { keyForProvider, type ApiKeys } from '../api-keys';
 import type { ChatSession } from '../chat-session';
 
 /**
@@ -26,6 +27,8 @@ import type { ChatSession } from '../chat-session';
 export async function runMemoryUpkeepView(opts: {
   app: App;
   settings: SkaldSettings;
+  /** Keys resolved from secret storage for this pass. */
+  apiKeys: ApiKeys;
   session: ChatSession | null;
   approvals: ApprovalManager;
   provider: Provider | undefined;
@@ -41,7 +44,7 @@ export async function runMemoryUpkeepView(opts: {
    * race against the same note and the last-approved silently clobbers. */
   inFlight?: UpkeepInFlightGate;
 }): Promise<void> {
-  const { app, settings, session, approvals, provider, getActiveConversationId, inFlight } = opts;
+  const { app, settings, apiKeys, session, approvals, provider, getActiveConversationId, inFlight } = opts;
   if (!settings.memoryEnabled || !settings.memoryPath?.trim()) return;
 
   // In-flight guard: bail immediately if a pass is already running/awaiting
@@ -50,11 +53,7 @@ export async function runMemoryUpkeepView(opts: {
   inFlight?.acquire();
   try {
     const resolvedProvider = provider ?? settings.provider ?? 'anthropic';
-    const apiKey = resolvedProvider === 'openrouter'
-      ? settings.openrouterApiKey
-      : resolvedProvider === 'openai'
-        ? settings.openaiApiKey
-        : settings.anthropicApiKey;
+    const apiKey = keyForProvider(resolvedProvider, apiKeys);
     const baseUrl = resolvedProvider === 'openai' ? settings.openaiBaseUrl : undefined;
     // OpenAI-compatible endpoints may need no key; gate on base URL instead.
     if (resolvedProvider === 'openai') {

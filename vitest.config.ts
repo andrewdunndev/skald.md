@@ -1,7 +1,7 @@
 /**
  * Vitest config — workspace root. Each test file lives next to its
  * source as `<name>.test.ts`. Tests target pure modules (no Obsidian
- * runtime, no Worker bindings) so they execute in plain Node.
+ * runtime) so they execute in plain Node.
  *
  * For tests that import 'obsidian', the alias below routes to a
  * thin mock module at tests/obsidian-mock.ts; only the surface the

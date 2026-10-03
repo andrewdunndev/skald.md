@@ -2,8 +2,6 @@ import { App, TFile } from 'obsidian';
 import type { ToolDefinition } from '@skald/protocol';
 import { safePath, type ToolExecutionResult } from './context';
 import { rerankCandidates } from './rerank';
-import { utilityModel as resolveUtilityModel } from '../provider-capabilities';
-import type { SkaldSettings } from '../settings';
 import { compactToolResult } from '../tool-compact';
 
 // ---------------------------------------------------------------------------
@@ -241,7 +239,6 @@ export async function runSearchVault(
   args: Record<string, unknown>,
   anthropicApiKey?: string,
   provider?: import('@skald/protocol').Provider,
-  settings?: SkaldSettings,
   compact = false,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
@@ -252,27 +249,9 @@ export async function runSearchVault(
     typeof args.limit === 'number' ? Math.floor(args.limit) : 8;
   const limit = Math.min(Math.max(requestedLimit, 1), 50);
 
-  // The reranker uses the active provider's utility model. Gate only on
-  // whether a key for the active provider is available; rerank now works
-  // on any provider via the shared utilityComplete helper.
-  // Absent provider defaults to 'anthropic' (back-compat).
-  const resolvedProvider = provider ?? 'anthropic';
-  const utilityKey =
-    resolvedProvider === 'openrouter'
-      ? (settings?.openrouterApiKey ?? '')
-      : resolvedProvider === 'openai'
-        ? (settings?.openaiApiKey ?? '')
-        : (settings?.anthropicApiKey ?? anthropicApiKey ?? '');
-  const utilityBaseUrl =
-    resolvedProvider === 'openai' ? (settings?.openaiBaseUrl ?? '') : undefined;
-  // OpenAI-compatible endpoints may need no key; gate rerank on a key for
-  // the key-requiring providers, and on a base URL for openai.
-  const canRerank =
-    resolvedProvider === 'openai' ? !!utilityBaseUrl : !!utilityKey;
-  // Model for the utility reranker — respects settings.utilityModel override.
-  const rerankModel = settings
-    ? resolveUtilityModel(settings)
-    : 'claude-haiku-4-5';
+  // The Haiku reranker calls Anthropic, so it fires only when Anthropic is
+  // the active provider and its key is on this device (one trust boundary).
+  const canRerank = provider === 'anthropic' && !!anthropicApiKey;
 
   // ---------------------------------------------------------------------------
   // Omnisearch fast path — BM25-ranked results when the plugin is present.
@@ -297,7 +276,7 @@ export async function runSearchVault(
         );
         let header = '(via omnisearch: ranked)';
         if (lines.length > 5 && canRerank) {
-          const reranked = await rerankCandidates(rawQuery, lines, resolvedProvider, utilityKey, { baseUrl: utilityBaseUrl }, rerankModel);
+          const reranked = await rerankCandidates(rawQuery, lines, 'anthropic', anthropicApiKey ?? '');
           lines = reranked;
           header = '(reranked by haiku)';
         }
@@ -344,7 +323,7 @@ export async function runSearchVault(
   let finalResults = results;
   let scanHeader = '';
   if (results.length > 5 && canRerank) {
-    finalResults = await rerankCandidates(rawQuery, results, resolvedProvider, utilityKey, { baseUrl: utilityBaseUrl }, rerankModel);
+    finalResults = await rerankCandidates(rawQuery, results, 'anthropic', anthropicApiKey ?? '');
     scanHeader = '(reranked by utility model)\n';
   }
 

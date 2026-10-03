@@ -90,7 +90,7 @@ function buildSession(approve: ApproveFn, app: App, tx: RecordingTransport) {
     () => ({ provider: 'anthropic' }),
     () => [],
     // Real executor — routes write_note through runWriteNote → approve.
-    (name, input, id) => executeTool(name, input, id, { app, approve }),
+    (name, input, id) => executeTool(name, input, id, { app, approve, provider: 'anthropic' }),
     handlers,
   );
 }

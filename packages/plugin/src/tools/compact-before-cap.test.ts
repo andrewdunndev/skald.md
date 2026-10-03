@@ -195,13 +195,13 @@ describe('compacted flag on capping tool results', () => {
 
   it('runSearchVault: compacted=true when compact=true (substring path)', async () => {
     const app = makeApp({ 'hit.md': 'needle here' });
-    const result = await runSearchVault(app, { query: 'needle' }, undefined, undefined, undefined, true);
+    const result = await runSearchVault(app, { query: 'needle' }, undefined, undefined, true);
     expect(result.compacted).toBe(true);
   });
 
   it('runSearchVault: compacted absent/falsy when compact=false', async () => {
     const app = makeApp({ 'hit.md': 'needle here' });
-    const result = await runSearchVault(app, { query: 'needle' }, undefined, undefined, undefined, false);
+    const result = await runSearchVault(app, { query: 'needle' }, undefined, undefined, false);
     expect(result.compacted).toBeFalsy();
   });
 
@@ -211,7 +211,7 @@ describe('compacted flag on capping tool results', () => {
     const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
     (globalThis as Record<string, unknown>)['omnisearch'] = { search: async () => hits };
     try {
-      const result = await runSearchVault(app, { query: 'test' }, undefined, undefined, undefined, true);
+      const result = await runSearchVault(app, { query: 'test' }, undefined, undefined, true);
       expect(result.compacted).toBe(true);
     } finally {
       (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;

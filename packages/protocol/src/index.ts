@@ -70,17 +70,10 @@ export type ClientMessage =
       payload: ChatRequest;
       // Provider routing decision. Lives at the ClientMessage level
       // (not inside payload) so it doesn't leak into the upstream
-      // request body. Defaults to 'anthropic' for backward
-      // compatibility.
+      // request body. Omitted means anthropic.
       provider?: Provider;
-      // Per-provider keys supplied by the plugin, sent directly to
-      // the upstream API. Lives outside payload so the API key never
-      // reaches the upstream request body.
-      anthropic_api_key?: string;
-      openrouter_api_key?: string;
-      openai_api_key?: string;
       // OpenAI-compatible base URL (e.g. https://your-endpoint.example/v1 or http://localhost:11434/v1).
-      // Lives outside payload alongside the keys.
+      // Lives outside payload so it never reaches the upstream request body.
       openai_base_url?: string;
     }
   | { type: 'cancel'; id: string };

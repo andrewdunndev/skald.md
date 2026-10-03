@@ -9,9 +9,10 @@
  * Styles in plugin/styles.css (.skald-privacy-notice).
  */
 
-import { Notice, Setting } from 'obsidian';
+import { Notice, SecretComponent, Setting } from 'obsidian';
 import type { Provider } from '@skald/protocol';
 import type SkaldPlugin from '../main';
+import type { KeySecretNames } from '../api-keys';
 import { ModelSuggest } from '../model-suggest';
 import { validateOpenAiBaseUrl } from '../openai-base-url';
 
@@ -67,20 +68,14 @@ function renderAnthropicBlock(
 ): void {
   new Setting(containerEl).setName('Anthropic').setHeading();
 
-  new Setting(containerEl)
-    .setName('API key')
-    .setDesc(
-      'sk-ant-… key from console.anthropic.com. Required — Skald sends requests directly to Anthropic using this key. Stored in plugin data, synced across your devices via Obsidian Sync.',
-    )
-    .addText((t) => {
-      t.inputEl.type = 'password';
-      t.setPlaceholder('sk-ant-…')
-        .setValue(plugin.settings.anthropicApiKey)
-        .onChange(async (v) => {
-          plugin.settings.anthropicApiKey = v.trim();
-          await plugin.saveSettings();
-        });
-    });
+  renderKeySetting(
+    containerEl,
+    plugin,
+    'anthropicKeySecret',
+    'Pick or create the secret holding your sk-ant-… key from console.anthropic.com. ' +
+      'Required — Skald sends requests directly to Anthropic with it. The key stays in ' +
+      'Obsidian secret storage on this device; add it on each device.',
+  );
 
   new Setting(containerEl)
     .setName('Default model')
@@ -122,20 +117,14 @@ function renderOpenRouterBlock(
     text: ", and skald's security model in docs/security-model.md.",
   });
 
-  new Setting(containerEl)
-    .setName('API key')
-    .setDesc(
-      'OpenRouter API key from openrouter.ai. Required — Skald sends requests directly to OpenRouter using this key. Stored in plugin data, synced across your devices via Obsidian Sync.',
-    )
-    .addText((t) => {
-      t.inputEl.type = 'password';
-      t.setPlaceholder('sk-or-…')
-        .setValue(plugin.settings.openrouterApiKey)
-        .onChange(async (v) => {
-          plugin.settings.openrouterApiKey = v.trim();
-          await plugin.saveSettings();
-        });
-    });
+  renderKeySetting(
+    containerEl,
+    plugin,
+    'openrouterKeySecret',
+    'Pick or create the secret holding your OpenRouter key from openrouter.ai. ' +
+      'Required — Skald sends requests directly to OpenRouter with it. The key stays in ' +
+      'Obsidian secret storage on this device; add it on each device.',
+  );
 
   new Setting(containerEl)
     .setName('Default model')
@@ -217,20 +206,35 @@ function renderOpenaiBlock(
         });
     });
 
+  renderKeySetting(
+    containerEl,
+    plugin,
+    'openaiKeySecret',
+    'Pick or create the secret holding the endpoint\'s Bearer token (sent as ' +
+      'Authorization: Bearer). Leave unset if your endpoint needs no auth. The token ' +
+      'stays in Obsidian secret storage on this device; add it on each device.',
+  );
+}
+
+/** Secret picker for one provider's API key. data.json keeps only the
+ * secret's name; the key itself stays in Obsidian secret storage.
+ *
+ * @internal exported for tests only */
+export function renderKeySetting(
+  containerEl: HTMLElement,
+  plugin: SkaldPlugin,
+  field: keyof KeySecretNames,
+  desc: string,
+): void {
   new Setting(containerEl)
     .setName('API key')
-    .setDesc(
-      'Bearer token for the endpoint. Sent as Authorization: Bearer. ' +
-      'Leave blank if your endpoint needs no auth. Stored in plugin ' +
-      'data, synced across your devices via Obsidian Sync.',
-    )
-    .addText((t) => {
-      t.inputEl.type = 'password';
-      t.setPlaceholder('sk-…')
-        .setValue(plugin.settings.openaiApiKey)
-        .onChange(async (v) => {
-          plugin.settings.openaiApiKey = v.trim();
+    .setDesc(desc)
+    .addComponent((el) =>
+      new SecretComponent(plugin.app, el)
+        .setValue(plugin.settings[field])
+        .onChange(async (name) => {
+          plugin.settings[field] = name;
           await plugin.saveSettings();
-        });
-    });
+        }),
+    );
 }

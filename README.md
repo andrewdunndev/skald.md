@@ -5,7 +5,7 @@
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![status](https://img.shields.io/badge/status-pre--release-yellow)](CHANGELOG.md)
 
-**Mobile-first AI companion for Obsidian. Install the plugin, paste your
+**Mobile-first AI companion for Obsidian. Install the plugin, add your
 API key, chat. No server to deploy, nothing to host.**
 
 skald is a Claude client that lives where you write. It streams
@@ -53,9 +53,10 @@ Details in [`docs/installing-the-plugin.md`](docs/installing-the-plugin.md).
 Open Obsidian -> Settings -> Skald. The four core settings:
 
 1. **Provider** -- Anthropic (default), OpenRouter, or OpenAI-compatible
-2. **API key** -- your `sk-ant-...` from
-   [console.anthropic.com](https://console.anthropic.com/) (or your
-   OpenRouter / OpenAI-compatible key and base URL)
+2. **API key** -- pick or create the secret holding your `sk-ant-...`
+   from [console.anthropic.com](https://console.anthropic.com/) (or
+   your OpenRouter / OpenAI-compatible key, plus the base URL); it
+   stays in Obsidian's secret storage on this device
 3. **Default model** -- `claude-sonnet-5-5` pre-filled
 4. **Memory** -- toggle on to keep a long-term memory note across
    sessions
@@ -134,12 +135,13 @@ default ([security model](docs/security-model.md)). One mode, no seams.
 
 ## Trust model
 
-Your Anthropic (or OpenRouter / OpenAI-compatible) API key lives in the plugin's
-`data.json` inside your vault. People who sync their vault via
-Obsidian Sync should be aware the key travels in the sync payload --
-Obsidian Sync is E2EE with your sync password, but the key is plaintext
-within the vault. Any other plugin you install can also read it from
-the filesystem.
+Your Anthropic, OpenRouter, and OpenAI-compatible API keys live only
+in Obsidian's secret storage, which Obsidian keeps in local storage on
+each device, keyed to the vault. The plugin's `data.json` holds the
+name of the secret you picked for each provider, never the key, so
+Obsidian Sync never carries a key: enter your key on each device.
+Secret storage is shared by design, so another plugin you install can
+ask for the key by name.
 
 Mitigation: set a [spend limit](https://console.anthropic.com/settings/limits)
 on the Anthropic console so a leaked key has bounded financial damage.

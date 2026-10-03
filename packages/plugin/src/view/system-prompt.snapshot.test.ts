@@ -38,8 +38,8 @@ function mockApp(files: MockFiles) {
 
 const BASE_SETTINGS = {
   provider: 'anthropic',
-  anthropicApiKey: '',
-  openrouterApiKey: '',
+  anthropicKeySecret: '',
+  openrouterKeySecret: '',
   defaultModel: 'claude-sonnet-4-6',
   openrouterModel: '',
   harnessFolder: '',

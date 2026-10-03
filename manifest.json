@@ -2,7 +2,7 @@
   "id": "skald",
   "name": "Skald",
   "version": "0.1.0",
-  "minAppVersion": "1.4.0",
+  "minAppVersion": "1.11.4",
   "description": "Chat with Claude and other LLM providers (OpenRouter, OpenAI-compatible) in a vault-aware sidebar that works on mobile and desktop.",
   "author": "Andrew Dunn",
   "authorUrl": "https://github.com/andrewdunndev/skald.md",

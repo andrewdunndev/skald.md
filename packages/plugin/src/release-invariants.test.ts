@@ -55,6 +55,17 @@ describe('release invariants', () => {
     expect(Object.keys(versions)).toContain(pluginVersion);
   });
 
+  it('(A) versions.json maps the current version to manifest minAppVersion', () => {
+    const manifest = readJson('manifest.json');
+    const versions = readJson('versions.json');
+    // SecretStorage (API key storage) needs Obsidian 1.11.4 or later.
+    const parts = String(manifest['minAppVersion']).split('.').map(Number);
+    const floor = [1, 11, 4];
+    const cmp = parts.map((n, i) => n - (floor[i] ?? 0)).find((d) => d !== 0) ?? 0;
+    expect(cmp).toBeGreaterThanOrEqual(0);
+    expect(versions[manifest['version'] as string]).toBe(manifest['minAppVersion']);
+  });
+
   it('(A) dist/manifest.json version matches root manifest.json when built', () => {
     if (!distExists) {
       // Skip silently when dist/ has not been built yet (clean worktree).

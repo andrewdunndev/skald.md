@@ -12,16 +12,12 @@
  *
  * The SkaldSettings + DEFAULT_SETTINGS surface stays here as the
  * canonical interface every other module imports.
- *
- * MODELS is re-exported from settings/provider.ts (ANTHROPIC_MODELS)
- * under the historical name so existing consumers (view.ts model
- * dropdown) don't need updates.
  */
 
 import { App, PluginSettingTab, Setting } from 'obsidian';
 import type { Provider } from '@skald/protocol';
 import type SkaldPlugin from './main';
-import { ANTHROPIC_MODELS, renderProviderSection } from './settings/provider';
+import { renderProviderSection } from './settings/provider';
 import { renderVaultSection } from './settings/vault';
 
 import { renderPersonasSection } from './settings/personas';
@@ -37,11 +33,13 @@ export interface SkaldSettings {
    * catalog.
    */
   provider: Provider;
-  anthropicApiKey: string;
-  openrouterApiKey: string;
-  /** API key (Bearer token) for an OpenAI-compatible endpoint
-   * (used when provider=openai). */
-  openaiApiKey: string;
+  /** Name of the secret-storage entry holding the Anthropic API key. */
+  anthropicKeySecret: string;
+  /** Name of the secret-storage entry holding the OpenRouter API key. */
+  openrouterKeySecret: string;
+  /** Name of the secret-storage entry holding the Bearer token for an
+   * OpenAI-compatible endpoint (used when provider=openai). */
+  openaiKeySecret: string;
   /** Base URL for an OpenAI-compatible endpoint, e.g.
    * https://your-endpoint.example/v1 or http://localhost:11434/v1 (used when provider=openai). */
   openaiBaseUrl: string;
@@ -142,14 +140,11 @@ export interface SkaldSettings {
   webFetchAllowedDomains: string[];
 }
 
-/** Re-export for backwards-compatible imports. */
-export const MODELS = ANTHROPIC_MODELS;
-
 export const DEFAULT_SETTINGS: SkaldSettings = {
   provider: 'anthropic',
-  anthropicApiKey: '',
-  openrouterApiKey: '',
-  openaiApiKey: '',
+  anthropicKeySecret: '',
+  openrouterKeySecret: '',
+  openaiKeySecret: '',
   openaiBaseUrl: '',
   openaiModel: '',
   defaultModel: 'claude-sonnet-5-5',

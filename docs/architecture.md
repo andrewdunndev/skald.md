@@ -11,9 +11,11 @@ boundaries, and the test strategy.
 ```mermaid
 flowchart TB
   subgraph DEVICE["Your device — Obsidian (iPhone / iPad / desktop)"]
-    VAULT[("Vault + data.json<br/>your API key, on-device")]
+    VAULT[("Vault + data.json<br/>settings, synced")]
+    KEYS[("Secret storage<br/>your API key, this device only")]
     SKALD["Skald plugin<br/>direct-only · no backend"]
     VAULT --- SKALD
+    KEYS --- SKALD
   end
 
   SKALD -->|"internal: Anthropic wire format"| PROV{{"provider router"}}
@@ -77,7 +79,9 @@ Two places untrusted data enters; both are validated at a single chokepoint:
    `tools/context.test.ts` (mutation-verified).
 2. **`data.json`** (operator-editable *and* Obsidian-Sync-delivered) →
    `normalizeSettings()` (`settings-normalize.ts`) coerces an unknown provider,
-   clamps an insecure base URL, and drops malformed fields.
+   clamps an insecure base URL, and drops malformed and unknown fields. No API
+   key crosses it: `data.json` names each key's secret, and `api-keys.ts` reads
+   the key from secret storage when a request needs it.
 
 ## Test strategy
 

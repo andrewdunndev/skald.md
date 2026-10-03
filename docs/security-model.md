@@ -19,7 +19,8 @@ the API.
 | Hop / state | Encryption | Notes |
 |---|---|---|
 | Plugin -> Anthropic/OpenRouter | TLS (`https://`) | `anthropic-dangerous-direct-browser-access` header required for streaming from browser origin |
-| Plugin data (`data.json`) | E2EE between your devices via Obsidian Sync | Contains the API key; OS-level disk encryption on each device |
+| API keys | Obsidian secret storage, local to each device | Never in `data.json`; Obsidian does not document how secret storage is encrypted at rest |
+| Plugin data (`data.json`) | E2EE between your devices via Obsidian Sync | Settings and the name of each key's secret, never a key; OS-level disk encryption on each device |
 | Conversations folder | Encrypted at rest if your vault is | Same as any vault note |
 
 ## Who can see what
@@ -30,19 +31,33 @@ the API.
   but is processed by their service.
 - **Obsidian Sync infrastructure:** sees ciphertext of your vault
   (including plugin data). E2EE with your sync password. The API key
-  is included in the sync payload -- encrypted at rest by Sync.
+  is not in the sync payload: it stays in each device's secret storage.
 - **Anyone with access to your devices:** can read `data.json` like
-  any other unencrypted file on the device. This exposes the API key.
-  OS-level disk encryption (FileVault, iOS file encryption) protects
-  against offline-device attacks.
+  any other unencrypted file on the device; it holds no key.
+  Obsidian does not document how secret storage is
+  protected at rest, so treat the key as readable by anyone who can
+  read Obsidian's app data on the device. An unlocked, running
+  Obsidian can also hand the key to whoever drives it. OS-level disk encryption (FileVault, iOS file encryption)
+  protects against offline-device attacks.
 
 ## Threats and mitigations
 
 ### API key exfiltration via a malicious plugin
 
-The Anthropic key lives in skald's plugin data (`data.json`), which
-is filesystem-readable to any other plugin you install. Obsidian
-plugins are not sandboxed from each other.
+skald keeps each provider key only in Obsidian's secret storage
+(`app.secretStorage`). Settings → Skald uses Obsidian's secret picker:
+plugin data (`data.json`) records the name of the secret you picked
+for each provider, and skald reads the key from secret storage by that
+name each time a request needs it. No key is ever read from or written
+to `data.json`.
+
+That closes the sync and plain-file paths, not the plugin one. Secret
+storage is shared across plugins by design (any plugin can list and
+read secrets by id), and Obsidian plugins are not sandboxed from each
+other.
+
+Obsidian documents secret storage as held in local storage, keyed to
+the vault, so each device needs the key entered once.
 
 **Mitigation:** Treat the Anthropic key as you would any other
 secret on your device -- only install plugins you trust. Use the
@@ -120,7 +135,7 @@ even a successful injection has bounded blast radius.
 
 ## What you control
 
-- The Anthropic (or OpenRouter) API key
+- The Anthropic (or OpenRouter) API key, kept in each device's secret storage
 - The vault where conversations and plugin data live
 - The Obsidian Sync (or other sync) configuration
 

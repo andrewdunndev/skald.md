@@ -1,16 +1,38 @@
 import { App, Notice, setIcon } from 'obsidian';
 import type { Provider } from '@skald/protocol';
+import type { ApiKeys } from '../api-keys';
+import type { SkaldSettings } from '../settings';
 
 export interface SetupBannerInput {
   /** Active provider — determines which API key the banner asks for. */
   provider: Provider;
-  /** Trimmed Anthropic API key from settings. */
+  /** Anthropic API key from secret storage ('' when missing). */
   anthropicApiKey: string;
-  /** Trimmed OpenRouter API key from settings. */
+  /** OpenRouter API key from secret storage ('' when missing). */
   openrouterApiKey: string;
   /** Trimmed OpenAI-compatible base URL from settings. The openai banner
    * gates on a base URL (the key is optional for self-hosted endpoints). */
   openaiBaseUrl: string;
+  /** True when a secret is picked for the OpenAI-compatible endpoint but
+   * is not in secret storage on this device. A blank pick means no auth. */
+  openaiKeyMissing: boolean;
+}
+
+/** Banner input for the plugin's current settings and secret-storage keys.
+ * A secret that is missing on this device resolves to '' and so shows the
+ * banner. */
+export function bannerInputFor(plugin: {
+  settings: Pick<SkaldSettings, 'provider' | 'openaiBaseUrl' | 'openaiKeySecret'>;
+  apiKeys(): ApiKeys;
+}): SetupBannerInput {
+  const keys = plugin.apiKeys();
+  return {
+    provider: plugin.settings.provider,
+    anthropicApiKey: keys.anthropicApiKey,
+    openrouterApiKey: keys.openrouterApiKey,
+    openaiBaseUrl: plugin.settings.openaiBaseUrl,
+    openaiKeyMissing: plugin.settings.openaiKeySecret !== '' && keys.openaiApiKey === '',
+  };
 }
 
 /**
@@ -26,13 +48,19 @@ export interface BannerSpec {
 }
 
 export function resolveBannerSpec(input: SetupBannerInput): BannerSpec | null {
-  // OpenAI-compatible: gate on the base URL, not a key (self-hosted
-  // endpoints may need no auth).
+  // OpenAI-compatible: gate on the base URL, and on the key only when a
+  // secret is picked (self-hosted endpoints may need no auth).
   if (input.provider === 'openai') {
-    if (input.openaiBaseUrl.trim()) return null;
+    if (!input.openaiBaseUrl.trim()) {
+      return {
+        title: 'Add your endpoint',
+        detail: 'OpenAI-compatible base URL — Settings → Skald (e.g. https://your-endpoint.example/v1 or http://localhost:11434/v1).',
+      };
+    }
+    if (!input.openaiKeyMissing) return null;
     return {
-      title: 'Add your endpoint',
-      detail: 'OpenAI-compatible base URL — Settings → Skald (e.g. https://your-endpoint.example/v1 or http://localhost:11434/v1).',
+      title: 'Add your API key',
+      detail: 'The secret picked for your endpoint is not on this device. Add it in Settings → Skald.',
     };
   }
 

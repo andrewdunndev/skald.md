@@ -78,8 +78,8 @@ export interface ActiveToolInput {
   /**
    * The model id for the current turn. Used to select the correct
    * server-tool version pins — Haiku needs 20250305/20250910 while
-   * all other Anthropic models use 20260209. Defaults to the
-   * 20260209 set when absent (backward compatibility).
+   * all other Anthropic models use 20260209. Absent selects the
+   * 20260209 set.
    */
   model?: string;
   /**
@@ -152,7 +152,6 @@ export async function executeTool(
           args,
           ctx.anthropicApiKey,
           ctx.provider,
-          undefined,
           compact,
         );
       case 'current_note':

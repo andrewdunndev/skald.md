@@ -52,10 +52,9 @@ export interface ToolContext {
    * The active chat provider. The Haiku reranker calls Anthropic
    * directly, so it must only fire when the user's active provider IS
    * Anthropic — an OpenRouter user shouldn't silently hit a second
-   * provider (one-trust-boundary principle). Absent → treated as
-   * 'anthropic' for backward compatibility.
+   * provider (one-trust-boundary principle).
    */
-  provider?: Provider;
+  provider: Provider;
   /**
    * Whether to compact tool results before the byte cap.  When true the
    * three large-output tools (read_note / list_notes / search_vault) run
