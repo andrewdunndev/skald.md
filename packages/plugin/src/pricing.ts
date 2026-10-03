@@ -83,12 +83,12 @@ export const MODEL_PRICING: Record<string, ModelPricing> = {
     cacheWrite: 20,
   },
   // Opus 5.5: $4/M input, $20/M output. Cache rates follow the standard
-  // pattern: cache_read = 0.1x input ($0.40), cache_write (1-hour TTL)
+  // pattern: cache_read = 0.05x input ($0.20), cache_write (1-hour TTL)
   // = 2x input ($8).
   'claude-opus-5-5': {
     input: 4,
     output: 20,
-    cacheRead: 0.4,
+    cacheRead: 0.2,
     cacheWrite: 8,
   },
   // Sonnet 5.5: $2/M input, $10/M output. cache_read = 0.1x input

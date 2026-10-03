@@ -19,3 +19,4 @@ reports/mutation/
 
 # Coverage reports — generated, and embed absolute local paths
 coverage/
+.pnpm-store/
