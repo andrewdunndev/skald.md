@@ -1,5 +1,5 @@
 import { App, Notice, setIcon } from 'obsidian';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from '../protocol';
 import type { ApiKeys } from '../api-keys';
 import type { SkaldSettings } from '../settings';
 

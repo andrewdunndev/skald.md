@@ -19,7 +19,7 @@
  */
 
 import { requestUrl } from 'obsidian';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 import { providerCapabilities } from './provider-capabilities';
 import { validateOpenAiBaseUrl } from './openai-base-url';
 

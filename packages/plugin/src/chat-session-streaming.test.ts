@@ -11,7 +11,7 @@
  * and the corresponding test was confirmed to FAIL before restoring.
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { ClientMessage } from '@skald/protocol';
+import type { ClientMessage } from './protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 // ── minimal harness ────────────────────────────────────────────────────────

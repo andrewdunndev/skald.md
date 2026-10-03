@@ -72,17 +72,13 @@ stream in.
 
 ## What it is
 
-Two packages in one repo:
-
-1. **`packages/plugin/`** -- the Obsidian community plugin. Chat pane,
-   markdown-rendered messages (mermaid, tables, math, internal links),
-   diff-card approval for vault edits, server-side web search,
-   per-conversation Anthropic / OpenRouter / OpenAI-compatible provider switching,
-   a long-term memory note Claude can read and propose updates to,
-   and token-economy controls (prompt caching, history + tool-result
-   compaction) so a direct-to-API chat stays cheap.
-2. **`packages/protocol/`** -- the TypeScript wire types shared across
-   the project.
+**`packages/plugin/`** is the Obsidian community plugin. Chat pane,
+markdown-rendered messages (mermaid, tables, math, internal links),
+diff-card approval for vault edits, server-side web search,
+per-conversation Anthropic / OpenRouter / OpenAI-compatible provider switching,
+a long-term memory note Claude can read and propose updates to,
+and token-economy controls (prompt caching, history + tool-result
+compaction) so a direct-to-API chat stays cheap.
 
 How Skald keeps your token spend down -- caching, windowing, and
 tool-result compaction -- is documented in

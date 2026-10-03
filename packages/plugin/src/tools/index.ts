@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 import type { ToolContext, ToolExecutionResult } from './context';
 import {
   READ_ONLY_TOOLS,

@@ -1,5 +1,5 @@
 import { App, normalizePath } from 'obsidian';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from '../protocol';
 
 export interface ToolExecutionResult {
   content: string;

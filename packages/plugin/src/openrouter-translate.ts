@@ -10,7 +10,7 @@
  * Extracted from direct-transport.ts as a single named responsibility.
  */
 
-import type { ChatRequest } from '@skald/protocol';
+import type { ChatRequest } from './protocol';
 
 const ANTHROPIC_WEB_SEARCH_TYPES = ['web_search_20260209', 'web_search_20250305'];
 const ANTHROPIC_WEB_FETCH_TYPES = ['web_fetch_20260209', 'web_fetch_20250910'];

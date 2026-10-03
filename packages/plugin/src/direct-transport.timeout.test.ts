@@ -4,7 +4,7 @@
  * a retryable error instead of hanging or throwing unhandled.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { ServerMessage } from '@skald/protocol';
+import type { ServerMessage } from './protocol';
 import { DirectTransport } from './direct-transport';
 
 function makeTransport() {

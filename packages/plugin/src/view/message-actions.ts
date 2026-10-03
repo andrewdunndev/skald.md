@@ -17,7 +17,7 @@ import {
   setTooltip,
   type App,
 } from 'obsidian';
-import type { Message } from '@skald/protocol';
+import type { Message } from '../protocol';
 import {
   formatSummary,
   hasAnyAction,

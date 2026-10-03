@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServerMessage } from '@skald/protocol';
+import type { ServerMessage } from '../../plugin/src/protocol';
 import { DirectTransport } from '../../plugin/src/direct-transport';
 import {
   MOCK_AFTER_TOOL, MOCK_REPLY, TOOL_CONTENT, TOOL_PATH, TOOL_TRIGGER,

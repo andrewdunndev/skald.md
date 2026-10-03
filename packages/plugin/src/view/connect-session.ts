@@ -6,7 +6,7 @@
  * OpenRouter directly via DirectTransport.
  */
 import type { App } from 'obsidian';
-import type { Provider, ServerMessage, Usage } from '@skald/protocol';
+import type { Provider, ServerMessage, Usage } from '../protocol';
 import type SkaldPlugin from '../main';
 import type { SkaldTransport, TransportHandlers } from '../transport-interface';
 import { DirectTransport } from '../direct-transport';

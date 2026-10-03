@@ -17,7 +17,7 @@ import type {
   ClientMessage,
   ServerMessage,
   ToolDefinition,
-} from '@skald/protocol';
+} from './protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 // ── helpers ───────────────────────────────────────────────────────────────────

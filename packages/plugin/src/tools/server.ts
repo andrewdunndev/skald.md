@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 
 /**
  * Anthropic-executed server tools. These are passed in the tools

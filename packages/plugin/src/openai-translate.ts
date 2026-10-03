@@ -21,7 +21,7 @@
  *     server tools (web_search_* / web_fetch_* / no input_schema) stripped
  */
 
-import type { ChatRequest } from '@skald/protocol';
+import type { ChatRequest } from './protocol';
 import type { DispatchContext } from './direct-transport';
 import { makeOpenAiStreamTranslator } from './openai-stream';
 

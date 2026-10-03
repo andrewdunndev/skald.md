@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { rewriteOpenRouterTools } from './openrouter-translate';
-import type { ChatRequest } from '@skald/protocol';
+import type { ChatRequest } from './protocol';
 
 function baseReq(tools: ChatRequest['tools']): ChatRequest {
   return {

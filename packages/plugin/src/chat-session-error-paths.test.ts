@@ -8,7 +8,7 @@
  * so the composer unlocks, not leave the session stuck mid-dispatch.
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { ClientMessage, ToolDefinition } from '@skald/protocol';
+import type { ClientMessage, ToolDefinition } from './protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 interface RecordingTransport {

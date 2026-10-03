@@ -7,7 +7,7 @@
  * original request shape.
  */
 
-import type { ChatRequest } from '@skald/protocol';
+import type { ChatRequest } from './protocol';
 
 /**
  * 1-hour cache_control for the long-lived prefix breakpoints.

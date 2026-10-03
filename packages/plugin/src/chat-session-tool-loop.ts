@@ -10,7 +10,7 @@
  * caller owns pushing the resulting user turn into history + dispatching
  * the continuation, so message/transport coupling stays in the class.
  */
-import type { ContentBlock } from '@skald/protocol';
+import type { ContentBlock } from './protocol';
 import { isReadOnlyTool } from './tools';
 import { buildDocumentBlock } from './citations';
 import type { ToolExecutor } from './chat-session';

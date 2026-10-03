@@ -10,7 +10,7 @@
  * block + Resend button is covered by CDP/on-device, not fabricated here.
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { ClientMessage, Message } from '@skald/protocol';
+import type { ClientMessage, Message } from './protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 interface RecordingTransport {

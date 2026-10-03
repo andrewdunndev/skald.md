@@ -11,7 +11,7 @@
  * error shown.
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { ClientMessage } from '@skald/protocol';
+import type { ClientMessage } from './protocol';
 import { ChatSession, type ChatSessionHandlers, type ProviderConfig } from './chat-session';
 import type { SkaldTransport } from './transport-interface';
 

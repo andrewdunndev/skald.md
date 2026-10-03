@@ -14,7 +14,7 @@
  *   - the notice appears on exactly the 20th leg, not the 19th or 21st
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { ClientMessage, ServerMessage } from '@skald/protocol';
+import type { ClientMessage, ServerMessage } from './protocol';
 import {
   ChatSession,
   MAX_TOOL_LEGS,

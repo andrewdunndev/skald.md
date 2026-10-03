@@ -4,7 +4,7 @@
  * cancel: aborts via AbortController.
  * Timeouts: REQUEST_TIMEOUT_MS to first byte; STREAM_IDLE_TIMEOUT_MS per chunk.
  */
-import type { ClientMessage, Provider, ServerMessage, Usage } from '@skald/protocol';
+import type { ClientMessage, Provider, ServerMessage, Usage } from './protocol';
 import type { SkaldTransport, TransportHandlers } from './transport-interface';
 import { SSEParser } from './sse-parser';
 import { applyAnthropicCaching } from './anthropic-caching';
@@ -319,7 +319,7 @@ export type TranslateEvent = (
 export interface DispatchContext {
   url: string;
   headers: Record<string, string>;
-  requestBody: import('@skald/protocol').ChatRequest;
+  requestBody: import('./protocol').ChatRequest;
   translateEvent: TranslateEvent;
   /** When true the pump sends all frames (including event-less ones) to
    *  translateEvent. When false (Anthropic/OpenRouter) frames without an
@@ -333,7 +333,7 @@ const THINKING_BUDGET_TOKENS = 8192;
 function buildDispatch(
   provider: Provider,
   apiKey: string,
-  req: import('@skald/protocol').ChatRequest,
+  req: import('./protocol').ChatRequest,
   thinkingEnabled: boolean,
   openAiBaseUrl?: string,
 ): DispatchContext {
@@ -375,7 +375,7 @@ function buildDispatch(
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
-    requestBody: requestBody as import('@skald/protocol').ChatRequest,
+    requestBody: requestBody as import('./protocol').ChatRequest,
     translateEvent: wrapSingle(identityEvent),
     passEventlessFrames: false,
   };

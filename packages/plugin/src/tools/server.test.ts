@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { serverToolsForModel, applyWebFetchAllowlist } from './server';
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 
 function webFetchOf(tools: ReturnType<typeof serverToolsForModel>) {
   return tools.find((d) => (d as Record<string, unknown>).name === 'web_fetch') as

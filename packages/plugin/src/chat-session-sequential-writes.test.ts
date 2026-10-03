@@ -9,7 +9,7 @@
  * executor is not invoked until the first resolves.
  */
 import { describe, expect, it, vi } from 'vitest';
-import type { ClientMessage } from '@skald/protocol';
+import type { ClientMessage } from './protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 interface RecordingTransport {

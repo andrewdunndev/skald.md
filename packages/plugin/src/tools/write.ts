@@ -1,5 +1,5 @@
 import { App, TFile, type TAbstractFile } from 'obsidian';
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 import {
   INVALID_WRITE_PATH,
   safeNotePath,

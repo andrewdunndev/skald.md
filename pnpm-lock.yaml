@@ -187,9 +187,6 @@ importers:
 
   packages/e2e:
     devDependencies:
-      '@skald/protocol':
-        specifier: workspace:*
-        version: link:../protocol
       '@types/mocha':
         specifier: 10.0.10
         version: 10.0.10
@@ -223,9 +220,6 @@ importers:
 
   packages/plugin:
     dependencies:
-      '@skald/protocol':
-        specifier: workspace:*
-        version: link:../protocol
       '@toon-format/toon':
         specifier: ^4.0.0
         version: 4.1.1
@@ -242,8 +236,6 @@ importers:
       obsidian:
         specifier: 1.13.1
         version: 1.13.1(@codemirror/state@6.5.0)(@codemirror/view@6.38.6)
-
-  packages/protocol: {}
 
 packages:
 

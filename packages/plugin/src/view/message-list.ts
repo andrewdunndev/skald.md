@@ -4,7 +4,7 @@ import {
   setIcon,
   type ItemView,
 } from 'obsidian';
-import type { Message } from '@skald/protocol';
+import type { Message } from '../protocol';
 import {
   renderBlock,
   renderMarkdownInto,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Message } from '@skald/protocol';
+import type { Message } from '../protocol';
 import {
   formatSummary,
   hasAnyAction,

@@ -16,7 +16,7 @@
  * from provider-capabilities.ts — no hardcoded model name here.
  */
 
-import type { Provider } from '@skald/protocol';
+import type { Provider } from '../protocol';
 import { utilityComplete } from '../utility-call';
 
 const RERANK_SYSTEM = `You are a relevance ranker. Given a user query and a numbered list of candidate items, output a JSON array of indices (0-based) sorted from most relevant to least relevant. Output ONLY the JSON array, no other text. Example: [2,0,1]`;

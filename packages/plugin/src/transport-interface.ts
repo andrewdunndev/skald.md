@@ -13,7 +13,7 @@
  * lets tests and ChatSession import the type without pulling in Obsidian
  * or browser globals.
  */
-import type { ClientMessage, ServerMessage } from '@skald/protocol';
+import type { ClientMessage, ServerMessage } from './protocol';
 
 export interface TransportHandlers {
   onOpen: () => void;

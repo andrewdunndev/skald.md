@@ -15,7 +15,7 @@
  */
 
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 import type SkaldPlugin from './main';
 import { renderProviderSection } from './settings/provider';
 import { renderVaultSection } from './settings/vault';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { ContentBlock } from '@skald/protocol';
+import type { ContentBlock } from '../protocol';
 import { notesReadInTurn, readsBeforeToolUse } from './inflight-reads';
 
 function tool(id: string, name: string, input: unknown): ContentBlock {

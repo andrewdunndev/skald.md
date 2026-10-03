@@ -4,7 +4,7 @@
  * Every decision that forks on Provider lives here as a single exhaustive
  * switch. Call sites consume capability fields rather than comparing provider
  * strings directly, so adding a third provider means: extend Provider in
- * @skald/protocol, add a case here, satisfy the compiler — no other
+ * protocol.ts, add a case here, satisfy the compiler — no other
  * file changes required.
  *
  * reasoningModel: the user's configured chat model for the active provider.
@@ -13,7 +13,7 @@
  *   Set to point the cheap/utility role at any model incl. a local one.
  */
 
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 import type { SkaldSettings } from './settings';
 
 /** Exhaustive-switch safety net. TypeScript enforces that every arm of a
@@ -25,7 +25,7 @@ function assertNever(x: never): never {
 }
 
 /** The set of valid Provider values, kept in lockstep with the Provider
- * union in @skald/protocol. This is the single runtime source of truth used
+ * union in protocol.ts. This is the single runtime source of truth used
  * to validate the provider field loaded from the (untrusted) data.json. */
 const PROVIDERS = ['anthropic', 'openrouter', 'openai'] as const;
 

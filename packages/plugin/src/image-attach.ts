@@ -20,7 +20,7 @@
  */
 
 import { Notice } from 'obsidian';
-import type { ContentBlock } from '@skald/protocol';
+import type { ContentBlock } from './protocol';
 
 export type ImageMediaType =
   | 'image/jpeg'

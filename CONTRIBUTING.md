@@ -36,7 +36,6 @@ pnpm install
 **Monorepo layout:**
 
 - `packages/plugin` -- the Obsidian plugin
-- `packages/protocol` -- shared types
 
 **Check gates (all must be green before merge):**
 

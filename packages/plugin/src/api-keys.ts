@@ -6,7 +6,7 @@
  * app.secretStorage each time a request needs it, so it never sits in
  * SkaldSettings and can never reach saveData.
  */
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 
 /** The data.json fields that name each provider's secret. */
 export interface KeySecretNames {

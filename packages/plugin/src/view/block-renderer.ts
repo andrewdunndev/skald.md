@@ -21,7 +21,7 @@
 
 import { MarkdownRenderer, type App, type Component } from 'obsidian';
 import { neutralizeRemoteMedia } from '../remote-media';
-import type { ContentBlock } from '@skald/protocol';
+import type { ContentBlock } from '../protocol';
 import { renderDiffCard } from './diff-card';
 import { renderErrorBlock } from './error-block';
 import { describeToolUse } from './tool-labels';

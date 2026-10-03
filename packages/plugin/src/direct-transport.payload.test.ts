@@ -18,7 +18,7 @@
  *      coexist with the cache breakpoints — caching must not clobber it.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { ServerMessage } from '@skald/protocol';
+import type { ServerMessage } from './protocol';
 import { DirectTransport } from './direct-transport';
 
 const MINIMAL_SSE =

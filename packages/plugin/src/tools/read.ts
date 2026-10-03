@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 import { safePath, type ToolExecutionResult } from './context';
 import { rerankCandidates } from './rerank';
 import { compactToolResult } from '../tool-compact';
@@ -238,7 +238,7 @@ export async function runSearchVault(
   app: App,
   args: Record<string, unknown>,
   anthropicApiKey?: string,
-  provider?: import('@skald/protocol').Provider,
+  provider?: import('../protocol').Provider,
   compact = false,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';

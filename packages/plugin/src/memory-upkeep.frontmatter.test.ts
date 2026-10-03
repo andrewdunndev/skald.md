@@ -18,7 +18,7 @@ vi.mock('obsidian', () => ({
 
 import * as obsidian from 'obsidian';
 import { proposeMemoryUpkeep, splitFrontmatter } from './memory-upkeep';
-import type { Message } from '@skald/protocol';
+import type { Message } from './protocol';
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 

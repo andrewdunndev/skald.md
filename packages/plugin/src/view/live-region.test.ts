@@ -9,7 +9,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { announceableText } from './live-region';
-import type { Message } from '@skald/protocol';
+import type { Message } from '../protocol';
 
 describe('announceableText', () => {
   it('returns trimmed string content verbatim', () => {

@@ -21,7 +21,7 @@
  * turn counter and pass it in; this module has no state.
  */
 
-import type { Message, Provider } from '@skald/protocol';
+import type { Message, Provider } from './protocol';
 import { utilityComplete } from './utility-call';
 
 /** Run upkeep every this many finalized turns. Conservative default

@@ -10,7 +10,7 @@
  * mock. Instead we inline the minimal SkaldSettings shape needed.
  */
 import { describe, expect, it } from 'vitest';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 import {
   providerCapabilities,
   utilityModel,

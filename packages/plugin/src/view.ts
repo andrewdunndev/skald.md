@@ -20,7 +20,7 @@ import { toImageContentBlock } from './image-attach';
 import { persistConversation } from './view/persist-conversation';
 import { estimateTurnCost, formatTurnStatus, formatSessionFooter } from './pricing';
 import { ConversationSearchModal } from './conversation-search';
-import type { ContentBlock, Provider } from '@skald/protocol';
+import type { ContentBlock, Provider } from './protocol';
 import { isUpkeepDue } from './memory-upkeep';
 import { runMemoryUpkeepView, UpkeepInFlightGate } from './view/memory-upkeep-view';
 
@@ -357,7 +357,7 @@ export class SkaldView extends ItemView {
     );
   }
 
-  private handleServerMessage(msg: import('@skald/protocol').ServerMessage): void {
+  private handleServerMessage(msg: import('./protocol').ServerMessage): void {
     this.session?.handleServer(msg);
   }
 

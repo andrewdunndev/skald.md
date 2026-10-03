@@ -19,12 +19,7 @@ import {
   type App,
   type ObsidianProtocolData,
 } from 'obsidian';
-import {
-  CAPTURE_PROMPT,
-  CAPTURE_MAX_PROMPT_BYTES,
-  extractCaptureTitle,
-  type Provider,
-} from '@skald/protocol';
+import type { Provider } from './protocol';
 import { SlidingWindow } from './rate-limit';
 import { utilityComplete } from './utility-call';
 import { validateOpenAiBaseUrl } from './openai-base-url';
@@ -35,6 +30,20 @@ import {
 } from './capture-util';
 
 export { captureFilename } from './capture-util';
+
+/** Max bytes for a capture prompt, bounding upstream spend. */
+export const CAPTURE_MAX_PROMPT_BYTES = 100 * 1024;
+
+/** Default capture prompt; a settings note can replace it. */
+export const CAPTURE_PROMPT =
+  'The user shared this text from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, suggest tags. If it is only a link, keep the link and do not guess at what the page says.';
+
+/** Title of a capture body: first H1 if present, else first non-empty line, capped at 60 chars. */
+export function extractCaptureTitle(text: string): string {
+  const firstLine = text.split('\n').find((l) => l.trim().length > 0) ?? '';
+  const titleMatch = firstLine.match(/^#+\s+(.*)$/);
+  return (titleMatch?.[1] ?? firstLine).slice(0, 60).trim();
+}
 
 export const CAPTURE_OFF_NOTICE =
   'Skald: share-sheet capture is off. Turn on "Allow share-sheet capture" in Settings → Skald → Advanced.';

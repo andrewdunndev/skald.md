@@ -1,4 +1,4 @@
-import type { Message, Usage } from '@skald/protocol';
+import type { Message, Usage } from './protocol';
 import { neutralizeRemoteMedia, restoreRemoteMedia } from './remote-media';
 
 export interface ConversationMeta {
