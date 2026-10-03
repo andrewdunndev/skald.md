@@ -104,11 +104,16 @@ tools **off** so the channel is closed until you opt in.
 
 | Posture | What it does | Trade-off |
 |---|---|---|
-| **Off (default)** | `web_search` + `web_fetch` are never sent to the model. The channel does not exist. | The model can't browse or fetch URLs. |
-| **Allow-list** | Turn web tools on, then list the domains `web_fetch` may reach. Enforced **server-side** by Anthropic via its native `allowed_domains` parameter, or by OpenRouter's own fetch engine on OpenRouter routes. | The model can fetch only the domains you trust; an injected attacker URL is rejected before any data leaves. |
+| **Off (default)** | `web_search` + `web_fetch` are never sent to the model. | The model can't browse or fetch URLs. |
+| **Allow-list** | Turn web tools on, then list the domains `web_fetch` may reach. Enforced **server-side** by Anthropic via its native `allowed_domains` parameter, or by OpenRouter's own fetch engine on OpenRouter routes. | The model can fetch only the domains you trust; an injected attacker URL is rejected before any data leaves. `web_search` is not covered: its results still bring in untrusted text. |
 | **Open** | Turn web tools on with an empty allow-list. The model may fetch any URL that reaches the conversation, which in a vault-reading agent is no real limit. | Maximum capability, no exfiltration protection. Not recommended for vaults containing anything sensitive. |
 
 Configure these under **Settings -> Advanced -> Web tools**.
+
+A reply can also try to leak through what it renders: an image whose
+URL carries your notes loads the moment it is shown. Skald shows a
+remote image or raw HTML in a reply, or in a saved conversation, as a
+link or plain text, so nothing loads unless you click.
 
 **OpenRouter caveat.** skald forwards the allow-list and the fetch cap
 to OpenRouter's `openrouter:web_fetch`. OpenRouter's default engine
