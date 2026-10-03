@@ -71,6 +71,16 @@ device inside the URL. The fetch runs provider-side (Anthropic /
 OpenRouter), so the plugin can't intercept the URL or pop a
 per-fetch approval the way it gates vault **writes**.
 
+Anthropic's `web_fetch` has its own guard: it only fetches URLs that
+already appeared in the conversation (user messages, client-side tool
+results, earlier search or fetch results), never a URL that appears
+only in the model's output, and it refuses URLs that look like they
+carry a credential. That check does not close the channel here. skald's
+vault tools are client-side tools, so every URL in every note it reads
+counts as prior context, and Anthropic counts a tool result even when
+it echoes text the model chose. Treat it as a speed bump, not a
+boundary. Each turn is also capped at five fetches (`max_uses`).
+
 skald gives you three controls, from safest to most permissive. The
 **default posture is a product decision** -- skald ships with web
 tools **off** so the channel is closed until you opt in.
@@ -79,16 +89,23 @@ tools **off** so the channel is closed until you opt in.
 |---|---|---|
 | **Off (default)** | `web_search` + `web_fetch` are never sent to the model. The channel does not exist. | The model can't browse or fetch URLs. |
 | **Allow-list** | Turn web tools on, then list the domains `web_fetch` may reach. Enforced **server-side by Anthropic** via its native `allowed_domains` parameter. | The model can fetch only the domains you trust; an injected attacker URL is rejected before any data leaves. |
-| **Open** | Turn web tools on with an empty allow-list. The model may fetch any URL. | Maximum capability, no exfiltration protection. Not recommended for vaults containing anything sensitive. |
+| **Open** | Turn web tools on with an empty allow-list. The model may fetch any URL that reaches the conversation, which in a vault-reading agent is no real limit. | Maximum capability, no exfiltration protection. Not recommended for vaults containing anything sensitive. |
 
 Configure these under **Settings -> Advanced -> Web tools**.
 
-**OpenRouter caveat.** The allow-list relies on Anthropic enforcing
-`allowed_domains` server-side. OpenRouter's web tools do **not**
-honor that parameter today. On OpenRouter routes, the only effective
-protection is turning web tools **off** -- the allow-list is not a
-guarantee there. skald still forwards the domain list to OpenRouter
-so it takes effect if/when they support it, but don't rely on it.
+**OpenRouter caveat.** skald forwards the allow-list and the fetch cap
+to OpenRouter's `openrouter:web_fetch`. OpenRouter enforces domain
+lists on its Exa, Parallel, Firecrawl and OpenRouter fetch engines;
+skald leaves the engine at OpenRouter's default (`auto`), which uses
+the model provider's native fetch where one exists, and native domain
+filtering varies. Anthropic's prior-context URL check above applies
+only when Anthropic runs the fetch. On OpenRouter routes the
+allow-list is not a guarantee: the only effective protection is
+turning web tools **off**.
+
+**OpenAI-compatible endpoints.** skald strips server tools from
+requests to an OpenAI-compatible base URL, so web tools never run on
+that path whatever the setting says.
 
 **Mitigation summary:** leave web tools off unless you need them;
 when you do, set a domain allow-list and use Anthropic (not

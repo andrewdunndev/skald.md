@@ -43,6 +43,9 @@ Work toward the first public release (`0.1.0`).
   dead code, en route to a clean public repo.
 
 ### Security
-- `web_fetch` is being gated against prompt-injection exfiltration; note-body
+- `web_fetch` is gated against prompt-injection exfiltration: web tools are
+  off by default, and an optional domain allow-list is enforced server-side by
+  Anthropic and forwarded to OpenRouter, where enforcement depends on the
+  fetch engine ([security model](docs/security-model.md)); note-body
   context is delimiter-escaped; the OpenAI base URL is restricted to HTTPS
   (loopback excepted); logs redact key-shaped values.
