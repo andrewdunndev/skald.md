@@ -93,8 +93,7 @@ goal is "one config, all devices."
 
 Obsidian Sync is end-to-end encrypted between your devices (with the
 sync password). Plugin data never leaves that E2EE channel in
-plaintext, and it carries no API key. See `docs/security-model.md` for the
-honest framing of what this means in practice.
+plaintext, and it carries no API key. See `docs/security-model.md`.
 
 ## Update
 

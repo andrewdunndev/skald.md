@@ -8,10 +8,7 @@ GitHub ([andrewdunndev/skald.md](https://github.com/andrewdunndev/skald.md)) is 
 
 ## The roadmap
 
-Lives as GitLab issues on the [project board](https://gitlab.com/dunn.dev/skald.md/-/boards), organized in two tiers:
-
-- **Tier 1 -- plugin**: native Obsidian plugin, BYO API key, runs on-device including mobile. This is v1, shipping.
-- **Tier 2 -- agent-host**: persistent headless companion (`claude -p` / Claude Agent SDK) the phone connects to. Marked **exploring, no dates**.
+Lives as GitLab issues on the [project board](https://gitlab.com/dunn.dev/skald.md/-/boards).
 
 Labels in use: `roadmap`, `accepted`, `exploring`.
 

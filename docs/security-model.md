@@ -186,18 +186,3 @@ web_fetch server tools are translated to OpenRouter's equivalents
 works uniformly across providers. These run on OpenRouter's
 infrastructure (Exa as the default search engine) rather than
 Anthropic's -- the data trade-off is the same as above.
-
-## Honest README framing
-
-If you write about skald publicly:
-
-- OK: "encrypted at rest between your devices, audited in transit,
-  minimized in flight"
-- OK: "your prompts go to Anthropic; nothing else stores or reads them"
-- OK: "BYO key -- no skald-side account or backend"
-- Not OK: "end-to-end encrypted"
-- Not OK: "private chat that nobody else can read"
-- Not OK: "your data never leaves your device"
-
-Anyone evaluating LLM clients for privacy will rightly call out
-overclaims. Be the honest one.

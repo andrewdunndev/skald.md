@@ -29,14 +29,9 @@ In practice the two-mode design worked against the product:
   reindex button that only works in one mode, and capture settings that
   silently change behavior by mode all surfaced to every user, most of
   whom will never run a Worker.
-- **It is the wrong substrate for the heavy path.** The genuinely heavy
-  capabilities we want next (off-device key, continuous background
-  indexing, longer agentic runs, local models) need a persistent agent
-  runtime, not a thin edge relay. That direction is the agent-host tier
-  (see [ADR 0008](0008-agent-host-tier.md)), which is a self-hosted
-  daemon on the Claude Agent SDK / `claude -p`, not a Cloudflare Worker.
-  Keeping the Worker as the "power tier" pointed users at a dead-end
-  branch.
+- **It is the wrong substrate for the heavy path.** Heavier
+  capabilities (continuous background indexing, longer agentic runs)
+  need a persistent agent runtime, not a thin edge relay.
 - **It is a maintenance and lock-in cost.** A 35-file Worker package, a
   second transport, provider dispatch duplicated across plugin and
   worker, and a mode-capability seam threaded through ~20 plugin files,
@@ -58,9 +53,7 @@ Concretely:
   transport (it still implements the `SkaldTransport` interface so a
   future transport can be added cleanly).
 - Remove the connection-mode seam (`mode-capabilities.ts`,
-  `ConnectionMode`, the connection-mode and worker settings + UI). It
-  will be reintroduced, designed for purpose, when the agent-host tier
-  is real.
+  `ConnectionMode`, the connection-mode and worker settings + UI). 
 - Remove the Worker-only features: `find_related` (semantic search via
   Vectorize), vault reindexing, capture auto-routing, and the
   key-as-Worker-secret option.
@@ -74,8 +67,7 @@ Concretely:
   the Omnisearch plugin is present, a case-insensitive substring scan
   otherwise, and an LLM reranker (Haiku-tier) over the candidates.
   Search still works; it is lexical + reranked rather than vector-based.
-  Returning real semantic recall is a roadmap item, to be delivered
-  either on-device or via the agent-host tier.
+ 
 - **Capture auto-routing.** Shared items always land in the captures
   folder (the inbox). This was already the direct-mode behavior.
 - **Key-off-device.** The API key lives on the device, in Obsidian's
@@ -109,6 +101,5 @@ Concretely:
 
 ## References
 
-- [ADR 0008: Agent-host tier for the heavy path](0008-agent-host-tier.md)
 - `DEVIATIONS.md` -- "architecture: direct-mode pivot"
 - `docs/security-model.md` -- direct-mode trust model and the spend-limit mitigation

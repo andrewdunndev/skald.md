@@ -3,7 +3,6 @@
 # skald
 
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
-[![status](https://img.shields.io/badge/status-pre--release-yellow)](CHANGELOG.md)
 
 **Mobile-first AI companion for Obsidian. Install the plugin, add your
 API key, chat. No server to deploy, nothing to host.**
@@ -11,16 +10,23 @@ API key, chat. No server to deploy, nothing to host.**
 skald is a Claude client that lives where you write. It streams
 responses from Anthropic, OpenRouter, or any OpenAI-compatible
 endpoint directly -- no relay, no shared backend, no account beyond
-your provider key. Reads and writes
-your vault under explicit user approval. Searches the web inline.
-Conversations save back into your vault as markdown. Optional
-[share-sheet capture](docs/share-sheet-capture.md) turns text you
-share on iOS into a vault note.
+your provider key. Conversations save back into your vault as markdown.
 
-> **Status:** pre-release. Feature-complete for v1 -- direct mode,
-> multi-provider (Anthropic, OpenRouter, OpenAI-compatible), vault tools with approval,
-> vault-as-memory, share-sheet capture. Awaiting the final on-device
-> test pass. Not yet listed in the Obsidian community plugins directory.
+<!-- screenshots -->
+
+## Features
+
+- **Commands:** Open chat, Search conversations, Run slash command.
+- **Vault tools:** read, search and edit notes; every write waits for
+  your approval on a diff card.
+- **Capture:** optional, off by default;
+  [share-sheet capture](docs/share-sheet-capture.md) turns text you
+  share on iOS into a vault note.
+- **Memory upkeep:** optional long-term memory note Claude keeps up to
+  date, off by default.
+- **Conversation search:** find past chats saved in your vault.
+- **Providers:** Anthropic, OpenRouter, or any OpenAI-compatible
+  endpoint, switchable per conversation.
 
 > **Project home:** Skald is developed on **GitLab**
 > ([dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md)) -- CI, code review,
@@ -35,7 +41,7 @@ Architecture decisions are recorded in [`docs/adr/`](docs/adr/).
 
 ### 1. Install the plugin
 
-**BRAT (recommended while pre-release).** Install
+**BRAT.** Install
 [BRAT](https://github.com/TfTHacker/obsidian42-brat), run **BRAT: Add a
 beta plugin for testing**, and enter `andrewdunndev/skald.md`. BRAT
 installs the latest release and keeps it updated.
@@ -58,8 +64,8 @@ Open Obsidian -> Settings -> Skald. The four core settings:
    your OpenRouter / OpenAI-compatible key, plus the base URL); it
    stays in Obsidian's secret storage on this device
 3. **Default model** -- `claude-sonnet-5-5` pre-filled
-4. **Memory** -- toggle on to keep a long-term memory note across
-   sessions
+4. **Memory** -- off by default; toggle on to keep a long-term memory
+   note across sessions
 
 Everything else (vault folders, personas, slash commands, capture
 settings) is behind an **Advanced** expander and has safe defaults.
@@ -72,13 +78,10 @@ stream in.
 
 ## What it is
 
-**`packages/plugin/`** is the Obsidian community plugin. Chat pane,
-markdown-rendered messages (mermaid, tables, math, internal links),
-diff-card approval for vault edits, server-side web search,
-per-conversation Anthropic / OpenRouter / OpenAI-compatible provider switching,
-a long-term memory note Claude can read and propose updates to,
-and token-economy controls (prompt caching, history + tool-result
-compaction) so a direct-to-API chat stays cheap.
+An Obsidian community plugin: chat pane, markdown-rendered messages
+(mermaid, tables, math, internal links), diff-card approval for vault
+edits, and token-economy controls (prompt caching, history and
+tool-result compaction) so a direct-to-API chat stays cheap.
 
 How Skald keeps your token spend down -- caching, windowing, and
 tool-result compaction -- is documented in
@@ -86,7 +89,7 @@ tool-result compaction -- is documented in
 
 ## Optional companions
 
-- Install **[Omnisearch](https://github.com/scambier/obsidian-omnisearch)** for ranked vault search -- skald uses its BM25 results automatically when it's present, falling back to a substring scan otherwise. Omnisearch is load-bearing for vault search quality; install it.
+- **[Omnisearch](https://github.com/scambier/obsidian-omnisearch)** (optional) gives ranked vault search. Skald uses its BM25 results when present and falls back to a substring scan otherwise.
 
 ## Architecture
 
@@ -103,10 +106,6 @@ user approval via diff card. Server-side tools (`web_search`,
 `web_fetch`) run on the provider's infrastructure and are off by
 default ([security model](docs/security-model.md)). One mode, no seams.
 
-> **On the horizon:** the future heavy path is a self-hosted headless
-> agent-host (`claude -p` / Claude Agent SDK) the phone connects to.
-> Exploring, no dates. See [`docs/adr/0008-agent-host-tier.md`](docs/adr/0008-agent-host-tier.md).
-
 ## Network use and privacy
 
 - **Account required.** Skald needs an API key or account with at least
@@ -114,9 +113,9 @@ default ([security model](docs/security-model.md)). One mode, no seams.
 - **Remote services contacted**, only to run your chats and only with
   the provider you select:
   - Anthropic (`api.anthropic.com`) -- chat, tool use, and the
-    provider-side `web_search` / `web_fetch` server tools, which run on
-    Anthropic's infrastructure.
-  - OpenRouter (`openrouter.ai`) -- chat and web search when selected;
+    provider-side `web_search` / `web_fetch` server tools, only if you
+    turn them on.
+  - OpenRouter (`openrouter.ai`) -- chat, and web search if enabled;
     the public model catalog (`/api/v1/models`, no key sent) populates
     the model picker.
   - A user-configured OpenAI-compatible endpoint -- chat only, at the

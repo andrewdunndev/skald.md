@@ -4,13 +4,6 @@
 
 ### Why now
 
-### Tier
-
-<!-- Check one:
-- [ ] Tier 1 -- plugin (on-device, token model)
-- [ ] Tier 2 -- agent-host (headless, exploring)
--->
-
 ### Acceptance criteria
 
 - [ ]
