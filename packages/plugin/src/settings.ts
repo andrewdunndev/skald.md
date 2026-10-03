@@ -152,8 +152,8 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   openaiApiKey: '',
   openaiBaseUrl: '',
   openaiModel: '',
-  defaultModel: 'claude-sonnet-4-6',
-  openrouterModel: 'anthropic/claude-sonnet-4-6',
+  defaultModel: 'claude-sonnet-5-5',
+  openrouterModel: 'anthropic/claude-sonnet-5-5',
   // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
   utilityModel: '',
   harnessFolder: '.claude',
