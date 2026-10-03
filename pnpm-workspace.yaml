@@ -3,6 +3,9 @@ packages:
 allowBuilds:
   esbuild: true
   sharp: true
+  classic-level: false
+  edgedriver: false
+  geckodriver: false
 # vitest 4.1.9 hard-requires vite ^6||^7||^8 (dependencies AND peerDependencies),
 # but the lockfile carried over a stale vite@5.4.21 transitive resolution from
 # the vitest 3.x era that pnpm didn't re-validate on a specifier-only bump.

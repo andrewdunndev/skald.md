@@ -1,9 +1,10 @@
 # skald CI
 #
-# Two stages: test (typecheck, unit tests, plugin-lint across the
-# workspace) and build (compile the Obsidian plugin). No deployment from CI —
-# the plugin ships via BRAT + the community plugins directory (manual release
-# cuts for now).
+# Three stages: test (typecheck, unit tests, plugin-lint across the
+# workspace), build (compile the Obsidian plugin) and e2e (the built plugin
+# driven inside real desktop Obsidian, plus the live-provider smoke). No
+# deployment from CI — the plugin ships via BRAT + the community plugins
+# directory (manual release cuts for now).
 #
 # Caches the pnpm store keyed on the lockfile so subsequent runs reuse
 # the resolution work.
@@ -47,6 +48,7 @@ default:
 stages:
   - test
   - build
+  - e2e
 
 typecheck:
   stage: test
@@ -112,3 +114,62 @@ build-plugin:
     paths:
       - packages/plugin/dist/
     expire_in: 2 weeks
+
+# wdio-obsidian-service drives the pinned Obsidian app (version pinned in
+# packages/e2e/wdio.conf.mts) against the fixture vault: desktop, then the
+# same scenes with emulateMobile at 390x844, against a local mock provider.
+# Obsidian is an Electron app, so the job installs the X server, a window
+# manager (some Obsidian features need one) and Electron's shared libraries,
+# then runs under Xvfb. The downloaded Obsidian lives in .obsidian-cache/,
+# cached on the pinned versions.
+e2e-obsidian:
+  stage: e2e
+  needs: ['build-plugin']
+  timeout: 30m
+  cache:
+    - key:
+        files:
+          - pnpm-lock.yaml
+      paths:
+        - .pnpm-store/
+    - key:
+        files:
+          - packages/e2e/wdio.conf.mts
+      paths:
+        - .obsidian-cache/
+  before_script:
+    - npm install -g pnpm@11.1.1
+    - pnpm config set store-dir .pnpm-store
+    - pnpm install --frozen-lockfile
+    - dnf install -y --setopt=install_weak_deps=False xorg-x11-server-Xvfb herbstluftwm xdotool gtk3 nss alsa-lib libXScrnSaver libXtst at-spi2-core mesa-libgbm libdrm cups-libs xdg-utils
+  script:
+    - export DISPLAY=:99
+    - Xvfb "$DISPLAY" -screen 0 1280x1024x24 +extension GLX -noreset &
+    - sleep 1
+    - herbstluftwm &
+    - sleep 1
+    - pnpm --filter @skald/e2e test
+  artifacts:
+    when: always
+    paths:
+      - packages/e2e/out/
+    expire_in: 2 weeks
+
+# One tiny streamed request per provider against the real API (cheapest model,
+# max_tokens 20). Each provider skips itself when its masked CI variable is
+# unset (SKALD_SMOKE_ANTHROPIC_KEY, SKALD_SMOKE_OPENROUTER_KEY,
+# SKALD_SMOKE_OPENAI_KEY + SKALD_SMOKE_OPENAI_BASE_URL). Default-branch and
+# scheduled pipelines only: merge-request pipelines never spend tokens. The
+# script is plain node, so it skips the pnpm install.
+smoke-live:
+  stage: e2e
+  needs: []
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  cache: []
+  before_script: []
+  script:
+    - node scripts/smoke-live.mjs

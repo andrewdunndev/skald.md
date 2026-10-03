@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "types": ["node", "mocha", "@wdio/globals/types", "@wdio/mocha-framework", "wdio-obsidian-service"],
+    "noEmit": true,
+    "declaration": false,
+    "incremental": false
+  },
+  "include": ["specs/**/*", "lib/**/*", "wdio.conf.mts"]
+}

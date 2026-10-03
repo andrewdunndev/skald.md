@@ -1,0 +1,23 @@
+{
+  "name": "@skald/e2e",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "wdio run ./wdio.conf.mts",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@skald/protocol": "workspace:*",
+    "@types/mocha": "10.0.10",
+    "@types/node": "24.19.0",
+    "@wdio/cli": "9.32.0",
+    "@wdio/globals": "9.31.3",
+    "@wdio/local-runner": "9.32.0",
+    "@wdio/mocha-framework": "9.32.0",
+    "obsidian": "1.13.1",
+    "wdio-obsidian-reporter": "3.2.1",
+    "wdio-obsidian-service": "3.2.1",
+    "webdriverio": "9.32.0"
+  }
+}
