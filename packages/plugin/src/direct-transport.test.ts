@@ -315,7 +315,9 @@ describe('DirectTransport: OpenRouter dispatch', () => {
     await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
     const [, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     const body = JSON.parse(init.body as string);
-    expect(body.tools).toEqual([{ type: 'openrouter:web_search' }]);
+    expect(body.tools).toEqual([
+      { type: 'openrouter:web_search', parameters: { max_uses: 5 } },
+    ]);
   });
 });
 

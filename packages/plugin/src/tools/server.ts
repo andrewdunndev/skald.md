@@ -7,7 +7,8 @@ import type { ToolDefinition } from '@skald/protocol';
  * content blocks. The plugin doesn't dispatch them through executeTool.
  *
  * max_uses bounds runaway cost (web_search is ~$0.01/search per
- * Anthropic pricing; 5 caps a turn at ~$0.05).
+ * Anthropic pricing). It caps one API request at 5 uses, not a whole
+ * turn: a turn of N tool steps can make N requests.
  *
  * SECURITY — web_fetch is a prompt-injection exfiltration channel.
  * skald reads vault notes into the model context, and web_fetch lets
