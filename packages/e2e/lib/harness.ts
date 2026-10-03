@@ -24,7 +24,10 @@ export async function openChat(): Promise<void> {
   await $('.skald-input').waitForExist();
 }
 
-/** Brings the chat leaf back into view; on mobile, opening a note closes the sidebar drawer that hosts it. */
+/**
+ * Brings the chat leaf back into view the way a user does, through activateView alone;
+ * on mobile, opening a note closes the drawer that hosts it, so this asserts the plugin reopens it.
+ */
 export async function revealChat(): Promise<void> {
   const probe = () =>
     browser.executeObsidian(({ app }) => {
@@ -38,10 +41,8 @@ export async function revealChat(): Promise<void> {
         innerW: window.innerWidth,
       };
     });
-  await browser.executeObsidian(async ({ app, plugins }) => {
+  await browser.executeObsidian(async ({ plugins }) => {
     await (plugins.skald as any).activateView();
-    const right: any = app.workspace.rightSplit;
-    if (right?.collapsed) right.expand();
   });
   try {
     await $('.skald-input').waitForDisplayed({ timeout: 8000 });
