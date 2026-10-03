@@ -167,6 +167,11 @@ premature.
 
 ## Phase E: Polish + edge cases (10 min)
 
+### Open a note, then Open skald `[iOS]`
+- [ ] Open any note from the file list, then run "Open skald".
+      Verify the chat appears and the active-note chip names the
+      note. (The e2e scene skips on emulated mobile; cause unknown.)
+
 ### Reconnect `[iOS]`
 - [ ] Background Obsidian for 30s. Foreground. Verify
       auto-reconnect succeeds within ~1s + status row reads

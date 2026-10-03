@@ -34,6 +34,15 @@ export async function revealChat(): Promise<void> {
       const leaf = app.workspace.getLeavesOfType('skald-chat')[0];
       const input = document.querySelector('.skald-input') as HTMLElement | null;
       const r = input?.getBoundingClientRect();
+      // Walk from the leaf container to body, compactly: tag.class display/visibility/transform WxH.
+      const ancestors: string[] = [];
+      for (let el = leaf?.view.containerEl as HTMLElement | null; el; el = el.parentElement) {
+        const cs = getComputedStyle(el);
+        const b = el.getBoundingClientRect();
+        ancestors.push(
+          `${el.tagName.toLowerCase()}.${String(el.className).slice(0, 60)} ${cs.display}/${cs.visibility}/${cs.transform === 'none' ? '-' : cs.transform.slice(0, 30)} ${Math.round(b.width)}x${Math.round(b.height)}`,
+        );
+      }
       return {
         hasLeaf: !!leaf,
         collapsed: (app.workspace.rightSplit as any)?.collapsed,
@@ -43,8 +52,9 @@ export async function revealChat(): Promise<void> {
         leafShown: leaf ? (leaf.view.containerEl as HTMLElement).isShown() : null,
         leafCount: app.workspace.getLeavesOfType('skald-chat').length,
         activeViewType: (app.workspace as any).activeLeaf?.view?.getViewType?.(),
-        drawerActiveTab: (app.workspace.rightSplit as any)?.children?.map?.((c: any) => c.children?.map?.((l: any) => l.view?.getViewType?.())),
         drawerCurrentTab: (app.workspace.rightSplit as any)?.currentTab,
+        rightSplitClasses: ((app.workspace.rightSplit as any)?.containerEl?.className ?? '').slice(0, 60),
+        chain: ancestors,
       };
     });
   await browser.executeObsidian(async ({ plugins }) => {
@@ -53,7 +63,7 @@ export async function revealChat(): Promise<void> {
   try {
     await $('.skald-input').waitForDisplayed({ timeout: 8000 });
   } catch {
-    const state = JSON.stringify(await probe());
+    const state = JSON.stringify(await probe()).slice(0, 1500);
     await shot('99-reveal-failed');
     throw new Error(`chat pane not visible after reveal: ${state}`);
   }
@@ -103,4 +113,13 @@ export async function sendFromComposer(text: string): Promise<void> {
 
 export async function readVaultFile(p: string): Promise<string> {
   return (await browser.executeObsidian(async ({ app }, file) => app.vault.adapter.read(file), p)) as string;
+}
+
+/** Drops every chat leaf and opens a fresh one, for scenes that must not inherit a stuck layout. */
+export async function reopenChatFresh(): Promise<void> {
+  await browser.executeObsidian(({ app }) => {
+    app.workspace.detachLeavesOfType('skald-chat');
+  });
+  await openChat();
+  await $('.skald-input').waitForDisplayed({ timeoutMsg: 'chat pane not visible after fresh open' });
 }
