@@ -30,26 +30,36 @@ export function rewriteOpenRouterTools(req: ChatRequest): ChatRequest {
       return { type: OR_WEB_SEARCH };
     }
     if (type && ANTHROPIC_WEB_FETCH_TYPES.includes(type)) {
-      // SECURITY: carry the web_fetch domain guard through the rewrite.
-      // OpenRouter does not currently enforce Anthropic's allowed_domains
-      // / blocked_domains, so on OpenRouter routes the allow-list is NOT
-      // a guarantee — the off-by-default gate (webToolsEnabled) is the
-      // load-bearing exfiltration defense there. We still forward the
-      // fields so the restriction takes effect if/when OpenRouter honors
-      // them, rather than silently dropping the operator's intent.
-      const src = t as Record<string, unknown>;
-      const rewritten: Record<string, unknown> = { type: OR_WEB_FETCH };
-      if (Array.isArray(src.allowed_domains)) {
-        rewritten.allowed_domains = src.allowed_domains;
-      }
-      if (Array.isArray(src.blocked_domains)) {
-        rewritten.blocked_domains = src.blocked_domains;
-      }
-      return rewritten;
+      return rewriteWebFetch(t as Record<string, unknown>);
     }
     return t;
   });
   return { ...req, tools };
+}
+
+/**
+ * Rewrite an Anthropic web_fetch definition to `openrouter:web_fetch`.
+ *
+ * SECURITY: the domain guard and the fetch cap travel in OpenRouter's
+ * nested `parameters` object, the only place OpenRouter reads them.
+ * OpenRouter enforces `allowed_domains` / `blocked_domains` on its
+ * exa, parallel, firecrawl and openrouter engines; the default `auto`
+ * engine uses the model provider's native fetch where one exists, and
+ * native domain filtering varies by provider. On OpenRouter routes the
+ * off-by-default gate (webToolsEnabled) stays the load-bearing defense.
+ */
+function rewriteWebFetch(src: Record<string, unknown>): Record<string, unknown> {
+  const parameters: Record<string, unknown> = {};
+  if (typeof src.max_uses === 'number') parameters.max_uses = src.max_uses;
+  if (Array.isArray(src.allowed_domains)) {
+    parameters.allowed_domains = src.allowed_domains;
+  }
+  if (Array.isArray(src.blocked_domains)) {
+    parameters.blocked_domains = src.blocked_domains;
+  }
+  return Object.keys(parameters).length > 0
+    ? { type: OR_WEB_FETCH, parameters }
+    : { type: OR_WEB_FETCH };
 }
 
 /** Translate an inbound OpenRouter streaming event back to Anthropic shape. */

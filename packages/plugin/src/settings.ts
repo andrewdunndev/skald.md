@@ -134,9 +134,10 @@ export interface SkaldSettings {
    * webFetchAllowedDomains: when web tools are on, restrict web_fetch to
    *   these domains via Anthropic's native server-side `allowed_domains`
    *   parameter (Anthropic enforces it; defense-in-depth on top of the
-   *   on/off gate). Empty = no domain restriction. NOTE: OpenRouter does
-   *   not currently enforce this list — on OpenRouter routes the on/off
-   *   gate is the load-bearing defense. See docs/security-model.md.
+   *   on/off gate). Empty = no domain restriction. NOTE: OpenRouter is
+   *   not guaranteed to enforce this list (it depends on the fetch engine
+   *   OpenRouter picks), so there the on/off gate is the load-bearing
+   *   defense. See docs/security-model.md.
    */
   webToolsEnabled: boolean;
   webFetchAllowedDomains: string[];
@@ -284,7 +285,7 @@ function renderWebToolsSection(
       '(e.g. en.wikipedia.org, docs.anthropic.com). Enforced server-side by ' +
       'Anthropic. Leave empty for the unrestricted "allow" mode — web fetch ' +
       'may then reach ANY URL; choose this only if you accept the ' +
-      'exfiltration risk yourself. Note: OpenRouter does not enforce this ' +
+      'exfiltration risk yourself. Note: OpenRouter may not enforce this ' +
       'list; on OpenRouter the only protection is turning web tools off entirely.',
     )
     .addTextArea((ta) => {
