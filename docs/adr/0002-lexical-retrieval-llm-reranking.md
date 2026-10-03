@@ -8,7 +8,7 @@
 
 Retrieval quality is the core accuracy lever. A chat that cannot find
 the right note answers confidently and wrongly. The motivating failure
-was a real one: "what is Alasdair's current shoe size" returned a poor
+was a real one: "what is the Garden project's current budget" returned a poor
 answer because the assistant never located the note holding it.
 
 The original architecture answered retrieval with **vector search**:
@@ -85,11 +85,8 @@ Retrieval is **lexical-first, then LLM-reranked**. No vector index.
   hard one.
 - **One extra cheap call per search**, gated to Anthropic + key present,
   soft-failing so search never breaks if the rerank call fails.
-- **True semantic recall remains a roadmap item**, to be delivered
-  either by on-device embeddings or by the agent-host tier
-  ([ADR 0008](0008-agent-host-tier.md)), where maintaining an index is
-  appropriate. The reranker approach does not foreclose adding vectors
-  later as one more candidate source feeding the same reranker.
+- **No semantic (vector) recall.** The reranker approach does not
+  foreclose adding vectors later as one more candidate source.
 
 ## Alternatives considered
 
@@ -105,6 +102,5 @@ Retrieval is **lexical-first, then LLM-reranked**. No vector index.
 ## References
 
 - [ADR 0001: Direct mode over the Cloudflare Worker](0001-direct-mode-over-cloudflare-worker.md)
-- [ADR 0008: Agent-host tier for the heavy path](0008-agent-host-tier.md)
 - `tools/rerank.ts` (`rerankCandidates`), `tools/read.ts` (`runSearchVault`)
 - `view/vault-map.ts`, `view/skald-baseline.ts` (folder-first / graph-first routing)

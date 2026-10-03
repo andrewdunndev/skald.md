@@ -6,7 +6,7 @@
  * happy path, and on a parse miss the fallback opens the note instead.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { Message, Usage } from '@skald/protocol';
+import type { Message, Usage } from '../protocol';
 import type { TFile } from 'obsidian';
 import { resumeConversation, type ResumeContext } from './resume-conversation';
 import { ChatSession } from '../chat-session';
@@ -84,7 +84,7 @@ function makeCtx(opts: {
     getTransport: () => ({ close: vi.fn() }),
     setTransport: vi.fn(),
     setSession: vi.fn(() => { session = null; }),
-    usageFooterEl: { style: {}, setText: vi.fn() } as unknown as HTMLDivElement,
+    usageFooterEl: { addClass: vi.fn(), removeClass: vi.fn(), setText: vi.fn() } as unknown as HTMLDivElement,
     onPreClear: vi.fn(),
     liveSession: () => session,
   } as unknown as ResumeContext & { liveSession: () => unknown };

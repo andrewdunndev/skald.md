@@ -20,6 +20,10 @@ export interface FriendlyError {
 export const NETWORK_ERROR_MESSAGE =
   'Lost the connection — check your network and resend.';
 
+/** A fetch that never got a response from an OpenAI-compatible endpoint. */
+export const ENDPOINT_UNREACHABLE_MESSAGE =
+  "Couldn't reach the endpoint. Check the URL, or that it allows browser requests (CORS).";
+
 /**
  * Friendly message + retryable flag for a non-OK HTTP status.
  * 429 / 5xx / network are retryable; 4xx (auth, bad request) are not.

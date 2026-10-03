@@ -4,14 +4,14 @@
  * so this guard is the last line of defense against a model-emitted traversal
  * path. The robustness audit found it had ZERO direct tests and that deleting
  * the `..` guard left the whole suite green (a surviving mutation). These tests
- * close that hole: removing the `..` check (context.ts:77) MUST make the
+ * close that hole: removing the dot-segment check MUST make the
  * "rejects traversal" cases below fail.
  */
 import { describe, expect, it } from 'vitest';
-import { safePath } from './context';
+import { safeNotePath, safePath } from './context';
 
 describe('safePath — traversal rejection (mutation-critical)', () => {
-  // If the `..` guard is removed, every one of these returns a non-null path
+  // If the dot-segment guard is removed, every one of these returns a non-null path
   // and these assertions fail. That is the point.
   it.each([
     ['../secret', '../secret'],
@@ -55,4 +55,32 @@ describe('safePath — absolute paths are neutralized to vault-relative (not esc
   it('strips the leading slash, keeping the path inside the vault', () => {
     expect(safePath('/etc/passwd')).toBe('etc/passwd');
   });
+});
+
+describe('safePath — hidden segments are rejected', () => {
+  it.each([
+    '.obsidian/plugins/x/main.js',
+    '.obsidian/community-plugins.json',
+    'notes/.trash/a.md',
+    '.hidden.md',
+    'a/./b.md',
+  ])('rejects %s', (input) => {
+    expect(safePath(input)).toBeNull();
+  });
+
+  it('allows dots inside a segment name', () => {
+    expect(safePath('notes/v1.2..final.md')).toBe('notes/v1.2..final.md');
+  });
+});
+
+describe('safeNotePath — writes are .md only', () => {
+  it('accepts a markdown note', () => {
+    expect(safeNotePath('Projects/plan.md')).toBe('Projects/plan.md');
+  });
+  it.each(['main.js', 'data.json', 'board.canvas', 'notes', 'a.md.js', '.obsidian/x.md'])(
+    'rejects %s',
+    (input) => {
+      expect(safeNotePath(input)).toBeNull();
+    },
+  );
 });

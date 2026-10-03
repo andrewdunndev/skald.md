@@ -8,7 +8,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { rewriteOpenRouterTools } from './openrouter-translate';
-import type { ChatRequest } from '@skald/protocol';
+import type { ChatRequest } from './protocol';
 
 function baseReq(tools: ChatRequest['tools']): ChatRequest {
   return {
@@ -82,20 +82,6 @@ describe('rewriteOpenRouterTools', () => {
     ).toEqual({
       type: 'openrouter:web_fetch',
       parameters: { max_uses: 5, allowed_domains: [] },
-    });
-  });
-
-  it('nests blocked_domains under parameters', () => {
-    expect(
-      rewritten({
-        type: 'web_fetch_20250910',
-        name: 'web_fetch',
-        max_uses: 5,
-        blocked_domains: ['evil.example'],
-      }),
-    ).toEqual({
-      type: 'openrouter:web_fetch',
-      parameters: { max_uses: 5, blocked_domains: ['evil.example'] },
     });
   });
 

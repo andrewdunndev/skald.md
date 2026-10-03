@@ -4,12 +4,16 @@
  * cancel: aborts via AbortController.
  * Timeouts: REQUEST_TIMEOUT_MS to first byte; STREAM_IDLE_TIMEOUT_MS per chunk.
  */
-import type { ClientMessage, Provider, ServerMessage, Usage } from '@skald/protocol';
+import type { ClientMessage, Provider, ServerMessage, Usage } from './protocol';
 import type { SkaldTransport, TransportHandlers } from './transport-interface';
 import { SSEParser } from './sse-parser';
 import { applyAnthropicCaching } from './anthropic-caching';
 import { providerCapabilities } from './provider-capabilities';
-import { httpErrorMessage, NETWORK_ERROR_MESSAGE } from './direct-transport-errors';
+import {
+  ENDPOINT_UNREACHABLE_MESSAGE,
+  httpErrorMessage,
+  NETWORK_ERROR_MESSAGE,
+} from './direct-transport-errors';
 import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS, composeSignal } from './transport-timeouts';
 import { rewriteOpenRouterTools, translateOpenRouterEvent } from './openrouter-translate';
 import { buildOpenAiDispatch } from './openai-translate';
@@ -167,7 +171,8 @@ export class DirectTransport implements SkaldTransport {
         this.handlers.onMessage({
           type: 'error',
           id,
-          error: NETWORK_ERROR_MESSAGE,
+          error:
+            provider === 'openai' ? ENDPOINT_UNREACHABLE_MESSAGE : NETWORK_ERROR_MESSAGE,
           retryable: true,
         });
       }
@@ -215,12 +220,12 @@ export class DirectTransport implements SkaldTransport {
     let usage: Usage = { input_tokens: 0, output_tokens: 0 };
 
     let idleTimedOut = false;
-    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let idleTimer: number | undefined;
     const resetIdle = () => {
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => { idleTimedOut = true; reader.cancel().catch(() => {}); }, STREAM_IDLE_TIMEOUT_MS);
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { idleTimedOut = true; reader.cancel().catch(() => {}); }, STREAM_IDLE_TIMEOUT_MS);
     };
-    const stopIdle = () => clearTimeout(idleTimer);
+    const stopIdle = () => window.clearTimeout(idleTimer);
     resetIdle();
 
     try {
@@ -319,7 +324,7 @@ export type TranslateEvent = (
 export interface DispatchContext {
   url: string;
   headers: Record<string, string>;
-  requestBody: import('@skald/protocol').ChatRequest;
+  requestBody: import('./protocol').ChatRequest;
   translateEvent: TranslateEvent;
   /** When true the pump sends all frames (including event-less ones) to
    *  translateEvent. When false (Anthropic/OpenRouter) frames without an
@@ -333,7 +338,7 @@ const THINKING_BUDGET_TOKENS = 8192;
 function buildDispatch(
   provider: Provider,
   apiKey: string,
-  req: import('@skald/protocol').ChatRequest,
+  req: import('./protocol').ChatRequest,
   thinkingEnabled: boolean,
   openAiBaseUrl?: string,
 ): DispatchContext {
@@ -375,7 +380,7 @@ function buildDispatch(
       'anthropic-dangerous-direct-browser-access': 'true',
       'content-type': 'application/json',
     },
-    requestBody: requestBody as import('@skald/protocol').ChatRequest,
+    requestBody: requestBody as import('./protocol').ChatRequest,
     translateEvent: wrapSingle(identityEvent),
     passEventlessFrames: false,
   };

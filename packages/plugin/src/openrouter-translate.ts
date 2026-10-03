@@ -10,7 +10,7 @@
  * Extracted from direct-transport.ts as a single named responsibility.
  */
 
-import type { ChatRequest } from '@skald/protocol';
+import type { ChatRequest } from './protocol';
 
 const ANTHROPIC_WEB_SEARCH_TYPES = ['web_search_20260209', 'web_search_20250305'];
 const ANTHROPIC_WEB_FETCH_TYPES = ['web_fetch_20260209', 'web_fetch_20250910'];
@@ -70,9 +70,6 @@ function rewriteWebFetch(src: Record<string, unknown>): Record<string, unknown> 
   if (Array.isArray(src.allowed_domains)) {
     parameters.allowed_domains = src.allowed_domains;
     if (src.allowed_domains.length > 0) parameters.engine = OR_FETCH_ENGINE;
-  }
-  if (Array.isArray(src.blocked_domains)) {
-    parameters.blocked_domains = src.blocked_domains;
   }
   return withParameters(OR_WEB_FETCH, parameters);
 }

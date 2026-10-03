@@ -15,13 +15,11 @@ endpoint; the internal `ChatRequest`, the SSE event model
 (`message_start` / `content_block_delta` / …), and the parser are all
 Anthropic-shaped. **There is no OpenAI-format code path in the plugin.**
 
-We want to run our own models on self-hosted GPUs (built alongside the
-othala/carmine work). The universal interface for self-hosting is the
+Users want to run their own models on self-hosted GPUs. The universal interface for self-hosting is the
 **OpenAI Chat Completions API** — vLLM, Ollama, LM Studio, llama.cpp, and
 TGI all speak it; almost nobody self-hosts Anthropic's wire format. This
 is the *direct-tier* expansion to local models reachable as a plain HTTP
-endpoint, distinct from (and reachable sooner than) the full persistent
-[agent-host in ADR 0008](0008-agent-host-tier.md).
+endpoint.
 
 Two architectures were considered:
 
@@ -68,8 +66,7 @@ for hard or agentic work, local for routine or sensitive notes.
 
 ### Serving-side contract (the requirements an endpoint must meet)
 
-This is the contract the self-hosted side (e.g. Envoy → vLLM/Ollama on
-carmine) must satisfy. It is recorded here so the plugin and the serving
+This is the contract the self-hosted side (e.g. a proxy in front of vLLM/Ollama) must satisfy. It is recorded here so the plugin and the serving
 deployment share one source of truth.
 
 1. **CORS is mandatory — the #1 silent failure.** Streaming uses browser
@@ -99,35 +96,6 @@ deployment share one source of truth.
 6. **Escape hatch.** If CORS is intractable on some deployment, the
    plugin can fall back to non-streaming via Obsidian's `requestUrl`
    (bypasses CORS, loses live streaming). Not the default; it exists.
-
-### Reference deployment (as built — `llm.dunn.dev`, 2026-06-22)
-
-The first concrete endpoint Skald integrates against. Topology:
-Skald → `https://llm.dunn.dev/v1` (envoy SNI → caddy → LiteLLM) → Ollama.
-Skald goes **direct to LiteLLM**, not through the human chat UI at
-`chat.dunn.dev` (Open WebUI).
-
-- **Endpoint:** `https://llm.dunn.dev/v1`, OpenAI-compatible (LiteLLM).
-  Edge is restricted to `/v1/*` + `/health`; `/ui` and `/key/*` are 404.
-- **Auth:** `Authorization: Bearer sk-...` — a LiteLLM *virtual key*
-  (operator-issued). Bearer is the only gate; no OIDC, no mTLS. Device-
-  trusted LE cert on its own FQDN (iOS trusts out of the box) — the
-  reason the API is *not* behind the private step-ca mesh.
-- **Model:** request the LiteLLM **alias** (`qwen2.5-14b`), not the Ollama
-  tag (`qwen2.5:14b-instruct`); `GET /v1/models` returns aliases. Default
-  Qwen2.5-14B-Instruct (strong tool-calling).
-- **Streaming:** SSE, unbuffered (`flush_interval -1`).
-- **Tool-calls — the non-obvious one:** LiteLLM **consolidates a tool
-  call into a single chunk** and drops the preamble text. The call
-  arrives *whole*, not as incremental `arguments` fragments. (See the
-  Consequences note — the robust accumulator handles this for free.)
-- **Timeouts:** cold model load 10–30s; server `request_timeout` 600s.
-  Expect a possible first-request 502 during LiteLLM cold-start.
-- **Metering:** per-virtual-key spend tracked server-side; Skald sends
-  nothing extra — identity is the key it holds.
-
-This is *one* deployment; the generic contract above still governs any
-self-hoster's endpoint (the public plugin's broader claim).
 
 ## Consequences
 
@@ -187,4 +155,3 @@ self-hoster's endpoint (the public plugin's broader claim).
 
 - [ADR 0001: Direct mode over the Cloudflare Worker](0001-direct-mode-over-cloudflare-worker.md)
 - [ADR 0005: Two-tier model cascade](0005-model-cascade.md)
-- [ADR 0008: Agent-host tier for the heavy path](0008-agent-host-tier.md)

@@ -17,7 +17,7 @@
  *      (e.g. 999_999_999) changes the spy-recorded argument and fails this assertion.
  */
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
-import type { ServerMessage } from '@skald/protocol';
+import type { ServerMessage } from './protocol';
 import * as timeoutsModule from './transport-timeouts';
 import { DirectTransport } from './direct-transport';
 

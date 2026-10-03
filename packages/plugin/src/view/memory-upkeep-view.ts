@@ -8,7 +8,7 @@
  */
 
 import { Notice, TFile, normalizePath, type App } from 'obsidian';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from '../protocol';
 import type { ApprovalManager } from '../approval-manager';
 import { proposeMemoryUpkeep } from '../memory-upkeep';
 import { utilityModel } from '../provider-capabilities';

@@ -15,7 +15,7 @@
  */
 
 import { App, PluginSettingTab, Setting } from 'obsidian';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 import type SkaldPlugin from './main';
 import { renderProviderSection } from './settings/provider';
 import { renderVaultSection } from './settings/vault';
@@ -52,17 +52,12 @@ export interface SkaldSettings {
    * Catalog ids are slash-namespaced: `anthropic/claude-...`,
    * `openai/...`, `meta-llama/...`, etc. */
   openrouterModel: string;
-  /**
-   * Utility model override for cheap tasks (rerank, future memory upkeep).
-   * // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
-   */
-  utilityModel?: string;
   harnessFolder: string;
   savedNotesFolder: string;
   chatsFolder: string;
   logsFolder: string;
   /**
-   * Phase 6: vault-as-memory.
+   * Vault-as-memory.
    * memoryEnabled: inject memoryPath contents into the system prompt
    *   at the start of every chat. Claude can read + (with approval)
    *   write to this note across sessions for long-term state.
@@ -72,24 +67,27 @@ export interface SkaldSettings {
   memoryEnabled: boolean;
   memoryPath: string;
   /**
-   * Phase 9b: personas.
+   * Personas.
    * activePersona: vault-relative path of the active persona note.
    *   Empty → no persona. The note's body (frontmatter stripped)
    *   prefixes the system prompt.
    */
   activePersona: string;
   /**
-   * Phase 9a: slash commands.
+   * Slash commands.
    * commandsFolder: where the user keeps slash-command notes.
    */
   commandsFolder: string;
   /**
-   * Phase 8: iOS share-sheet capture.
+   * Share-sheet capture.
+   * captureEnabled: whether the skald-capture link does anything. Off
+   *   by default: any app or page that can open obsidian:// links can
+   *   fire it, and it spends the key and writes a note unapproved.
    * capturesFolder: where captured notes land. Default Skald/Captures.
    * capturePromptPath: optional vault-relative path to a custom
-   *   prompt-template note. Empty → use the kind-default prompt
-   *   baked into the capture module.
+   *   prompt-template note. Empty → use the default capture prompt.
    */
+  captureEnabled: boolean;
   capturesFolder: string;
   capturePromptPath: string;
   /**
@@ -149,16 +147,15 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   openaiModel: '',
   defaultModel: 'claude-sonnet-5-5',
   openrouterModel: 'anthropic/claude-sonnet-5-5',
-  // empty → per-provider default; set to point the cheap/utility role at any model incl. a local one.
-  utilityModel: '',
   harnessFolder: '.claude',
   savedNotesFolder: 'Skald/Saved',
   chatsFolder: 'Skald/Chats',
   logsFolder: '',
-  memoryEnabled: true,
+  memoryEnabled: false,
   memoryPath: 'Skald/Memory.md',
   activePersona: '',
   commandsFolder: 'Skald/Commands',
+  captureEnabled: false,
   capturesFolder: 'Skald/Captures',
   capturePromptPath: '',
   startersPath: 'Skald/Starters.md',
@@ -208,19 +205,24 @@ export class SkaldSettingTab extends PluginSettingTab {
       renderPersonasSection(containerEl, this.plugin);
       renderCommandsSection(containerEl, this.plugin);
       renderCaptureSection(containerEl, this.plugin);
-      // Deep thinking toggle — capability-gated (Anthropic only).
-      new Setting(containerEl)
-        .setName('Deep thinking mode (slower, costs more)')
-        .setDesc(
-          'When on, Claude reasons step-by-step before responding (Anthropic only). ' +
-          'Thinking tokens count as output — budget is 8 192 tokens per turn.',
-        )
-        .addToggle((t) => {
-          t.setValue(this.plugin.settings.thinkingEnabled).onChange(async (v) => {
-            this.plugin.settings.thinkingEnabled = v;
-            await this.plugin.saveSettings();
+      // Thinking and web tools have no effect on OpenAI-compatible endpoints.
+      const toolsApply = this.plugin.settings.provider !== 'openai';
+
+      if (toolsApply) {
+        // Deep thinking toggle — capability-gated (Anthropic only).
+        new Setting(containerEl)
+          .setName('Deep thinking mode (slower, costs more)')
+          .setDesc(
+            'When on, Claude reasons step-by-step before responding (Anthropic only). ' +
+            'Thinking tokens count as output — budget is 8 192 tokens per turn.',
+          )
+          .addToggle((t) => {
+            t.setValue(this.plugin.settings.thinkingEnabled).onChange(async (v) => {
+              this.plugin.settings.thinkingEnabled = v;
+              await this.plugin.saveSettings();
+            });
           });
-        });
+      }
 
       // Tool-result compaction toggle.
       new Setting(containerEl)
@@ -239,7 +241,7 @@ export class SkaldSettingTab extends PluginSettingTab {
 
       // Web tools (web_search + web_fetch) — SECURITY-sensitive, off by
       // default. Toggling on re-renders so the allow-list field appears.
-      renderWebToolsSection(containerEl, this.plugin, redisplay);
+      if (toolsApply) renderWebToolsSection(containerEl, this.plugin, redisplay);
     }
   }
 }

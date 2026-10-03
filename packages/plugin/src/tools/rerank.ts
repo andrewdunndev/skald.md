@@ -2,10 +2,9 @@
  * LLM-as-reranker: reorder a candidate list by relevance to a query
  * using a cheap utility model as a ranking oracle.
  *
- * Uses the shared utilityComplete helper (utility-call.ts) so rerank
- * works on any provider that the helper supports, not just Anthropic.
- * Prompt-caching (1h TTL) is applied when the active provider supports
- * it — otherwise the system block is sent as a plain string.
+ * Calls the shared utilityComplete helper (utility-call.ts). Prompt
+ * caching (1h TTL) is applied when the active provider supports it;
+ * otherwise the system block is sent as a plain string.
  *
  * Soft-fail contract: on any error (no API key, bad JSON, network
  * failure), logs to console.warn and returns the original candidates
@@ -16,7 +15,7 @@
  * from provider-capabilities.ts — no hardcoded model name here.
  */
 
-import type { Provider } from '@skald/protocol';
+import type { Provider } from '../protocol';
 import { utilityComplete } from '../utility-call';
 
 const RERANK_SYSTEM = `You are a relevance ranker. Given a user query and a numbered list of candidate items, output a JSON array of indices (0-based) sorted from most relevant to least relevant. Output ONLY the JSON array, no other text. Example: [2,0,1]`;

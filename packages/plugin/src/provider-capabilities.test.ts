@@ -2,7 +2,7 @@
  * Tests for provider-capabilities.ts.
  *
  * providerCapabilities: exhaustive switch produces correct capability flags.
- * utilityModel: resolves provider defaults, respects settings override.
+ * utilityModel: resolves per-provider defaults.
  * reasoningModel: returns the correct model for each provider.
  *
  * Note: we do NOT import settings.ts here — it transitively pulls in
@@ -10,7 +10,7 @@
  * mock. Instead we inline the minimal SkaldSettings shape needed.
  */
 import { describe, expect, it } from 'vitest';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 import {
   providerCapabilities,
   utilityModel,
@@ -24,7 +24,6 @@ interface MinimalSettings {
   defaultModel: string;
   openrouterModel: string;
   openaiModel: string;
-  utilityModel?: string;
 }
 
 function makeSettings(overrides: Partial<MinimalSettings> = {}): MinimalSettings {
@@ -33,7 +32,6 @@ function makeSettings(overrides: Partial<MinimalSettings> = {}): MinimalSettings
     defaultModel: 'claude-sonnet-4-6',
     openrouterModel: 'anthropic/claude-sonnet-4-6',
     openaiModel: '',
-    utilityModel: '',
     ...overrides,
   };
 }
@@ -92,30 +90,22 @@ describe('providerCapabilities', () => {
 
 // ── utilityModel ──────────────────────────────────────────────────────────
 
-// The full provider × override matrix: a non-empty override always wins;
-// an empty override falls through to the per-provider default. The default
-// column differs by provider (bare vs namespaced), so a regression that
-// drops the override branch OR swaps a provider default fails its row.
-// Cast: our minimal stub satisfies the fields utilityModel() reads.
-describe('utilityModel: provider × override matrix', () => {
+describe('utilityModel: per-provider default', () => {
   it.each([
-    ['anthropic, no override → default', 'anthropic', '', 'claude-haiku-4-5'],
-    ['openrouter, no override → namespaced default', 'openrouter', '', 'anthropic/claude-haiku-4-5'],
-    ['anthropic, override wins', 'anthropic', 'my-local-model', 'my-local-model'],
-    ['openrouter, override wins', 'openrouter', 'meta-llama/llama-3-8b', 'meta-llama/llama-3-8b'],
-    ['openai, override wins', 'openai', 'qwen2.5-32b', 'qwen2.5-32b'],
-  ] as const)('%s', (_label, provider, override, expected) => {
-    const s = makeSettings({ provider, utilityModel: override });
+    ['anthropic', 'anthropic', 'claude-haiku-4-5'],
+    ['openrouter (namespaced)', 'openrouter', 'anthropic/claude-haiku-4-5'],
+  ] as const)('%s', (_label, provider, expected) => {
+    const s = makeSettings({ provider });
     expect(utilityModel(s as never)).toBe(expected);
   });
 
-  it('openai, no override → settings.openaiModel', () => {
-    const s = makeSettings({ provider: 'openai', openaiModel: 'qwen2.5-14b', utilityModel: '' });
+  it('openai → settings.openaiModel', () => {
+    const s = makeSettings({ provider: 'openai', openaiModel: 'qwen2.5-14b' });
     expect(utilityModel(s as never)).toBe('qwen2.5-14b');
   });
 
-  it('openai, no override and no openaiModel → empty string', () => {
-    const s = makeSettings({ provider: 'openai', openaiModel: '', utilityModel: '' });
+  it('openai with no openaiModel → empty string', () => {
+    const s = makeSettings({ provider: 'openai', openaiModel: '' });
     expect(utilityModel(s as never)).toBe('');
   });
 });

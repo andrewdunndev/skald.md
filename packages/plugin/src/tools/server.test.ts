@@ -7,7 +7,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { serverToolsForModel, applyWebFetchAllowlist } from './server';
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 
 function webFetchOf(tools: ReturnType<typeof serverToolsForModel>) {
   return tools.find((d) => (d as Record<string, unknown>).name === 'web_fetch') as
@@ -98,7 +98,6 @@ describe('serverToolsForModel — web_fetch domain guard', () => {
       allowedDomains: ['example.com'],
     });
     expect(webSearchOf(tools)?.allowed_domains).toBeUndefined();
-    expect(webSearchOf(tools)?.blocked_domains).toBeUndefined();
   });
 
   it('applies the guard to haiku pins too', () => {
@@ -126,23 +125,6 @@ describe('serverToolsForModel — web_fetch domain guard', () => {
       allowedDomains: ['', '   '],
     });
     expect(webFetchOf(tools)?.allowed_domains).toBeUndefined();
-  });
-
-  it('falls back to blocked_domains only when no allow-list is set', () => {
-    const tools = serverToolsForModel('claude-sonnet-4-6', {
-      blockedDomains: ['evil.example'],
-    });
-    expect(webFetchOf(tools)?.blocked_domains).toEqual(['evil.example']);
-    expect(webFetchOf(tools)?.allowed_domains).toBeUndefined();
-  });
-
-  it('never sends both allowed and blocked (allow-list wins — avoids a 400)', () => {
-    const tools = serverToolsForModel('claude-sonnet-4-6', {
-      allowedDomains: ['good.example'],
-      blockedDomains: ['evil.example'],
-    });
-    expect(webFetchOf(tools)?.allowed_domains).toEqual(['good.example']);
-    expect(webFetchOf(tools)?.blocked_domains).toBeUndefined();
   });
 });
 

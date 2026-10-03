@@ -18,7 +18,7 @@
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
-import type { ClientMessage, Message } from '@skald/protocol';
+import type { ClientMessage, Message } from './protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 import { executeTool } from './tools';
 import type { ApproveFn } from './tools/context';
@@ -50,6 +50,7 @@ function makeApp() {
       modify,
       createFolder: async () => {},
       getAbstractFileByPath_create: create,
+      adapter: { exists: async () => false },
     },
   } as unknown as App;
   return { app, create, modify };

@@ -1,12 +1,15 @@
 import {
   App,
   Component,
-  MarkdownRenderer,
   setIcon,
   type ItemView,
 } from 'obsidian';
-import type { Message } from '@skald/protocol';
-import { renderBlock, type BlockContext } from './block-renderer';
+import type { Message } from '../protocol';
+import {
+  renderBlock,
+  renderMarkdownInto,
+  type BlockContext,
+} from './block-renderer';
 import { renderMessageActions } from './message-actions';
 import { announceableText } from './live-region';
 import {
@@ -371,14 +374,7 @@ export class MessageList {
     if (typeof msg.content === 'string') {
       if (msg.content.trim()) {
         const wrap = row.body.createDiv({ cls: 'skald-text' });
-        wrap.addClass('markdown-rendered');
-        await MarkdownRenderer.render(
-          this.ctx.app,
-          msg.content,
-          wrap,
-          '',
-          row.component,
-        );
+        await renderMarkdownInto(wrap, msg.content, blockCtx);
       } else if (isInFlight) {
         renderTypingDots(row.body);
       }

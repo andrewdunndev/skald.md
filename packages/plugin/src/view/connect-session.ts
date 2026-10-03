@@ -6,7 +6,7 @@
  * OpenRouter directly via DirectTransport.
  */
 import type { App } from 'obsidian';
-import type { Provider, ServerMessage, Usage } from '@skald/protocol';
+import type { Provider, ServerMessage, Usage } from '../protocol';
 import type SkaldPlugin from '../main';
 import type { SkaldTransport, TransportHandlers } from '../transport-interface';
 import { DirectTransport } from '../direct-transport';
@@ -68,7 +68,7 @@ export function connectSession(
       if (ready) {
         cbs.setStatus('Connected', 'connected');
       } else {
-        cbs.setStatus('No API key — add it in Settings → Skald.');
+        cbs.setStatus('');
       }
     },
     onClose: (code: number, reason: string) => {

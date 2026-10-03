@@ -70,7 +70,7 @@ export async function resumeConversation(
 
   ctx.messageList.tearDown();
   ctx.dropSessionState();
-  ctx.usageFooterEl.style.display = 'none';
+  ctx.usageFooterEl.addClass('skald-hidden');
 
   ctx.getTransport()?.close();
   ctx.setTransport(null);
@@ -105,6 +105,6 @@ export async function resumeConversation(
       0, // session prior cost managed by view; footer shows chat cost here
     );
     ctx.usageFooterEl.setText(footerText);
-    ctx.usageFooterEl.style.display = '';
+    ctx.usageFooterEl.removeClass('skald-hidden');
   }
 }

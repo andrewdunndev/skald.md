@@ -14,7 +14,7 @@
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 import type { App } from 'obsidian';
 import { TFile } from '../../../tests/obsidian-mock';
-import type { Message } from '@skald/protocol';
+import type { Message } from './protocol';
 import {
   saveConversation,
   __resetConversationWriteCache,

@@ -18,7 +18,7 @@
  *      begins with tool_result blocks — that means we dropped the matching
  *      assistant tool_use without dropping the tool_result response.
  */
-import type { Message, ContentBlock } from '@skald/protocol';
+import type { Message, ContentBlock } from './protocol';
 
 /** Characters per token (conservative proxy). */
 const CHARS_PER_TOKEN = 4;

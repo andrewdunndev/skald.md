@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ServerMessage } from '@skald/protocol';
+import type { ServerMessage } from './protocol';
 import { DirectTransport } from './direct-transport';
 
 /**

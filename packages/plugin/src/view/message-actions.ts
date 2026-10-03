@@ -17,7 +17,8 @@ import {
   setTooltip,
   type App,
 } from 'obsidian';
-import type { Message } from '@skald/protocol';
+import type { Message } from '../protocol';
+import { neutralizeRemoteMedia } from '../remote-media';
 import {
   formatSummary,
   hasAnyAction,
@@ -100,7 +101,7 @@ async function copyMessage(
     // fired, btn.isConnected is false and we skip touching a stale
     // node — no setIcon on an orphaned element.
     setIcon(btn, 'check');
-    setTimeout(() => {
+    window.setTimeout(() => {
       if (btn.isConnected) setIcon(btn, 'copy');
     }, 1200);
   } catch {
@@ -108,7 +109,9 @@ async function copyMessage(
   }
 }
 
-async function saveAsNote(
+/** Save and append write the reply into a note Obsidian renders, so the
+ * text is guarded like the chat view. Copy keeps the raw text. */
+export async function saveAsNote(
   cfg: MessageActionsConfig,
   text: string,
 ): Promise<void> {
@@ -126,9 +129,9 @@ async function saveAsNote(
     // overwrite (or, on a strict vault, throw) and the note would be lost.
     // Probe for a free path, appending -2, -3, … on collision.
     const path = uniqueSavePath(cfg.app, folder, ts);
-    const created = await cfg.app.vault.create(path, text);
+    const created = await cfg.app.vault.create(path, neutralizeRemoteMedia(text));
     new Notice(`Saved to ${path}`);
-    cfg.app.workspace.openLinkText(created.path, '', false);
+    void cfg.app.workspace.openLinkText(created.path, '', false);
   } catch (err) {
     new Notice(
       `Save failed: ${err instanceof Error ? err.message : 'unknown'}`,
@@ -251,7 +254,7 @@ function renderVaultActionBadge(row: HTMLElement, msg: Message): void {
   badge.addClass('skald-vault-badge-active');
 }
 
-async function appendToCurrent(
+export async function appendToCurrent(
   cfg: MessageActionsConfig,
   text: string,
 ): Promise<void> {
@@ -266,7 +269,7 @@ async function appendToCurrent(
     // unsaved editor edits without clobbering them.
     await cfg.app.vault.process(file, (current) => {
       const sep = current.endsWith('\n') ? '\n' : '\n\n';
-      return current + sep + text;
+      return current + sep + neutralizeRemoteMedia(text);
     });
     new Notice(`Appended to ${file.basename}`);
   } catch (err) {

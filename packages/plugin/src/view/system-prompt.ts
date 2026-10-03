@@ -16,7 +16,7 @@
  */
 
 import { TFile, TFolder, normalizePath, type App } from 'obsidian';
-import type { SystemBlock } from '@skald/protocol';
+import type { SystemBlock } from '../protocol';
 import { buildMemorySection } from '../memory-prompt';
 import { buildPersonaSection } from '../persona-prompt';
 import { buildSkaldBaseline } from './skald-baseline';

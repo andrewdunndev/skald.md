@@ -7,7 +7,7 @@
  * those machine re-saves from clobbering a note the user hand-edited.
  */
 import { App, normalizePath, TFile } from 'obsidian';
-import type { Message } from '@skald/protocol';
+import type { Message } from './protocol';
 import {
   renderConversationMarkdown,
   slugify,

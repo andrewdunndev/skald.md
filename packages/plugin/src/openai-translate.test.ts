@@ -6,7 +6,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { requestBodyForOpenAI } from './openai-translate';
-import type { ChatRequest } from '@skald/protocol';
+import type { ChatRequest } from './protocol';
 
 // ── Fixtures ──────────────────────────────────────────────────────────────────
 

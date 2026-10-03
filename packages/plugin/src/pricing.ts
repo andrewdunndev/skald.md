@@ -44,7 +44,7 @@
  * OpenRouter dashboard).
  */
 
-import type { Usage } from '@skald/protocol';
+import type { Usage } from './protocol';
 
 export interface ModelPricing {
   /** Input tokens, $/M */

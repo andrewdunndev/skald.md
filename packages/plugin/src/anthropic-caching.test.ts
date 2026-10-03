@@ -5,7 +5,7 @@ import {
   COMPACTION_STUB,
   COMPACTION_TOKEN_THRESHOLD,
 } from './history-window';
-import type { ChatRequest, Message } from '@skald/protocol';
+import type { ChatRequest, Message } from './protocol';
 
 function baseReq(over: Partial<ChatRequest> = {}): ChatRequest {
   return {

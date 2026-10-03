@@ -12,7 +12,7 @@ import type {
   ChatRequest,
   ServerMessage,
   ToolDefinition,
-} from '@skald/protocol';
+} from './protocol';
 import { ChatSession, type ChatSessionHandlers } from './chat-session';
 
 interface RecordingTransport {

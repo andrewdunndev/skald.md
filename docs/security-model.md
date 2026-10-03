@@ -104,11 +104,16 @@ tools **off** so the channel is closed until you opt in.
 
 | Posture | What it does | Trade-off |
 |---|---|---|
-| **Off (default)** | `web_search` + `web_fetch` are never sent to the model. The channel does not exist. | The model can't browse or fetch URLs. |
-| **Allow-list** | Turn web tools on, then list the domains `web_fetch` may reach. Enforced **server-side** by Anthropic via its native `allowed_domains` parameter, or by OpenRouter's own fetch engine on OpenRouter routes. | The model can fetch only the domains you trust; an injected attacker URL is rejected before any data leaves. |
+| **Off (default)** | `web_search` + `web_fetch` are never sent to the model. | The model can't browse or fetch URLs. |
+| **Allow-list** | Turn web tools on, then list the domains `web_fetch` may reach. Enforced **server-side** by Anthropic via its native `allowed_domains` parameter, or by OpenRouter's own fetch engine on OpenRouter routes. | The model can fetch only the domains you trust; an injected attacker URL is rejected before any data leaves. `web_search` is not covered: its results still bring in untrusted text. |
 | **Open** | Turn web tools on with an empty allow-list. The model may fetch any URL that reaches the conversation, which in a vault-reading agent is no real limit. | Maximum capability, no exfiltration protection. Not recommended for vaults containing anything sensitive. |
 
 Configure these under **Settings -> Advanced -> Web tools**.
+
+A reply can also leak through what it renders: an image URL carrying
+your notes loads on display. In chat and in notes Skald saves or
+captures, remote images, raw HTML, plugin code blocks and MathJax
+styles show as links or plain text, so nothing loads unless you click.
 
 **OpenRouter caveat.** skald forwards the allow-list and the fetch cap
 to OpenRouter's `openrouter:web_fetch`. OpenRouter's default engine
@@ -181,18 +186,3 @@ web_fetch server tools are translated to OpenRouter's equivalents
 works uniformly across providers. These run on OpenRouter's
 infrastructure (Exa as the default search engine) rather than
 Anthropic's -- the data trade-off is the same as above.
-
-## Honest README framing
-
-If you write about skald publicly:
-
-- OK: "encrypted at rest between your devices, audited in transit,
-  minimized in flight"
-- OK: "your prompts go to Anthropic; nothing else stores or reads them"
-- OK: "BYO key -- no skald-side account or backend"
-- Not OK: "end-to-end encrypted"
-- Not OK: "private chat that nobody else can read"
-- Not OK: "your data never leaves your device"
-
-Anyone evaluating LLM clients for privacy will rightly call out
-overclaims. Be the honest one.

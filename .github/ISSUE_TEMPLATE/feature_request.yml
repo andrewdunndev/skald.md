@@ -24,13 +24,3 @@ body:
     id: alternatives
     attributes:
       label: Alternatives considered
-
-  - type: dropdown
-    id: tier
-    attributes:
-      label: Which tier?
-      description: "Tier 1 -- plugin: native Obsidian plugin, BYO API key, runs on-device including mobile (v1, shipping). Tier 2 -- agent-host: persistent headless companion the phone connects to (exploring, no dates)."
-      options:
-        - "Tier 1 -- plugin (on-device, token model)"
-        - "Tier 2 -- agent-host (headless, exploring)"
-        - Not sure

@@ -1,5 +1,5 @@
 import { App, Notice, setIcon } from 'obsidian';
-import type { Provider } from '@skald/protocol';
+import type { Provider } from '../protocol';
 import type { ApiKeys } from '../api-keys';
 import type { SkaldSettings } from '../settings';
 
@@ -140,7 +140,7 @@ function openSettingsForPlugin(app: App): void {
     return;
   }
   new Notice(
-    'skald: open Settings → Community plugins → Skald to add your API key.',
+    'Skald: open settings → community plugins → Skald to add your API key.',
     8000,
   );
 }

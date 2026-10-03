@@ -11,9 +11,6 @@ Claude's working memory across chat sessions. Two complementary pieces:
    installed) with an LLM reranker to surface the most relevant
    results. Falls back to substring scan without Omnisearch.
 
-True semantic / vector search is a future roadmap item. See
-[`docs/adr/0002-lexical-retrieval-llm-reranking.md`](adr/0002-lexical-retrieval-llm-reranking.md).
-
 ## Setting it up
 
 ### Settings -> Memory

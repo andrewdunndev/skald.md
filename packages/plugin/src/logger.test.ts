@@ -38,7 +38,7 @@ describe('Logger.write redaction', () => {
 
   beforeEach(() => {
     appended = [];
-    vi.spyOn(console, 'info').mockImplementation(() => {});
+    vi.spyOn(console, 'debug').mockImplementation(() => {});
     vi.spyOn(console, 'warn').mockImplementation(() => {});
     vi.spyOn(console, 'error').mockImplementation(() => {});
 
@@ -72,7 +72,7 @@ describe('Logger.write redaction', () => {
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
-    const consoleCall = (console.info as unknown as { mock: { calls: unknown[][] } })
+    const consoleCall = (console.debug as unknown as { mock: { calls: unknown[][] } })
       .mock.calls.map((c) => c.join(' '))
       .join('\n');
     expect(consoleCall).not.toContain('sk-ant-supersecret-99');

@@ -18,7 +18,7 @@
  * user. The region is off-screen (.skald-sr-only) so it never
  * affects layout.
  */
-import type { Message } from '@skald/protocol';
+import type { Message } from '../protocol';
 
 /**
  * Pure decision: the text that should be announced for a finalized

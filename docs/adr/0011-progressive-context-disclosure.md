@@ -79,8 +79,6 @@ direction; it builds on the shim.
 - **Extends** [ADR 0005](0005-model-cascade.md). The cascade today is
   chat-model + background utility-model; this opens a third seam, a
   cheaper in-loop executor for mechanical turns, contingent on the shim.
-  It is the direct, on-device cousin of the heavy
-  [agent-host tier](0008-agent-host-tier.md).
 - **Routing quality** becomes dependent on the model choosing to fetch
   context. The vault-map existed precisely so Claude routed well from
   turn 1; pulling it out risks path fumbles, and our Qwen test shows
@@ -105,8 +103,7 @@ Measure, current prefix vs shim, on the same inputs:
    write into a single small one.
 2. **Routing quality** -- with the full vault-map pulled out, does the
    model still land the right file without fumbling, on (a) a capable
-   model and (b) a cheap model? Run the read/edit items from
-   `docs/feature-inventory.md`.
+   model and (b) a cheap model? 
 
 Success criteria:
 

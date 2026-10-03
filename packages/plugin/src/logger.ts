@@ -80,13 +80,11 @@ export class Logger {
     const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
     // Redact secrets before the line touches console or vault file.
     const line = redactSecrets(`${ts} [${level}] ${text}`);
-    // Always mirror to console for live dev debugging. info-level
-    // routes to console.info (not console.log) so it doesn't trip
-    // the plugin-submission lint that forbids console.log in
-    // production source.
+    // Mirror to the console; info-level uses console.debug, the only
+    // non-warning method the plugin lint allows.
     if (level === 'error') console.error('skald:', line);
     else if (level === 'warn') console.warn('skald:', line);
-    else console.info('skald:', line);
+    else console.debug('skald:', line);
 
     const folder = this.folderGetter().trim();
     if (!folder) return;

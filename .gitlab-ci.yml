@@ -63,7 +63,7 @@ unit-tests:
 plugin-lint:
   stage: test
   script:
-    - pnpm check:lint
+    - pnpm lint
 
 # Coverage is reported AND gated: test:coverage enforces a ratchet floor on the
 # pure, unit-testable core (vitest.config thresholds; the Obsidian-DOM view layer

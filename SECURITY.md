@@ -28,7 +28,7 @@ credit reporters who want it once a fix ships.
 
 ## In scope
 
-- The plugin code (`packages/plugin`) and the wire protocol (`packages/protocol`).
+- The plugin code (`packages/plugin`).
 - Anything that could leak your API key, exfiltrate vault contents, execute an
   unapproved vault write, or run a prompt-injected action without approval.
 - Build/supply-chain issues that would ship malicious or unexpected code in the

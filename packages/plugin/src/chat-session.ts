@@ -7,7 +7,7 @@ import type {
   ServerMessage,
   ToolDefinition,
   Usage,
-} from '@skald/protocol';
+} from './protocol';
 import { sumUsage } from './pricing';
 import { windowHistory, compactStaleToolResults } from './history-window';
 import type { SkaldTransport } from './transport-interface';

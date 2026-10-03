@@ -9,12 +9,12 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@skald/protocol": "workspace:*",
     "@toon-format/toon": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "24.19.0",
     "esbuild": "0.28.2",
+    "marked": "18.0.14",
     "obsidian": "1.13.1"
   }
 }

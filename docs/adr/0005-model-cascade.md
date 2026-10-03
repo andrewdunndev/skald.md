@@ -32,10 +32,9 @@ Two model roles are defined in `packages/plugin/src/provider-capabilities.ts`:
   `claude-sonnet-5-5`, with Opus 5.5 selectable) or
   `settings.openrouterModel` on OpenRouter.
 - **`utilityModel(settings)`** -- a cheap model for bulk, judgment-light
-  sub-tasks. Resolves to `settings.utilityModel` if the user has set one
-  (this override may point at any model, including a local one); otherwise
-  defaults to `claude-haiku-4-5` (Anthropic) or
-  `anthropic/claude-haiku-4-5` (OpenRouter).
+  sub-tasks. Defaults to `claude-haiku-4-5` (Anthropic),
+  `anthropic/claude-haiku-4-5` (OpenRouter), or the configured model on an
+  OpenAI-compatible endpoint.
 
 The utility model does two jobs today:
 
@@ -62,11 +61,6 @@ order on failure is equivalent to no reranking -- search still works,
 just less precisely ordered. The conversation is never blocked by a
 utility call failing.
 
-**The `utilityModel` override keeps the cascade vendor-neutral.** A user
-running local models can point the utility role at a small local model.
-This is the same provider-agnostic posture as the rest of the project
-(ADR 0001) applied to the cheap tier specifically.
-
 **Prompt caching on the reranker system block reduces the per-search
 cost further.** The system prompt is fixed across calls; caching it with
 a 1h TTL (ADR 0003) means only the candidate list pays full input-token
@@ -79,16 +73,11 @@ elsewhere in the project.
 
 ## Consequences
 
-- **Two model configurations to reason about.** A user or operator must
-  be aware that `utilityModel` and `reasoningModel` are distinct; a
-  misconfigured `utilityModel` degrades rerank and curation quality
-  without affecting conversation correctness.
+- **Two model roles to reason about.** A weak utility model degrades rerank
+  and curation quality without affecting conversation correctness.
 - **The cheap model's quality bounds rerank and curation quality.**
   Mitigated by soft-fail on reranking (falls back to original order) and
   by the approval gate plus guards on memory upkeep (ADR 0007).
-- **`utilityModel` is the seam for local-model users.** Pointing it at a
-  small local model keeps the cascade functional offline and without API
-  cost for these sub-tasks.
 
 ## Alternatives considered
 

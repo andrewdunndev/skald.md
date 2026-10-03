@@ -77,12 +77,12 @@ export class ActiveNoteIndicator extends Component {
     const showable = file instanceof TFile && file.extension === 'md';
     if (!showable) {
       this.current = null;
-      this.wrapEl.style.display = 'none';
+      this.wrapEl.addClass('skald-hidden');
       this.labelEl.setText('');
       return;
     }
     this.current = file;
-    this.wrapEl.style.display = '';
+    this.wrapEl.removeClass('skald-hidden');
     this.labelEl.setText(file.basename);
     setTooltip(this.labelEl, file.path);
   }

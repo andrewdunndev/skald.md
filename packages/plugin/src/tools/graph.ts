@@ -10,7 +10,7 @@
  */
 
 import { App, TFile, TFolder } from 'obsidian';
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 import type { ToolExecutionResult } from './context';
 import { safePath } from './context';
 import { notesWithTag } from '../view/tag-context';
@@ -23,7 +23,7 @@ export const GRAPH_TOOLS: ToolDefinition[] = [
   {
     name: 'list_folders',
     description:
-      'List the top-level folders in the vault. Use this when a query mentions a person, project, or topic that may have its own folder (e.g. "Alasdair", "taxes", "work"). Call list_folders first, check for a matching folder, then use list_notes with that folder to narrow cheaply. Much cheaper than substring-searching the whole vault.',
+      'List the top-level folders in the vault. Use this when a query mentions a person, project, or topic that may have its own folder (e.g. "Garden", "taxes", "work"). Call list_folders first, check for a matching folder, then use list_notes with that folder to narrow cheaply. Much cheaper than substring-searching the whole vault.',
     input_schema: { type: 'object', properties: {} },
   },
   {

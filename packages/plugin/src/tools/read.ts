@@ -1,5 +1,5 @@
 import { App, TFile } from 'obsidian';
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 import { safePath, type ToolExecutionResult } from './context';
 import { rerankCandidates } from './rerank';
 import { compactToolResult } from '../tool-compact';
@@ -238,7 +238,7 @@ export async function runSearchVault(
   app: App,
   args: Record<string, unknown>,
   anthropicApiKey?: string,
-  provider?: import('@skald/protocol').Provider,
+  provider?: import('../protocol').Provider,
   compact = false,
 ): Promise<ToolExecutionResult> {
   const rawQuery = typeof args.query === 'string' ? args.query.trim() : '';
@@ -255,16 +255,13 @@ export async function runSearchVault(
 
   // ---------------------------------------------------------------------------
   // Omnisearch fast path — BM25-ranked results when the plugin is present.
-  // Access via app.plugins is preferred (App is already in scope); fall through
-  // to the globalThis surface as a secondary probe so tests can mock either.
   // ---------------------------------------------------------------------------
   const omnisearchApi: OmnisearchApi | undefined =
     (
       app as unknown as {
         plugins?: { plugins?: Record<string, { api?: OmnisearchApi }> };
       }
-    ).plugins?.plugins?.['omnisearch']?.api ??
-    (globalThis as unknown as { omnisearch?: OmnisearchApi }).omnisearch;
+    ).plugins?.plugins?.['omnisearch']?.api;
 
   if (omnisearchApi?.search) {
     try {

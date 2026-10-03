@@ -1,4 +1,4 @@
-import type { ToolDefinition } from '@skald/protocol';
+import type { ToolDefinition } from '../protocol';
 
 /**
  * Anthropic-executed server tools. These are passed in the tools
@@ -74,18 +74,11 @@ const DEFAULT_SERVER_TOOLS: ToolDefinition[] = [
  * `allowed_domains` parameter — Anthropic restricts fetches to those
  * domains server-side, which neutralises the exfiltration channel even
  * if a malicious note tries to point web_fetch at an attacker URL.
- *
- * `blockedDomains` is the inverse (deny-list); if both are set Anthropic
- * rejects the request, so callers should supply at most one. skald's
- * settings surface the allow-list (the safer, default-deny shape).
  */
 export interface WebFetchGuard {
   /** Domains web_fetch is permitted to fetch from. Empty/undefined → no
    * allow-list restriction (rely on webToolsEnabled gating instead). */
   allowedDomains?: readonly string[];
-  /** Domains web_fetch is forbidden from fetching. Empty/undefined →
-   * no deny-list. Mutually exclusive with allowedDomains. */
-  blockedDomains?: readonly string[];
 }
 
 /**
@@ -108,7 +101,7 @@ function normalizeDomains(
 /**
  * Apply a web-fetch domain guard to a server-tool definition list.
  * Clones the list and augments the web_fetch entry with Anthropic's
- * native `allowed_domains` / `blocked_domains` parameter. Tools other
+ * native `allowed_domains` parameter. Tools other
  * than web_fetch (web_search) are returned unchanged. Pure — does not
  * mutate the input.
  */
@@ -117,26 +110,18 @@ export function applyWebFetchAllowlist(
   guard: WebFetchGuard,
 ): ToolDefinition[] {
   const allowed = normalizeDomains(guard.allowedDomains);
-  const blocked = normalizeDomains(guard.blockedDomains);
-  if (!allowed && !blocked) return tools.map((t) => ({ ...t }));
-  return tools.map((t) => {
-    if ((t as Record<string, unknown>).name !== 'web_fetch') {
-      return { ...t };
-    }
-    const next: Record<string, unknown> = { ...t };
-    // Prefer allow-list (default-deny). Only fall back to blocked when no
-    // allow-list is configured — sending both is a 400 from Anthropic.
-    if (allowed) next.allowed_domains = allowed;
-    else if (blocked) next.blocked_domains = blocked;
-    return next as ToolDefinition;
-  });
+  return tools.map((t) =>
+    allowed && (t as Record<string, unknown>).name === 'web_fetch'
+      ? ({ ...t, allowed_domains: allowed } as ToolDefinition)
+      : { ...t },
+  );
 }
 
 /**
  * Return the correct server-tool declarations for the given model id.
  * Haiku models need the older pin set; everything else gets the current
  * 20260209 pins. When a `guard` is supplied, the web_fetch entry is
- * constrained with Anthropic's native allow/deny-list (server-side
+ * constrained with Anthropic's native allow-list (server-side
  * enforcement) to close the prompt-injection exfiltration channel.
  */
 export function serverToolsForModel(

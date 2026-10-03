@@ -6,7 +6,7 @@ import {
   runUpdateMemory,
   runForgetFact,
 } from './memory';
-import { runWriteNote } from './write';
+import { runAppendToNote, runEditNote, runWriteNote } from './write';
 import type { WriteProposal } from './context';
 
 /** Minimal App stub cast to the real Obsidian App surface. The memory
@@ -22,6 +22,7 @@ function makeApp(files: Record<string, string>): App {
       getAbstractFileByPath: (p: string) =>
         p in files ? new TFile(p) : null,
       read: async (file: TFile) => files[file.path] ?? '',
+      adapter: { exists: async (p: string) => p in files },
     },
   };
   return stub as unknown as App;
@@ -252,5 +253,99 @@ describe('runWriteNote: overwrite TOCTOU guard', () => {
     expect(result.content).toContain('notes/target.md');
     // process committed the new content.
     expect(processedWith[0]).toBe('new proposed content');
+  });
+});
+
+describe('write tools: path guard and honest create label', () => {
+  function makeGuardApp(opts: {
+    indexed?: Record<string, string>;
+    folders?: string[];
+    onDiskOnly?: string[];
+  }): { app: App; create: ReturnType<typeof vi.fn> } {
+    const indexed = opts.indexed ?? {};
+    const create = vi.fn(async () => {});
+    const app = {
+      vault: {
+        getAbstractFileByPath: (p: string) =>
+          p in indexed
+            ? new TFile(p)
+            : (opts.folders ?? []).includes(p)
+              ? { path: p }
+              : null,
+        read: async (f: TFile) => indexed[f.path] ?? '',
+        create,
+        createFolder: async () => {},
+        adapter: {
+          exists: async (p: string) =>
+            p in indexed ||
+            (opts.folders ?? []).includes(p) ||
+            (opts.onDiskOnly ?? []).includes(p),
+        },
+      },
+    } as unknown as App;
+    return { app, create };
+  }
+
+  it.each([
+    ['config dir plugin code', '.obsidian/plugins/x/main.js'],
+    ['config dir json', '.obsidian/community-plugins.json'],
+    ['hidden folder note', 'notes/.hidden/a.md'],
+    ['hidden note', '.secret.md'],
+    ['non-markdown file', 'scripts/run.js'],
+    ['canvas', 'board.canvas'],
+  ])('write_note refuses %s without asking for approval', async (_l, path) => {
+    const { app, create } = makeGuardApp({});
+    const approve = vi.fn().mockResolvedValue(true);
+    const result = await runWriteNote(app, { path, content: 'x' }, 'tu', approve);
+    expect(result.is_error).toBe(true);
+    expect(result.content).toContain('only .md notes');
+    expect(approve).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('append_to_note and edit_note refuse a config-dir path', async () => {
+    const { app, create } = makeGuardApp({});
+    const approve = vi.fn().mockResolvedValue(true);
+    const appended = await runAppendToNote(
+      app,
+      { path: '.obsidian/app.json', content: 'x' },
+      'tu',
+      approve,
+    );
+    const edited = await runEditNote(
+      app,
+      { path: '.obsidian/app.json', search: 'a', replace: 'b' },
+      'tu',
+      approve,
+    );
+    expect(appended.is_error).toBe(true);
+    expect(edited.is_error).toBe(true);
+    expect(edited.content).toContain('only .md notes');
+    expect(approve).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('labels an indexed note as overwrite, a missing one as create', async () => {
+    const { app } = makeGuardApp({ indexed: { 'a.md': 'old' } });
+    const approve = vi.fn().mockResolvedValue(false);
+    await runWriteNote(app, { path: 'a.md', content: 'new' }, 'tu', approve);
+    await runWriteNote(app, { path: 'b.md', content: 'new' }, 'tu', approve);
+    const kinds = approve.mock.calls.map((c) => (c[0] as WriteProposal).kind);
+    expect(kinds).toEqual(['overwrite', 'create']);
+  });
+
+  it.each([
+    ['a file the index does not know', { onDiskOnly: ['Note.md'] }],
+    ['a folder named like a note', { folders: ['Note.md'] }],
+  ])('never shows a create card over %s', async (_l, opts) => {
+    const { app, create } = makeGuardApp(opts);
+    const approve = vi.fn().mockResolvedValue(true);
+    for (const run of [runWriteNote, runAppendToNote]) {
+      const result = await run(app, { path: 'Note.md', content: 'x' }, 'tu', approve);
+      expect(result.is_error).toBe(true);
+      expect(result.content).toContain('already exists');
+    }
+    expect(approve).not.toHaveBeenCalled();
+    expect(create).not.toHaveBeenCalled();
   });
 });

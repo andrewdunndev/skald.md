@@ -347,10 +347,10 @@ function makeAppWithFolders(folders: string[]): App {
 
 describe('runListFolders', () => {
   it('returns only top-level folders sorted alphabetically', () => {
-    const app = makeAppWithFolders(['work', 'personal', 'work/projects', 'Alasdair']);
+    const app = makeAppWithFolders(['work', 'personal', 'work/projects', 'Garden']);
     const result = runListFolders(app);
     const lines = result.content.split('\n');
-    expect(lines).toContain('Alasdair');
+    expect(lines).toContain('Garden');
     expect(lines).toContain('personal');
     expect(lines).toContain('work');
     // Subfolder should not appear

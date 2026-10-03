@@ -1,5 +1,5 @@
 /**
- * iOS share-sheet + URL-scheme capture (phase 8 / 8b).
+ * iOS share-sheet capture, text only.
  *
  * Trigger: `obsidian://skald-capture?...` (fired by an Apple
  * Shortcut). Flow: parseCaptureParams → CaptureService.run() →
@@ -19,14 +19,10 @@ import {
   type App,
   type ObsidianProtocolData,
 } from 'obsidian';
-import {
-  CAPTURE_DEFAULT_PROMPTS,
-  CAPTURE_MAX_PROMPT_BYTES,
-  extractCaptureTitle,
-  type Provider,
-} from '@skald/protocol';
+import type { Provider } from './protocol';
 import { SlidingWindow } from './rate-limit';
 import { utilityComplete } from './utility-call';
+import { neutralizeRemoteMedia } from './remote-media';
 import { validateOpenAiBaseUrl } from './openai-base-url';
 import {
   captureFilename,
@@ -36,25 +32,35 @@ import {
 
 export { captureFilename } from './capture-util';
 
-export type CaptureKind = 'url' | 'text' | 'image' | 'pdf';
+/** Max bytes for a capture prompt, bounding upstream spend. */
+export const CAPTURE_MAX_PROMPT_BYTES = 100 * 1024;
+
+/** Default capture prompt; a settings note can replace it. */
+export const CAPTURE_PROMPT =
+  'The user shared this text from their phone. Process it into a vault-ready capture note: extract a title (≤8 words), summarize key points as bullets, suggest tags. If it is only a link, keep the link and do not guess at what the page says.';
+
+/** Title of a capture body: first H1 if present, else first non-empty line, capped at 60 chars. */
+export function extractCaptureTitle(text: string): string {
+  const firstLine = text.split('\n').find((l) => l.trim().length > 0) ?? '';
+  const titleMatch = firstLine.match(/^#+\s+(.*)$/);
+  return (titleMatch?.[1] ?? firstLine).slice(0, 60).trim();
+}
+
+export const CAPTURE_OFF_NOTICE =
+  'Skald: share-sheet capture is off. Turn on "Allow share-sheet capture" in Settings → Skald → Advanced.';
+
+export const CAPTURE_TEXT_ONLY_NOTICE =
+  'Skald: capture takes text only. Share the text or link itself.';
 
 export interface CaptureParams {
-  kind: CaptureKind;
-  /** URL-decoded content payload (text body, URL, or vault-relative
-   * path of a staged binary). */
+  /** Decoded shared text; a shared URL arrives as text too. */
   content: string;
   /** Optional title hint from the share source (Safari page title,
    * etc). */
   title?: string;
-  /** Optional custom prompt path override (vault-relative). */
-  prompt?: string;
   /** If 'true', don't open the captured note after writing. */
   silent: boolean;
 }
-
-// Default prompts from protocol (single source of truth — no copy-paste).
-const defaultPromptForKind = (kind: CaptureKind): string =>
-  CAPTURE_DEFAULT_PROMPTS[kind] ?? CAPTURE_DEFAULT_PROMPTS['text']!;
 
 /**
  * Parse an Obsidian protocol-handler payload into a typed
@@ -73,35 +79,23 @@ export function parseCaptureParams(
   if (typeof raw !== 'string' || raw.length === 0) return null;
   const content = b64 ? safeAtob(raw) : safeDecodeURIComponent(raw);
   if (!content) return null;
-
-  const kindRaw = typeof data.kind === 'string' ? data.kind : 'text';
-  const kind: CaptureKind =
-    kindRaw === 'url' || kindRaw === 'image' || kindRaw === 'pdf'
-      ? kindRaw
-      : 'text';
   return {
-    kind,
     content,
     title: typeof data.title === 'string' ? data.title : undefined,
-    prompt: typeof data.prompt === 'string' ? data.prompt : undefined,
     silent: data.silent === 'true',
   };
 }
 
 /**
- * Compose the user-turn prompt that gets sent to the provider.
- * Pure; tested with concrete in/out.
- *
- *   - `params.prompt` (note path) takes precedence; the resolver
- *     reads that note's body and uses it verbatim as the system
- *     prompt prefix, with the captured content appended.
- *   - Otherwise the kind-default prompt is used.
+ * Compose the user-turn prompt that gets sent to the provider: the
+ * custom prompt note's body when set, else the default, then the
+ * shared text.
  */
 export function buildCapturePrompt(
   params: CaptureParams,
   customPromptBody: string | null,
 ): string {
-  const head = customPromptBody?.trim() || defaultPromptForKind(params.kind);
+  const head = customPromptBody?.trim() || CAPTURE_PROMPT;
   const titleHint = params.title
     ? `\n\nTitle hint from share source: ${params.title}`
     : '';
@@ -137,7 +131,7 @@ export interface CaptureServiceConfig {
   utilityModel: string;
   captureFolder: string;
   /** Vault-relative path of a prompt-template note. Empty → use
-   * the kind-default prompt baked into this module. */
+   * the default capture prompt. */
   promptPath: string;
 }
 
@@ -234,34 +228,38 @@ export class CaptureService {
   ) {}
 
   async handleProtocol(data: ObsidianProtocolData): Promise<void> {
+    if (data.kind !== undefined && data.kind !== 'text') {
+      new Notice(CAPTURE_TEXT_ONLY_NOTICE);
+      return;
+    }
     const params = parseCaptureParams(data);
     if (!params) {
-      new Notice('skald: capture had no content to process.');
+      new Notice('Skald: capture had no content to process.');
       return;
     }
     if (this.limiter.isExceeded()) {
       new Notice(
-        `skald: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
+        `Skald: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
         10_000,
       );
       console.warn(
-        `skald: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
+        `Skald: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
       );
       return;
     }
     this.limiter.record();
-    const progress = new Notice('skald: capturing…', 0);
+    const progress = new Notice('Skald: capturing…', 0);
     try {
       const note = await this.run(params);
       progress.hide();
-      new Notice(`skald: captured → ${note.path}`, 5000);
+      new Notice(`Skald: captured → ${note.path}`, 5000);
       if (!params.silent) {
         await this.app.workspace.openLinkText(note.path, '', false);
       }
     } catch (err) {
       progress.hide();
       const msg = err instanceof Error ? err.message : String(err);
-      new Notice(`skald: capture failed — ${msg}`, 8000);
+      new Notice(`Skald: capture failed — ${msg}`, 8000);
     }
   }
 
@@ -275,10 +273,12 @@ export class CaptureService {
     const customPromptBody = await this.readPromptTemplate(cfg.promptPath);
     const prompt = buildCapturePrompt(params, customPromptBody);
 
-    const { body: captureBody, title: captureTitle } = await directCapture(
+    const { body: reply, title: captureTitle } = await directCapture(
       cfg,
       prompt,
     );
+    // The note opens rendered; a remote image in the reply must not load.
+    const captureBody = neutralizeRemoteMedia(reply);
 
     await this.ensureFolder(cfg.captureFolder);
     const now = new Date();

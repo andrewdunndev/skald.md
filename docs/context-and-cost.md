@@ -48,7 +48,4 @@ tool output verbatim instead.
 
 The levers above reduce metered API cost. The way to *avoid* it is to point
 Skald at a model you host: see the provider settings for connecting an
-OpenAI-compatible endpoint ([ADR 0009](adr/0009-openai-compatible-provider.md)),
-and the future agent-host tier ([ADR 0008](adr/0008-agent-host-tier.md)) for
-running a persistent Claude-quality agent on your own subscription rather than
-the metered API.
+OpenAI-compatible endpoint ([ADR 0009](adr/0009-openai-compatible-provider.md)).

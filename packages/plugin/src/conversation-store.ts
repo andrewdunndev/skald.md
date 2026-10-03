@@ -1,4 +1,5 @@
-import type { Message, Usage } from '@skald/protocol';
+import type { Message, Usage } from './protocol';
+import { neutralizeRemoteMedia, restoreRemoteMedia } from './remote-media';
 
 export interface ConversationMeta {
   id: string;
@@ -101,7 +102,7 @@ export function renderConversationMarkdown(
           lines.push(attachedPaths.map((p) => `> 📎 [[${p}]]`).join('\n'));
           lines.push('');
         }
-        lines.push(clean || '(empty message)');
+        lines.push(escapeTurnHeadings(clean) || '(empty message)');
         lines.push('');
       } else {
         // Multi-modal user turn (text + images). Render text blocks
@@ -118,7 +119,7 @@ export function renderConversationMarkdown(
               );
               lines.push('');
             }
-            lines.push(clean || '(empty message)');
+            lines.push(escapeTurnHeadings(clean) || '(empty message)');
             lines.push('');
           } else if (b.type === 'image') {
             const source = b.source as Record<string, unknown> | undefined;
@@ -135,20 +136,17 @@ export function renderConversationMarkdown(
       lines.push('## Claude');
       lines.push('');
       if (typeof m.content === 'string') {
-        lines.push(m.content);
+        lines.push(escapeTurnHeadings(m.content));
         lines.push('');
       } else {
         for (const block of m.content) {
           const b = block as Record<string, any>;
           const t = b.type as string;
           if (t === 'text' && typeof b.text === 'string') {
-            lines.push(b.text);
+            lines.push(escapeTurnHeadings(b.text));
             lines.push('');
           } else if (t === 'thinking' && typeof b.thinking === 'string') {
-            // Hide thinking in saved output by default. Comment out the
-            // next two lines to include it.
-            // lines.push(`> _Thinking:_ ${b.thinking}`);
-            // lines.push('');
+            // Thinking is not saved.
           } else if (t === 'tool_use') {
             lines.push(`> 🔧 _${describeBlock(b)}_`);
             lines.push('');
@@ -166,7 +164,7 @@ export function renderConversationMarkdown(
             lines.push(`> 🌐 web search returned ${arr.length} results`);
             lines.push('');
           } else if (t === 'image') {
-            // Phase 7: don't dump base64 image payloads into the
+            // Don't dump base64 image payloads into the
             // conversation file. Record a placeholder so the saved
             // turn remains readable; the in-memory ChatSession still
             // holds the full block for any continuation Claude sends.
@@ -182,10 +180,32 @@ export function renderConversationMarkdown(
     }
   }
 
-  return lines.join('\n');
+  // The saved note renders in Obsidian like any other: keep a remote
+  // image the model wrote from loading when it is opened.
+  return neutralizeRemoteMedia(lines.join('\n'));
 }
 
+// A body line that reads as a turn heading would split into a forged
+// turn on resume. Escaping adds one backslash (markdown shows the line
+// as literal text); parsing removes one, so every line round-trips.
+const TURN_HEADING_LINE = /^(\\*## (?:You|Claude)[^\S\n]*)$/gm;
+const ESCAPED_TURN_HEADING_LINE = /^\\(\\*## (?:You|Claude)[^\S\n]*)$/gm;
+
+function escapeTurnHeadings(text: string): string {
+  return text.replace(TURN_HEADING_LINE, '\\$1');
+}
+
+function unescapeTurnHeadings(text: string): string {
+  return text.replace(ESCAPED_TURN_HEADING_LINE, '$1');
+}
+
+// The one-liner carries model-written input (a query, a path, a URL).
+// Folded to one line, it cannot start a forged turn heading.
 function describeBlock(b: Record<string, any>): string {
+  return describeTool(b).replace(/\s+/g, ' ');
+}
+
+function describeTool(b: Record<string, any>): string {
   const name = b.name as string | undefined;
   const input = (b.input as Record<string, any>) ?? {};
   switch (name) {
@@ -272,7 +292,7 @@ export function parseConversationMarkdown(
     if (costUSD !== undefined && costUSD > 0) meta.costUSD = costUSD;
 
     // Strip frontmatter to get the body.
-    const body = content.slice(fmMatch[0].length);
+    const body = restoreRemoteMedia(content.slice(fmMatch[0].length));
 
     // Split on ## You / ## Claude headings.
     const sectionRe = /^## (You|Claude)\s*$/m;
@@ -287,7 +307,7 @@ export function parseConversationMarkdown(
       const sectionText = parts[i + 1];
       const role: 'user' | 'assistant' =
         roleLabel === 'You' ? 'user' : 'assistant';
-      const cleaned = stripDisplayArtifacts(sectionText);
+      const cleaned = unescapeTurnHeadings(stripDisplayArtifacts(sectionText));
       if (!cleaned) continue; // drop empty sections
       messages.push({ role, content: cleaned });
     }

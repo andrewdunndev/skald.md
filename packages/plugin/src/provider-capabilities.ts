@@ -4,16 +4,14 @@
  * Every decision that forks on Provider lives here as a single exhaustive
  * switch. Call sites consume capability fields rather than comparing provider
  * strings directly, so adding a third provider means: extend Provider in
- * @skald/protocol, add a case here, satisfy the compiler — no other
+ * protocol.ts, add a case here, satisfy the compiler — no other
  * file changes required.
  *
  * reasoningModel: the user's configured chat model for the active provider.
- * utilityModel:   cheap model for rerank + future memory upkeep.
- *   Resolution: settings.utilityModel override → provider default.
- *   Set to point the cheap/utility role at any model incl. a local one.
+ * utilityModel:   cheap per-provider default for rerank and memory upkeep.
  */
 
-import type { Provider } from '@skald/protocol';
+import type { Provider } from './protocol';
 import type { SkaldSettings } from './settings';
 
 /** Exhaustive-switch safety net. TypeScript enforces that every arm of a
@@ -25,7 +23,7 @@ function assertNever(x: never): never {
 }
 
 /** The set of valid Provider values, kept in lockstep with the Provider
- * union in @skald/protocol. This is the single runtime source of truth used
+ * union in protocol.ts. This is the single runtime source of truth used
  * to validate the provider field loaded from the (untrusted) data.json. */
 const PROVIDERS = ['anthropic', 'openrouter', 'openai'] as const;
 
@@ -88,14 +86,10 @@ export function reasoningModel(settings: SkaldSettings): string {
 }
 
 /**
- * Cheap/utility model for rerank and future memory upkeep.
- * Resolution order:
- *   1. settings.utilityModel (when non-empty) — user override, may point
- *      at any model including a local one
- *   2. per-provider default (the cheapest capable Haiku-tier model)
+ * Cheap/utility model for rerank and memory upkeep: the per-provider default
+ * (the cheapest capable Haiku-tier model).
  */
 export function utilityModel(settings: SkaldSettings): string {
-  if (settings.utilityModel) return settings.utilityModel;
   switch (settings.provider) {
     case 'anthropic':
       return 'claude-haiku-4-5';

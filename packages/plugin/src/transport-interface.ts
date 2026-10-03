@@ -1,8 +1,7 @@
 /**
  * SkaldTransport: the interface DirectTransport (fetch → Anthropic /
- * OpenRouter) satisfies. Kept as a named interface so a future transport
- * (the agent-host tier, see docs/adr/0008-agent-host-tier.md) can
- * implement it without touching ChatSession or the view.
+ * OpenRouter) satisfies. Kept as a named interface so another transport
+ * can implement it without touching ChatSession or the view.
  *
  * The interface is intentionally narrow: ChatSession calls send() and
  * cancel(); the view calls connect(), isOpen(), and close(). Status
@@ -13,7 +12,7 @@
  * lets tests and ChatSession import the type without pulling in Obsidian
  * or browser globals.
  */
-import type { ClientMessage, ServerMessage } from '@skald/protocol';
+import type { ClientMessage, ServerMessage } from './protocol';
 
 export interface TransportHandlers {
   onOpen: () => void;

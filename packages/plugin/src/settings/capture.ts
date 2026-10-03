@@ -13,6 +13,18 @@ export function renderCaptureSection(
 ): void {
   new Setting(containerEl).setName('Share-sheet capture').setHeading();
 
+  new Setting(containerEl)
+    .setName('Allow share-sheet capture')
+    .setDesc(
+      'Lets the capture link send shared text to your provider and save the reply as a note, without asking. Any app or web page that can open obsidian:// links can fire it.',
+    )
+    .addToggle((t) =>
+      t.setValue(plugin.settings.captureEnabled).onChange(async (v) => {
+        plugin.settings.captureEnabled = v;
+        await plugin.saveSettings();
+      }),
+    );
+
   addFolderSetting(containerEl, plugin, {
     name: 'Captures folder',
     desc:
@@ -24,7 +36,7 @@ export function renderCaptureSection(
   new Setting(containerEl)
     .setName('Custom capture prompt')
     .setDesc(
-      'Vault-relative path of a markdown note whose body overrides the default capture prompt. Empty uses kind-specific defaults baked into the plugin (separate prompts for url/text/image/pdf).',
+      'Vault-relative path of a Markdown note whose body replaces the default capture prompt. Empty uses the built-in prompt.',
     )
     .addText((t) => {
       t.setPlaceholder('Skald/Prompts/capture.md')
