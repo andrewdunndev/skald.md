@@ -18,6 +18,7 @@ import {
   type App,
 } from 'obsidian';
 import type { Message } from '../protocol';
+import { neutralizeRemoteMedia } from '../remote-media';
 import {
   formatSummary,
   hasAnyAction,
@@ -108,7 +109,9 @@ async function copyMessage(
   }
 }
 
-async function saveAsNote(
+/** Save and append write the reply into a note Obsidian renders, so the
+ * text is guarded like the chat view. Copy keeps the raw text. */
+export async function saveAsNote(
   cfg: MessageActionsConfig,
   text: string,
 ): Promise<void> {
@@ -126,7 +129,7 @@ async function saveAsNote(
     // overwrite (or, on a strict vault, throw) and the note would be lost.
     // Probe for a free path, appending -2, -3, … on collision.
     const path = uniqueSavePath(cfg.app, folder, ts);
-    const created = await cfg.app.vault.create(path, text);
+    const created = await cfg.app.vault.create(path, neutralizeRemoteMedia(text));
     new Notice(`Saved to ${path}`);
     void cfg.app.workspace.openLinkText(created.path, '', false);
   } catch (err) {
@@ -251,7 +254,7 @@ function renderVaultActionBadge(row: HTMLElement, msg: Message): void {
   badge.addClass('skald-vault-badge-active');
 }
 
-async function appendToCurrent(
+export async function appendToCurrent(
   cfg: MessageActionsConfig,
   text: string,
 ): Promise<void> {
@@ -266,7 +269,7 @@ async function appendToCurrent(
     // unsaved editor edits without clobbering them.
     await cfg.app.vault.process(file, (current) => {
       const sep = current.endsWith('\n') ? '\n' : '\n\n';
-      return current + sep + text;
+      return current + sep + neutralizeRemoteMedia(text);
     });
     new Notice(`Appended to ${file.basename}`);
   } catch (err) {

@@ -110,10 +110,10 @@ tools **off** so the channel is closed until you opt in.
 
 Configure these under **Settings -> Advanced -> Web tools**.
 
-A reply can also try to leak through what it renders: an image whose
-URL carries your notes loads the moment it is shown. Skald shows a
-remote image or raw HTML in a reply, or in a saved conversation, as a
-link or plain text, so nothing loads unless you click.
+A reply can also leak through what it renders: an image URL carrying
+your notes loads on display. In chat and in notes Skald saves or
+captures, remote images, raw HTML, plugin code blocks and MathJax
+styles show as links or plain text, so nothing loads unless you click.
 
 **OpenRouter caveat.** skald forwards the allow-list and the fetch cap
 to OpenRouter's `openrouter:web_fetch`. OpenRouter's default engine

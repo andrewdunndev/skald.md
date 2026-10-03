@@ -22,6 +22,7 @@ import {
 import type { Provider } from './protocol';
 import { SlidingWindow } from './rate-limit';
 import { utilityComplete } from './utility-call';
+import { neutralizeRemoteMedia } from './remote-media';
 import { validateOpenAiBaseUrl } from './openai-base-url';
 import {
   captureFilename,
@@ -272,10 +273,12 @@ export class CaptureService {
     const customPromptBody = await this.readPromptTemplate(cfg.promptPath);
     const prompt = buildCapturePrompt(params, customPromptBody);
 
-    const { body: captureBody, title: captureTitle } = await directCapture(
+    const { body: reply, title: captureTitle } = await directCapture(
       cfg,
       prompt,
     );
+    // The note opens rendered; a remote image in the reply must not load.
+    const captureBody = neutralizeRemoteMedia(reply);
 
     await this.ensureFolder(cfg.captureFolder);
     const now = new Date();

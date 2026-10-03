@@ -30,12 +30,11 @@ First public release (`0.1.0`).
 - API keys live only in Obsidian secret storage; `data.json` holds only each
   secret's name, never a key. Requires Obsidian 1.11.4 or later.
 - Web tools are off by default; `web_fetch` can be limited to an allow-list.
-- Remote images and raw HTML in replies and saved conversations show as links
-  or text and never load.
+- Replies, and notes Skald saves or captures from them, render remote images,
+  raw HTML, plugin code blocks and MathJax styles inert.
 - Vault tools write only `.md` notes outside dot folders, and approval is by
   button only.
 - Share-sheet capture is off by default and text only.
-- Saved conversations escape `## You` / `## Claude` lines, so message text
-  cannot forge a turn on resume.
+- Message text and tool input cannot forge a turn in a saved conversation.
 - The OpenAI-compatible base URL must be HTTPS (loopback excepted); logs
   redact key-shaped values.
