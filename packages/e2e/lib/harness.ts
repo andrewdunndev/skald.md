@@ -26,10 +26,30 @@ export async function openChat(): Promise<void> {
 
 /** Brings the chat leaf back into view; on mobile, opening a note closes the sidebar drawer that hosts it. */
 export async function revealChat(): Promise<void> {
-  await browser.executeObsidian(async ({ plugins }) => {
+  const probe = () =>
+    browser.executeObsidian(({ app }) => {
+      const leaf = app.workspace.getLeavesOfType('skald-chat')[0];
+      const input = document.querySelector('.skald-input') as HTMLElement | null;
+      const r = input?.getBoundingClientRect();
+      return {
+        hasLeaf: !!leaf,
+        collapsed: (app.workspace.rightSplit as any)?.collapsed,
+        inputRect: r ? { x: r.x, y: r.y, w: r.width, h: r.height } : null,
+        innerW: window.innerWidth,
+      };
+    });
+  await browser.executeObsidian(async ({ app, plugins }) => {
     await (plugins.skald as any).activateView();
+    const right: any = app.workspace.rightSplit;
+    if (right?.collapsed) right.expand();
   });
-  await $('.skald-input').waitForDisplayed({ timeoutMsg: 'chat pane not visible after reveal' });
+  try {
+    await $('.skald-input').waitForDisplayed({ timeout: 8000 });
+  } catch {
+    const state = JSON.stringify(await probe());
+    await shot('99-reveal-failed');
+    throw new Error(`chat pane not visible after reveal: ${state}`);
+  }
 }
 
 export async function newChat(): Promise<void> {
