@@ -85,20 +85,6 @@ describe('rewriteOpenRouterTools', () => {
     });
   });
 
-  it('nests blocked_domains under parameters', () => {
-    expect(
-      rewritten({
-        type: 'web_fetch_20250910',
-        name: 'web_fetch',
-        max_uses: 5,
-        blocked_domains: ['evil.example'],
-      }),
-    ).toEqual({
-      type: 'openrouter:web_fetch',
-      parameters: { max_uses: 5, blocked_domains: ['evil.example'] },
-    });
-  });
-
   it('carries only the cap when no domain list is configured', () => {
     expect(
       rewritten({ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 }),

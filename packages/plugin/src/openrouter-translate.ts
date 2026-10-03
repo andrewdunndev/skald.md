@@ -71,9 +71,6 @@ function rewriteWebFetch(src: Record<string, unknown>): Record<string, unknown> 
     parameters.allowed_domains = src.allowed_domains;
     if (src.allowed_domains.length > 0) parameters.engine = OR_FETCH_ENGINE;
   }
-  if (Array.isArray(src.blocked_domains)) {
-    parameters.blocked_domains = src.blocked_domains;
-  }
   return withParameters(OR_WEB_FETCH, parameters);
 }
 
