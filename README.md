@@ -96,7 +96,8 @@ api.anthropic.com/v1/messages    (or openrouter.ai/api/v1/messages)
 Plugin owns conversation history. Vault tools execute locally inside
 the plugin against Obsidian's Vault API. Write tools require explicit
 user approval via diff card. Server-side tools (`web_search`,
-`web_fetch`) run on Anthropic's infrastructure. One mode, no seams.
+`web_fetch`) run on the provider's infrastructure and are off by
+default ([security model](docs/security-model.md)). One mode, no seams.
 
 > **On the horizon:** the future heavy path is a self-hosted headless
 > agent-host (`claude -p` / Claude Agent SDK) the phone connects to.

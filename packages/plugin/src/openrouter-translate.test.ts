@@ -2,10 +2,9 @@
  * rewriteOpenRouterTools — server-tool namespace translation, with a
  * focus on carrying the web_fetch domain guard through the rewrite.
  *
- * SECURITY: the web_fetch allow-list is the exfiltration defense on the
- * Anthropic path. On OpenRouter the on/off gate is load-bearing (OR does
- * not enforce allowed_domains today), but the rewrite must still forward
- * the operator's allow/deny-list rather than silently discarding it.
+ * SECURITY: OpenRouter reads server-tool options only from the nested
+ * `parameters` object, so the allow/deny-list, the engine pin and the
+ * caps must land there; a top-level field is silently ignored.
  */
 import { describe, expect, it } from 'vitest';
 import { rewriteOpenRouterTools } from './openrouter-translate';
@@ -20,68 +19,96 @@ function baseReq(tools: ChatRequest['tools']): ChatRequest {
   };
 }
 
+function rewritten(tool: Record<string, unknown>): unknown {
+  const out = rewriteOpenRouterTools(baseReq([tool as never]));
+  return (out.tools ?? [])[0];
+}
+
 describe('rewriteOpenRouterTools', () => {
-  it('rewrites web_search / web_fetch to the openrouter namespace', () => {
+  it('rewrites web_search / web_fetch and leaves custom tools alone', () => {
+    const custom = { name: 'read_note', description: 'd', input_schema: {} };
     const out = rewriteOpenRouterTools(
       baseReq([
         { type: 'web_search_20260209', name: 'web_search', max_uses: 5 },
         { type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 },
+        custom as never,
       ]),
     );
-    const types = (out.tools ?? []).map(
-      (t) => (t as Record<string, unknown>).type,
-    );
-    expect(types).toContain('openrouter:web_search');
-    expect(types).toContain('openrouter:web_fetch');
-  });
-
-  it('forwards allowed_domains through the web_fetch rewrite', () => {
-    const out = rewriteOpenRouterTools(
-      baseReq([
-        {
-          type: 'web_fetch_20260209',
-          name: 'web_fetch',
-          max_uses: 5,
-          allowed_domains: ['example.com', 'docs.anthropic.com'],
-        },
-      ]),
-    );
-    const webFetch = (out.tools ?? []).find(
-      (t) => (t as Record<string, unknown>).type === 'openrouter:web_fetch',
-    ) as Record<string, unknown> | undefined;
-    expect(webFetch?.allowed_domains).toEqual([
-      'example.com',
-      'docs.anthropic.com',
+    expect(out.tools).toEqual([
+      { type: 'openrouter:web_search', parameters: { max_uses: 5 } },
+      { type: 'openrouter:web_fetch', parameters: { max_uses: 5 } },
+      custom,
     ]);
   });
 
-  it('forwards blocked_domains through the web_fetch rewrite', () => {
-    const out = rewriteOpenRouterTools(
-      baseReq([
-        {
-          type: 'web_fetch_20260209',
-          name: 'web_fetch',
-          max_uses: 5,
-          blocked_domains: ['evil.example'],
-        },
-      ]),
-    );
-    const webFetch = (out.tools ?? []).find(
-      (t) => (t as Record<string, unknown>).type === 'openrouter:web_fetch',
-    ) as Record<string, unknown> | undefined;
-    expect(webFetch?.blocked_domains).toEqual(['evil.example']);
+  it('nests the web_search cap under parameters', () => {
+    expect(
+      rewritten({ type: 'web_search_20250305', name: 'web_search', max_uses: 3 }),
+    ).toEqual({ type: 'openrouter:web_search', parameters: { max_uses: 3 } });
   });
 
-  it('omits the domain keys when none are configured', () => {
-    const out = rewriteOpenRouterTools(
-      baseReq([{ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 }]),
-    );
-    const webFetch = (out.tools ?? []).find(
-      (t) => (t as Record<string, unknown>).type === 'openrouter:web_fetch',
-    ) as Record<string, unknown> | undefined;
-    expect(webFetch).toBeDefined();
-    expect(webFetch?.allowed_domains).toBeUndefined();
-    expect(webFetch?.blocked_domains).toBeUndefined();
+  it('omits web_search parameters when there is no cap', () => {
+    expect(
+      rewritten({ type: 'web_search_20260209', name: 'web_search' }),
+    ).toEqual({ type: 'openrouter:web_search' });
+  });
+
+  it('pins the openrouter engine when the allow-list is non-empty', () => {
+    expect(
+      rewritten({
+        type: 'web_fetch_20260209',
+        name: 'web_fetch',
+        max_uses: 5,
+        allowed_domains: ['example.com', 'docs.anthropic.com'],
+      }),
+    ).toEqual({
+      type: 'openrouter:web_fetch',
+      parameters: {
+        max_uses: 5,
+        allowed_domains: ['example.com', 'docs.anthropic.com'],
+        engine: 'openrouter',
+      },
+    });
+  });
+
+  it('leaves the default engine when the allow-list is empty', () => {
+    expect(
+      rewritten({
+        type: 'web_fetch_20260209',
+        name: 'web_fetch',
+        max_uses: 5,
+        allowed_domains: [],
+      }),
+    ).toEqual({
+      type: 'openrouter:web_fetch',
+      parameters: { max_uses: 5, allowed_domains: [] },
+    });
+  });
+
+  it('nests blocked_domains under parameters', () => {
+    expect(
+      rewritten({
+        type: 'web_fetch_20250910',
+        name: 'web_fetch',
+        max_uses: 5,
+        blocked_domains: ['evil.example'],
+      }),
+    ).toEqual({
+      type: 'openrouter:web_fetch',
+      parameters: { max_uses: 5, blocked_domains: ['evil.example'] },
+    });
+  });
+
+  it('carries only the cap when no domain list is configured', () => {
+    expect(
+      rewritten({ type: 'web_fetch_20260209', name: 'web_fetch', max_uses: 5 }),
+    ).toEqual({ type: 'openrouter:web_fetch', parameters: { max_uses: 5 } });
+  });
+
+  it('omits parameters when there is nothing to carry', () => {
+    expect(
+      rewritten({ type: 'web_fetch_20260209', name: 'web_fetch' }),
+    ).toEqual({ type: 'openrouter:web_fetch' });
   });
 
   it('returns the request unchanged when there are no tools', () => {
