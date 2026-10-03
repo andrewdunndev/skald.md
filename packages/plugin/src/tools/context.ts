@@ -65,15 +65,23 @@ export interface ToolContext {
 }
 
 /**
- * Vault-relative path validator shared by read + write tools. Rejects
- * absolute paths and paths containing `..` segments that could escape
- * the vault root. normalizePath also folds `/./` and trailing
- * separators.
+ * Vault-relative path validator shared by read + write tools.
+ * normalizePath strips leading slashes and folds separators; any
+ * segment starting with `.` is rejected, which covers `..` traversal
+ * and hidden folders such as the config dir (`.obsidian/`).
  */
 export function safePath(raw: unknown): string | null {
   if (typeof raw !== 'string' || raw.length === 0) return null;
   const normalized = normalizePath(raw);
-  if (normalized.includes('..')) return null;
-  if (normalized.startsWith('/')) return null;
+  if (normalized.split('/').some((seg) => seg.startsWith('.'))) return null;
   return normalized;
 }
+
+/** safePath narrowed to markdown notes: the only files tools may write. */
+export function safeNotePath(raw: unknown): string | null {
+  const path = safePath(raw);
+  return path !== null && path.endsWith('.md') ? path : null;
+}
+
+export const INVALID_WRITE_PATH =
+  'Invalid path: tools can write only .md notes, and not inside hidden (dot) folders.';

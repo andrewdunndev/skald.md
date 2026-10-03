@@ -1,7 +1,8 @@
-import { App, TFile } from 'obsidian';
+import { App, TFile, type TAbstractFile } from 'obsidian';
 import type { ToolDefinition } from '@skald/protocol';
 import {
-  safePath,
+  INVALID_WRITE_PATH,
+  safeNotePath,
   type ApproveFn,
   type ToolExecutionResult,
   type WriteKind,
@@ -74,13 +75,13 @@ export async function runWriteNote(
   toolUseId: string,
   approve: ApproveFn,
 ): Promise<ToolExecutionResult> {
-  const path = safePath(args.path);
-  if (!path) {
-    return { content: 'Invalid or missing path', is_error: true };
-  }
+  const path = safeNotePath(args.path);
+  if (!path) return { content: INVALID_WRITE_PATH, is_error: true };
   const content = typeof args.content === 'string' ? args.content : '';
 
   const existing = app.vault.getAbstractFileByPath(path);
+  const unwritable = await unindexedTarget(app, path, existing);
+  if (unwritable) return unwritable;
   let before: string | null = null;
   let kind: WriteKind = 'create';
   if (existing instanceof TFile) {
@@ -144,8 +145,8 @@ export async function runEditNote(
   toolUseId: string,
   approve: ApproveFn,
 ): Promise<ToolExecutionResult> {
-  const path = safePath(args.path);
-  if (!path) return { content: 'Invalid or missing path', is_error: true };
+  const path = safeNotePath(args.path);
+  if (!path) return { content: INVALID_WRITE_PATH, is_error: true };
   const search = typeof args.search === 'string' ? args.search : '';
   const replace = typeof args.replace === 'string' ? args.replace : '';
   if (!search) {
@@ -216,11 +217,13 @@ export async function runAppendToNote(
   toolUseId: string,
   approve: ApproveFn,
 ): Promise<ToolExecutionResult> {
-  const path = safePath(args.path);
-  if (!path) return { content: 'Invalid or missing path', is_error: true };
+  const path = safeNotePath(args.path);
+  if (!path) return { content: INVALID_WRITE_PATH, is_error: true };
   const content = typeof args.content === 'string' ? args.content : '';
 
   const existing = app.vault.getAbstractFileByPath(path);
+  const unwritable = await unindexedTarget(app, path, existing);
+  if (unwritable) return unwritable;
   let before: string | null = null;
   let after: string;
   let kind: WriteKind = 'append';
@@ -264,6 +267,27 @@ export async function runAppendToNote(
   return {
     content: `Created ${path} with ${content.length} chars.`,
   };
+}
+
+/**
+ * A write labels itself `create` only when nothing is at the path. A
+ * folder there, or a file on disk the vault index doesn't know about
+ * (a case-only name clash, an external write not yet indexed), would
+ * make that label a lie, so refuse instead.
+ */
+async function unindexedTarget(
+  app: App,
+  path: string,
+  existing: TAbstractFile | null,
+): Promise<ToolExecutionResult | null> {
+  if (existing instanceof TFile) return null;
+  if (existing || (await app.vault.adapter.exists(path))) {
+    return {
+      content: `Cannot write ${path}: something already exists there that is not a note in the vault index.`,
+      is_error: true,
+    };
+  }
+  return null;
 }
 
 async function ensureFolderFor(app: App, vaultPath: string): Promise<void> {

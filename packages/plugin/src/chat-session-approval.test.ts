@@ -50,6 +50,7 @@ function makeApp() {
       modify,
       createFolder: async () => {},
       getAbstractFileByPath_create: create,
+      adapter: { exists: async () => false },
     },
   } as unknown as App;
   return { app, create, modify };
