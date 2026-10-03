@@ -19,7 +19,7 @@
  * Idempotent: a marked `<` or `!` is no longer followed by the trigger.
  */
 
-export const ZWSP = '​';
+export const ZWSP = '\u200b';
 
 const AUTOLINK = /<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>/y;
 const TAG_START = /[A-Za-z/!?]/;
@@ -44,8 +44,8 @@ export function neutralizeRemoteMedia(md: string): string {
 /** Undo neutralizeRemoteMedia, for text read back from a saved note. */
 export function restoreRemoteMedia(md: string): string {
   return md
-    .replace(/<​(?=[A-Za-z/!?])/g, '<')
-    .replace(/!​(?=\[)/g, '!');
+    .replace(/<\u200b(?=[A-Za-z/!?])/g, '<')
+    .replace(/!\u200b(?=\[)/g, '!');
 }
 
 /** `open` indexes the `[` after `!`. */
@@ -88,8 +88,10 @@ function isVaultImage(md: string, open: number): boolean {
 
 function isVaultTarget(target: string, spacesAllowed: boolean): boolean {
   if (!target || target.startsWith('//')) return false;
-  const banned = spacesAllowed
-    ? /[\x00-\x1f\x7f:&\\]/
-    : /[\s\x00-\x1f\x7f:&\\]/;
-  return !banned.test(target);
+  for (const ch of target) {
+    const c = ch.charCodeAt(0);
+    if (c <= 0x1f || c === 0x7f || ch === ':' || ch === '&' || ch === '\\') return false;
+    if (!spacesAllowed && /\s/.test(ch)) return false;
+  }
+  return true;
 }

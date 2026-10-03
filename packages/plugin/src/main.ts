@@ -9,7 +9,6 @@ import {
 import { normalizeSettings } from './settings-normalize';
 import { resolveApiKeys, type ApiKeys } from './api-keys';
 import { Logger } from './logger';
-import { ConversationSearchModal } from './conversation-search';
 import { CAPTURE_OFF_NOTICE, CaptureService } from './capture';
 import { utilityModel } from './provider-capabilities';
 import {
@@ -59,7 +58,7 @@ export default class SkaldPlugin extends Plugin {
     );
 
     this.addCommand({
-      id: 'skald-open',
+      id: 'open',
       name: 'Open chat',
       callback: () => this.activateView(),
     });
@@ -67,10 +66,13 @@ export default class SkaldPlugin extends Plugin {
     // Fuzzy-search across saved conversations with recency-weighted
     // ranking. Opens the matched file directly.
     this.addCommand({
-      id: 'skald-search-conversations',
+      id: 'search-conversations',
       name: 'Search conversations',
       callback: () => {
-        new ConversationSearchModal(this.app, this.settings.chatsFolder).open();
+        void (async () => {
+          await this.activateView();
+          this.findChatView()?.openHistoryModal();
+        })();
       },
     });
 
@@ -78,8 +80,8 @@ export default class SkaldPlugin extends Plugin {
     // a Mustache-style template; on pick, the rendered template
     // drops into the active chat input for review + send.
     this.addCommand({
-      id: 'skald-run-command',
-      name: 'Run command (slash command)',
+      id: 'run-slash',
+      name: 'Run slash command',
       callback: () => void this.runSlashCommand(),
     });
 

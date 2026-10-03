@@ -215,12 +215,12 @@ export class DirectTransport implements SkaldTransport {
     let usage: Usage = { input_tokens: 0, output_tokens: 0 };
 
     let idleTimedOut = false;
-    let idleTimer: ReturnType<typeof setTimeout> | undefined;
+    let idleTimer: number | undefined;
     const resetIdle = () => {
-      clearTimeout(idleTimer);
-      idleTimer = setTimeout(() => { idleTimedOut = true; reader.cancel().catch(() => {}); }, STREAM_IDLE_TIMEOUT_MS);
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => { idleTimedOut = true; reader.cancel().catch(() => {}); }, STREAM_IDLE_TIMEOUT_MS);
     };
-    const stopIdle = () => clearTimeout(idleTimer);
+    const stopIdle = () => window.clearTimeout(idleTimer);
     resetIdle();
 
     try {

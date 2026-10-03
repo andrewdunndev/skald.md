@@ -42,9 +42,9 @@ export function addFolderSetting(
         (plugin.settings[args.key] as unknown as string) = v.trim();
         await plugin.saveSettings();
       });
-      new FolderSuggest(plugin.app, t.inputEl, async (folder) => {
+      new FolderSuggest(plugin.app, t.inputEl, (folder) => {
         (plugin.settings[args.key] as unknown as string) = folder.path;
-        await plugin.saveSettings();
+        void plugin.saveSettings();
       });
     });
 }

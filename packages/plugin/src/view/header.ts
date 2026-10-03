@@ -56,7 +56,7 @@ export function renderHeader(
     const isOpenai = provider === 'openai';
     const activeModel = isOpenai ? settings.openaiModel : settings.openrouterModel;
     const fallback = isOpenai ? '' : 'anthropic/claude-sonnet-4-6';
-    const label = header.createEl('span', {
+    const label = header.createSpan({
       cls: 'skald-model-label',
       text: activeModel || fallback,
     });

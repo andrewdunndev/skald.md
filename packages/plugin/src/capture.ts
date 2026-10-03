@@ -233,32 +233,32 @@ export class CaptureService {
     }
     const params = parseCaptureParams(data);
     if (!params) {
-      new Notice('skald: capture had no content to process.');
+      new Notice('Skald: capture had no content to process.');
       return;
     }
     if (this.limiter.isExceeded()) {
       new Notice(
-        `skald: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
+        `Skald: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
         10_000,
       );
       console.warn(
-        `skald: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
+        `Skald: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
       );
       return;
     }
     this.limiter.record();
-    const progress = new Notice('skald: capturing…', 0);
+    const progress = new Notice('Skald: capturing…', 0);
     try {
       const note = await this.run(params);
       progress.hide();
-      new Notice(`skald: captured → ${note.path}`, 5000);
+      new Notice(`Skald: captured → ${note.path}`, 5000);
       if (!params.silent) {
         await this.app.workspace.openLinkText(note.path, '', false);
       }
     } catch (err) {
       progress.hide();
       const msg = err instanceof Error ? err.message : String(err);
-      new Notice(`skald: capture failed — ${msg}`, 8000);
+      new Notice(`Skald: capture failed — ${msg}`, 8000);
     }
   }
 

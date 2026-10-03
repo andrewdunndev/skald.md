@@ -182,7 +182,7 @@ export class SlashCommandModal extends SuggestModal<SlashCommand> {
     ]);
     if (commands.length === 0) {
       new Notice(
-        'No commands found. Author markdown notes in the configured commands folder (default Skald/Commands).',
+        'No commands found. Add notes to your commands folder.',
       );
     }
   }

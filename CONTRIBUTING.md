@@ -43,7 +43,7 @@ pnpm install
 |---|---|
 | `pnpm typecheck` | TypeScript across all packages |
 | `pnpm test` | Unit tests via Vitest |
-| `pnpm check:lint` | Manifest/package version parity |
+| `pnpm lint` | Obsidian review lint (eslint-plugin-obsidianmd) |
 | `pnpm --filter @skald/plugin build` | Plugin bundle compiles |
 
 **Dev vault workflow:** see the "Develop" section in [README.md](README.md).

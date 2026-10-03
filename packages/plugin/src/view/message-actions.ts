@@ -100,7 +100,7 @@ async function copyMessage(
     // fired, btn.isConnected is false and we skip touching a stale
     // node — no setIcon on an orphaned element.
     setIcon(btn, 'check');
-    setTimeout(() => {
+    window.setTimeout(() => {
       if (btn.isConnected) setIcon(btn, 'copy');
     }, 1200);
   } catch {
@@ -128,7 +128,7 @@ async function saveAsNote(
     const path = uniqueSavePath(cfg.app, folder, ts);
     const created = await cfg.app.vault.create(path, text);
     new Notice(`Saved to ${path}`);
-    cfg.app.workspace.openLinkText(created.path, '', false);
+    void cfg.app.workspace.openLinkText(created.path, '', false);
   } catch (err) {
     new Notice(
       `Save failed: ${err instanceof Error ? err.message : 'unknown'}`,

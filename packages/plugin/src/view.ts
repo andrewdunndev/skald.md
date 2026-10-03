@@ -44,7 +44,7 @@ export class SkaldView extends ItemView {
    * or awaits approval, so overlapping passes can't clobber the note. */
   private readonly upkeepGate = new UpkeepInFlightGate();
   private readonly approvals = new ApprovalManager({
-    onPendingChange: () => this.flushRender(),
+    onPendingChange: () => void this.flushRender(),
     onResolve: (proposal, approved) => {
       // Audit: every approval decision is logged so users can review
       // who approved which write at what time. Stays vault-local; never
@@ -142,7 +142,7 @@ export class SkaldView extends ItemView {
     });
 
     this.usageFooterEl = root.createDiv({ cls: 'skald-usage-footer' });
-    this.usageFooterEl.style.display = 'none';
+    this.usageFooterEl.addClass('skald-hidden');
 
     this.composer = new Composer(root, this.app, {
       onSend: () => void this.send(),
@@ -190,7 +190,7 @@ export class SkaldView extends ItemView {
     this.liveRegion.clear();
     this.dropSessionState();
     this.turnsSinceUpkeep = 0;
-    if (this.usageFooterEl) this.usageFooterEl.style.display = 'none';
+    if (this.usageFooterEl) this.usageFooterEl.addClass('skald-hidden');
     this.requestRender();
   }
 
@@ -204,7 +204,7 @@ export class SkaldView extends ItemView {
     this.connect();
   }
 
-  private openHistoryModal(): void {
+  openHistoryModal(): void {
     const folder = this.plugin.settings.chatsFolder?.trim() ?? '';
     new ConversationSearchModal(this.app, folder, {
       onResume: (file) =>
@@ -323,7 +323,7 @@ export class SkaldView extends ItemView {
       this.plugin.sessionCostUSD,
     );
     this.usageFooterEl.setText(footerText);
-    this.usageFooterEl.style.display = '';
+    this.usageFooterEl.removeClass('skald-hidden');
     void this.flushRender();
     void this.persistConversation();
     // Memory upkeep: fire after the turn is shown (off the hot path); never blocks rendering — errors soft-fail silently.

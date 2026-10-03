@@ -12,6 +12,6 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for dev setup and check gates.
 
 - [ ] `pnpm typecheck` green
 - [ ] `pnpm test` green
-- [ ] `pnpm check:lint` green (manifest/package version parity)
+- [ ] `pnpm lint` green
 - [ ] `pnpm --filter @skald/plugin build` green
 - [ ] Screenshots attached (if UI changed)

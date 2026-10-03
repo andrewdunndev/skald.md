@@ -1180,3 +1180,7 @@
   display: inline-flex;
   --icon-size: var(--icon-s);
 }
+
+.skald-hidden {
+  display: none !important;
+}

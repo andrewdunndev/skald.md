@@ -97,7 +97,7 @@ function renderOpenRouterBlock(
 ): void {
   new Setting(containerEl).setName('OpenRouter').setHeading();
 
-  const notice = containerEl.createEl('div', {
+  const notice = containerEl.createDiv({
     cls: 'skald-privacy-notice',
   });
   notice.createEl('strong', { text: 'Privacy notice. ' });
@@ -129,7 +129,7 @@ function renderOpenRouterBlock(
   new Setting(containerEl)
     .setName('Default model')
     .setDesc(
-      'OpenRouter model id (namespaced, e.g. anthropic/claude-opus-4-7, openai/gpt-5.2, meta-llama/llama-3.3-70b-instruct). Type to search the catalog.',
+      'OpenRouter model ID, namespaced by vendor. Type to search the catalog.',
     )
     .addText((t) => {
       t.setPlaceholder('anthropic/claude-sonnet-5-5').setValue(
@@ -139,9 +139,9 @@ function renderOpenRouterBlock(
         plugin.settings.openrouterModel = v.trim();
         await plugin.saveSettings();
       });
-      new ModelSuggest(plugin.app, t.inputEl, async (model) => {
+      new ModelSuggest(plugin.app, t.inputEl, (model) => {
         plugin.settings.openrouterModel = model.id;
-        await plugin.saveSettings();
+        void plugin.saveSettings();
       });
     });
 }
@@ -152,7 +152,7 @@ function renderOpenaiBlock(
 ): void {
   new Setting(containerEl).setName('OpenAI-compatible').setHeading();
 
-  const notice = containerEl.createEl('div', {
+  const notice = containerEl.createDiv({
     cls: 'skald-privacy-notice',
   });
   notice.createEl('strong', { text: 'Privacy notice. ' });

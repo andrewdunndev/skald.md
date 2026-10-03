@@ -83,7 +83,7 @@ export class Composer {
         capture: 'environment',
       },
     });
-    this.fileInput.style.display = 'none';
+    this.fileInput.addClass('skald-hidden');
     cameraBtn.addEventListener('click', () => this.fileInput.click());
     this.fileInput.addEventListener('change', () => {
       if (this.fileInput.files) void this.handleImageFiles(this.fileInput.files);
@@ -103,7 +103,7 @@ export class Composer {
     });
     setIcon(this.stopBtn, 'square');
     setTooltip(this.stopBtn, 'Stop generating');
-    this.stopBtn.style.display = 'none';
+    this.stopBtn.addClass('skald-hidden');
 
     this.sendBtn.addEventListener('click', () => this.hooks.onSend());
     this.stopBtn.addEventListener('click', () => this.hooks.onStop());
@@ -209,7 +209,7 @@ export class Composer {
    */
   setBusy(busy: boolean): void {
     this.sendBtn.disabled = busy;
-    this.stopBtn.style.display = busy ? '' : 'none';
+    this.stopBtn.toggleClass('skald-hidden', !busy);
   }
 
   /**
@@ -228,8 +228,8 @@ export class Composer {
    */
   private autoGrow(): void {
     const el = this.inputEl;
-    el.style.height = 'auto';
-    el.style.height = `${el.scrollHeight}px`;
+    el.setCssProps({ height: 'auto' });
+    el.setCssProps({ height: `${el.scrollHeight}px` });
   }
 
   /**
@@ -326,7 +326,7 @@ export class Composer {
         text: f.basename,
       });
       label.addEventListener('click', () => {
-        this.app.workspace.openLinkText(f.path, '', false);
+        void this.app.workspace.openLinkText(f.path, '', false);
       });
       const dismiss = chip.createEl('button', {
         cls: 'clickable-icon skald-chip-dismiss',
@@ -361,7 +361,6 @@ export class Composer {
     }
 
     // Hide the slot entirely when empty — no "type @ to attach" noise.
-    this.chipEl.style.display =
-      this.chipEl.childElementCount === 0 ? 'none' : '';
+    this.chipEl.toggleClass('skald-hidden', this.chipEl.childElementCount === 0);
   }
 }

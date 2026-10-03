@@ -255,16 +255,13 @@ export async function runSearchVault(
 
   // ---------------------------------------------------------------------------
   // Omnisearch fast path — BM25-ranked results when the plugin is present.
-  // Access via app.plugins is preferred (App is already in scope); fall through
-  // to the globalThis surface as a secondary probe so tests can mock either.
   // ---------------------------------------------------------------------------
   const omnisearchApi: OmnisearchApi | undefined =
     (
       app as unknown as {
         plugins?: { plugins?: Record<string, { api?: OmnisearchApi }> };
       }
-    ).plugins?.plugins?.['omnisearch']?.api ??
-    (globalThis as unknown as { omnisearch?: OmnisearchApi }).omnisearch;
+    ).plugins?.plugins?.['omnisearch']?.api;
 
   if (omnisearchApi?.search) {
     try {

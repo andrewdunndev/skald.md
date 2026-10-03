@@ -25,6 +25,10 @@ import {
 } from './read';
 import { compactToolResult } from '../tool-compact';
 
+function setOmnisearch(app: unknown, api: unknown): void {
+  (app as { plugins?: unknown }).plugins = api ? { plugins: { omnisearch: { api } } } : undefined;
+}
+
 // ---------------------------------------------------------------------------
 // Shared mock helpers
 // ---------------------------------------------------------------------------
@@ -208,13 +212,12 @@ describe('compacted flag on capping tool results', () => {
   it('runSearchVault: compacted=true when compact=true (omnisearch path)', async () => {
     const app = makeApp({});
     const hits = [{ score: 1, path: 'a.md', basename: 'a', foundWords: [], excerpt: 'test', matches: [] }];
-    const savedOmnisearch = (globalThis as Record<string, unknown>)['omnisearch'];
-    (globalThis as Record<string, unknown>)['omnisearch'] = { search: async () => hits };
+    setOmnisearch(app, { search: async () => hits });
     try {
       const result = await runSearchVault(app, { query: 'test' }, undefined, undefined, true);
       expect(result.compacted).toBe(true);
     } finally {
-      (globalThis as Record<string, unknown>)['omnisearch'] = savedOmnisearch;
+      setOmnisearch(app, undefined);
     }
   });
 });

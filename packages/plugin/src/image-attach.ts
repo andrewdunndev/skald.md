@@ -260,7 +260,7 @@ export async function compressImageBlob(
   for (const { scale, quality } of attempts) {
     const w = Math.max(1, Math.round(srcW * scale));
     const h = Math.max(1, Math.round(srcH * scale));
-    const canvas = document.createElement('canvas');
+    const canvas = createEl('canvas');
     canvas.width = w;
     canvas.height = h;
     const ctx = canvas.getContext('2d');

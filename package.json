@@ -29,18 +29,23 @@
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
     "audit:prod": "pnpm audit --prod",
-    "check:lint": "node scripts/check-plugin-lint.mjs",
+    "lint": "eslint packages/plugin/src --max-warnings 0",
     "check:cors": "node scripts/check-cors.mjs",
     "smoke:live": "node scripts/smoke-live.mjs",
     "test:e2e": "pnpm --filter @skald/plugin build && pnpm --filter @skald/e2e test",
-    "check": "pnpm typecheck && pnpm test && pnpm check:lint && pnpm --filter @skald/plugin build"
+    "check": "pnpm typecheck && pnpm test && pnpm lint && pnpm --filter @skald/plugin build"
   },
   "packageManager": "pnpm@12.8.1",
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "@eslint/json": "0.14.0",
     "@stryker-mutator/core": "10.0.0",
     "@stryker-mutator/vitest-runner": "10.0.0",
     "@vitest/coverage-v8": "5.0.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-obsidianmd": "^0.4.2",
     "typescript": "7.0.2",
+    "typescript-eslint": "^8.71.0",
     "vitest": "5.0.2"
   }
 }

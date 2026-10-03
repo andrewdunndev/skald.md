@@ -140,7 +140,7 @@ function openSettingsForPlugin(app: App): void {
     return;
   }
   new Notice(
-    'skald: open Settings → Community plugins → Skald to add your API key.',
+    'Skald: open settings → community plugins → Skald to add your API key.',
     8000,
   );
 }

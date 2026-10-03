@@ -252,7 +252,7 @@ available in direct mode.
   - Trigger: API key configured, capture turned on. In Safari,
     share an article via the skald Shortcut.
   - Verify: Obsidian foregrounds. "skald: capturing..." progress
-    Notice -> "skald: captured -> X.md". Note lands in the
+    Notice -> "Skald: captured -> X.md". Note lands in the
     captures folder.
 
 - [ ] **Inbox mode**
@@ -307,7 +307,7 @@ available in direct mode.
 ## 10. Slash commands
 
 - [ ] **Run command from palette**
-  - Trigger: Command palette -> "Skald: Run command".
+  - Trigger: Command palette -> "Skald: Run slash command".
   - Verify: Modal lists commands from `Skald/Commands/`.
     Pick one. Rendered template lands in the chat input.
 

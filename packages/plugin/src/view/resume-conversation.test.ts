@@ -84,7 +84,7 @@ function makeCtx(opts: {
     getTransport: () => ({ close: vi.fn() }),
     setTransport: vi.fn(),
     setSession: vi.fn(() => { session = null; }),
-    usageFooterEl: { style: {}, setText: vi.fn() } as unknown as HTMLDivElement,
+    usageFooterEl: { addClass: vi.fn(), removeClass: vi.fn(), setText: vi.fn() } as unknown as HTMLDivElement,
     onPreClear: vi.fn(),
     liveSession: () => session,
   } as unknown as ResumeContext & { liveSession: () => unknown };
