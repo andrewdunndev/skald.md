@@ -45,6 +45,7 @@ const ATTACKS: Array<[string, string]> = [
   ['protocol-relative', '![x](//evil.example/p)'],
   ['uppercase scheme', '![x](HTTPS://evil.example/p)'],
   ['entity in scheme', '![x](h&#116;tps://evil.example/p)'],
+  ['entity for the scheme colon', '![a](https&#58;//e.x/p)'],
   ['line break before target', '![x](\nhttps://evil.example/p)'],
   ['brackets in alt', '![a [b] c](https://evil.example/p)'],
   ['bracketed alt that looks like an embed', '![[a]](https://evil.example/p)'],
@@ -93,6 +94,52 @@ describe('neutralizeRemoteMedia: no remote load survives rendering', () => {
   });
 });
 
+/** Language classes and code-span texts a plugin's processor would see. */
+function rendererInputs(md: string): string[] {
+  const html = marked.parse(md, { async: false });
+  return [
+    ...[...html.matchAll(/class="language-([^"]*)"/g)].map((m) => m[1]),
+    ...[...html.matchAll(/<code>([^<]*)<\/code>/g)].map((m) => decode(m[1]).trim()),
+  ];
+}
+
+const PROCESSED: Array<[string, string, RegExp]> = [
+  ['mermaid fence', '```mermaid\nflowchart TD\n  A@{ img: "https://evil.example/p" }\n```', /^mermaid$/],
+  ['tilde fence, odd case', '~~~ MerMaid\nflowchart TD\n~~~', /^mermaid$/i],
+  ['fence in a quote', '> ```dataviewjs\n> dv.el("img", "")\n> ```', /^dataviewjs$/],
+  ['plugin fence', '````chart\ntype: bar\n````', /^chart$/],
+  ['inline dataview js', 'see `$= dv.el("img", "")` here', /^\$?=/],
+  ['inline dataview', 'see `= this.file.name` here', /^\$?=/],
+];
+
+describe('neutralizeRemoteMedia: code reaches no renderer but plain code', () => {
+  it.each(PROCESSED)('%s reaches a processor before neutralizing', (_l, md, hit) => {
+    expect(rendererInputs(md).some((x) => hit.test(x))).toBe(true);
+  });
+
+  it.each(PROCESSED)('%s does not after', (_l, md, hit) => {
+    expect(rendererInputs(neutralizeRemoteMedia(md)).some((x) => hit.test(x))).toBe(false);
+  });
+
+  it.each([
+    ['style', '$\\style{background-image:url(https://evil.example/p)}{x}$'],
+    ['class', '$$\\class{a}{x}$$'],
+    ['cssId', '$\\cssId{a}{x}$'],
+    ['require', '$\\require{https://evil.example/m.js}$'],
+  ])('math \\%s is broken', (_l, md) => {
+    expect(neutralizeRemoteMedia(md)).not.toMatch(/\\(?:style|class|cssId|require)(?![A-Za-z])/);
+  });
+
+  it.each([
+    ['highlighted fence', '```ts\nconst a = 1;\n```'],
+    ['bare fence', '```\nplain\n```'],
+    ['math', '$\\frac{a}{b} \\styles$'],
+    ['inline code', 'run `pnpm test` now'],
+  ])('%s is untouched', (_l, md) => {
+    expect(neutralizeRemoteMedia(md)).toBe(md);
+  });
+});
+
 describe('neutralizeRemoteMedia: vault content is untouched', () => {
   it.each([
     ['wikilink embed', '![[photo.png]]'],
@@ -123,7 +170,8 @@ describe('neutralizeRemoteMedia: vault content is untouched', () => {
 
 describe('neutralizeRemoteMedia: idempotent and reversible', () => {
   const sample =
-    'Hi ![x](https://evil.example/p) <img src=//e> ![[a.png]] <https://ok.example>';
+    'Hi ![x](https://evil.example/p) <img src=//e> ![[a.png]] <https://ok.example>' +
+    '\n```mermaid\nA\n```\n`$= x` $\\style{a}{b}$';
 
   it('is idempotent', () => {
     const once = neutralizeRemoteMedia(sample);

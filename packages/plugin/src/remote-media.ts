@@ -15,14 +15,36 @@
  *   `![[wikilink]]` embed, or an inline `![alt](target)` whose target has
  *   no scheme, no leading `//` and nothing an entity or escape could turn
  *   into one. A remote image becomes a plain link.
+ * - A code fence's language gets one unless it is a plain highlighting
+ *   language. Mermaid, Dataview and any plugin's code-block processor
+ *   run on render and can fetch; the block shows as plain code instead.
+ *   An inline code span opening with a Dataview query prefix (`=`, `$=`)
+ *   gets one for the same reason.
+ * - In math, `\style`, `\class`, `\cssId` and `\require` get one after
+ *   the backslash: MathJax would apply CSS (`url()`) or load a module.
  *
- * Idempotent: a marked `<` or `!` is no longer followed by the trigger.
+ * Idempotent: a marked trigger is no longer followed by what fires it.
  */
 
 export const ZWSP = '\u200b';
 
 const AUTOLINK = /<[A-Za-z][A-Za-z0-9+.-]{1,31}:[^\s<>]*>/y;
 const TAG_START = /[A-Za-z/!?]/;
+const CODE_RUN = /(`+|~{3,})[ \t]*/y;
+const MATH_HOOK = /(?:style|class|cssId|require)(?![A-Za-z])/y;
+/** Fence languages no core or common plugin renders as anything but code. */
+const HIGHLIGHT_ONLY = new Set(
+  (
+    'bash sh shell zsh fish console powershell ps1 bat cmd ' +
+    'c h cpp hpp c++ cs csharp java kotlin kt scala go rust rs swift objc ' +
+    'js javascript jsx mjs cjs ts typescript tsx json jsonc json5 yaml yml ' +
+    'toml ini xml html css scss sass less vue svelte ' +
+    'py python rb ruby php perl pl lua r julia dart elixir ex erlang ' +
+    'haskell hs clojure clj ocaml fsharp nim zig ' +
+    'sql graphql gql diff patch dockerfile makefile cmake nginx ' +
+    'nix hcl terraform tf proto protobuf regex csv text txt plaintext md markdown'
+  ).split(' '),
+);
 /** Longest alt text or embed target inspected before giving up. */
 const SCAN_LIMIT = 2000;
 
@@ -36,16 +58,38 @@ export function neutralizeRemoteMedia(md: string): string {
       if (!AUTOLINK.test(md)) out += ZWSP;
     } else if (c === '!' && md[i + 1] === '[' && !isVaultImage(md, i + 1)) {
       out += ZWSP;
+    } else if (c === '\\') {
+      MATH_HOOK.lastIndex = i + 1;
+      if (MATH_HOOK.test(md)) out += ZWSP;
+    } else if ((c === '`' || c === '~') && md[i - 1] !== c) {
+      CODE_RUN.lastIndex = i;
+      const run = CODE_RUN.exec(md);
+      if (!run) continue;
+      out += run[0].slice(1);
+      i += run[0].length - 1;
+      if (runsOnRender(run[1].length, md.slice(i + 1, i + 65))) out += ZWSP;
     }
   }
   return out;
+}
+
+/** Whether the code opened by a run of `fence` backticks or tildes,
+ * followed by `rest`, would be handed to a renderer other than plain code. */
+function runsOnRender(fence: number, rest: string): boolean {
+  if (/^\$?=/.test(rest)) return true;
+  if (fence < 3) return false;
+  const lang = /^[^\s`]+/.exec(rest)?.[0];
+  return lang !== undefined && !lang.startsWith(ZWSP) &&
+    !HIGHLIGHT_ONLY.has(lang);
 }
 
 /** Undo neutralizeRemoteMedia, for text read back from a saved note. */
 export function restoreRemoteMedia(md: string): string {
   return md
     .replace(/<\u200b(?=[A-Za-z/!?])/g, '<')
-    .replace(/!\u200b(?=\[)/g, '!');
+    .replace(/!\u200b(?=\[)/g, '!')
+    .replace(/((?:`+|~{3,})[ \t]*)\u200b/g, '$1')
+    .replace(/\\\u200b(?=(?:style|class|cssId|require)(?![A-Za-z]))/g, '\\');
 }
 
 /** `open` indexes the `[` after `!`. */
