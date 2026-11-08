@@ -233,7 +233,7 @@ export function renderKeySetting(
       new SecretComponent(plugin.app, el)
         .setValue(plugin.settings[field])
         .onChange(async (name) => {
-          plugin.settings[field] = name;
+          plugin.settings[field] = name ?? '';
           await plugin.saveSettings();
         }),
     );
