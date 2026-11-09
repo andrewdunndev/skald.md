@@ -35,7 +35,7 @@
     "test:e2e": "pnpm --filter @skald/plugin build && pnpm --filter @skald/e2e test",
     "check": "pnpm typecheck && pnpm test && pnpm lint && pnpm --filter @skald/plugin build"
   },
-  "packageManager": "pnpm@12.17.0",
+  "packageManager": "pnpm@12.18.0",
   "devDependencies": {
     "@eslint/js": "^10.0.0",
     "@eslint/json": "2.1.1",
