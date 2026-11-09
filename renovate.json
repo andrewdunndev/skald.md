@@ -1,4 +1,11 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["gitlab>dunn.dev/pipeline:renovate-config"]
+  "extends": ["gitlab>dunn.dev/pipeline:renovate-config"],
+  "packageRules": [
+    {
+      "description": "typescript-eslint cannot use TS 7 (no programmatic API); TS 7 rides the typescript7 alias.",
+      "matchDepNames": ["typescript"],
+      "allowedVersions": "<7"
+    }
+  ]
 }

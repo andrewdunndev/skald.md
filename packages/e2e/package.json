@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "wdio run ./wdio.conf.mts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "node ../../node_modules/typescript7/bin/tsc --noEmit"
   },
   "devDependencies": {
     "@types/mocha": "10.0.10",
