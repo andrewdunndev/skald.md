@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node esbuild.config.mjs",
     "dev": "node esbuild.config.mjs --dev",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "node ../../node_modules/typescript7/bin/tsc --noEmit"
   },
   "dependencies": {
     "@toon-format/toon": "^4.0.0"
