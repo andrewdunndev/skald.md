@@ -152,6 +152,51 @@ describe('MODEL_PRICING table', () => {
     expect(p.input).toBe(5);
     expect(p.output).toBe(25);
   });
+
+  it('prices Fable 5.2 at 8/40 with the 1-hour write and 0.025x read rates', () => {
+    expect(MODEL_PRICING['claude-fable-5-2']).toEqual({
+      input: 8,
+      output: 40,
+      cacheRead: 0.2,
+      cacheWrite: 16,
+    });
+  });
+
+  it('prices the corrected Fable 5.1, Sonnet 5.5 and Sonnet 5 rows', () => {
+    expect(MODEL_PRICING['claude-fable-5-1']).toEqual({
+      input: 10,
+      output: 50,
+      cacheRead: 0.25,
+      cacheWrite: 20,
+    });
+    expect(MODEL_PRICING['claude-sonnet-5-5']).toEqual({
+      input: 2,
+      output: 10,
+      cacheRead: 0.1,
+      cacheWrite: 4,
+    });
+    expect(MODEL_PRICING['claude-sonnet-5']).toEqual({
+      input: 2,
+      output: 10,
+      cacheRead: 0.2,
+      cacheWrite: 4,
+    });
+  });
+
+  it('estimates a Fable 5.2 turn including cache reads and writes', () => {
+    // 100k in * 8 + 10k out * 40 + 1M read * 0.2 + 50k write * 16
+    // = 800000 + 400000 + 200000 + 800000 = 2200000 -> $2.20
+    const cost = estimateTurnCost(
+      {
+        input_tokens: 100_000,
+        output_tokens: 10_000,
+        cache_read_input_tokens: 1_000_000,
+        cache_creation_input_tokens: 50_000,
+      },
+      'claude-fable-5-2',
+    );
+    expect(cost).toBeCloseTo(2.2, 6);
+  });
 });
 
 describe('formatUsageFooter', () => {

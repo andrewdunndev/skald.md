@@ -3,45 +3,21 @@
  *   - the chat status row (running per-conversation total)
  *   - saved conversation markdown frontmatter (estimated_cost_usd)
  *
- * Rates are $/million tokens. Update when Anthropic / OpenRouter
- * publish new pricing — this is a knowingly-stale table, accuracy
- * within $0.01 isn't the goal; surfacing the order of magnitude
- * on a premium-token mobile budget is.
+ * Rates are $/million tokens. A knowingly-stale table: surfacing the
+ * order of magnitude on a premium-token mobile budget is the goal,
+ * not accuracy within $0.01.
  *
- * Pricing source (Anthropic docs, verified 2026-06-17):
- *   https://platform.claude.com/docs/en/docs/about-claude/models/overview
- *   - claude-opus-4-8: $5 / $25 input/output
- *   - claude-opus-4-7: $5 / $25 input/output
- *   - claude-sonnet-4-6: $3 / $15, cache_read $0.30, cache_write $6.00
- *   - claude-haiku-4-5: $1 / $5, cache_read $0.10, cache_write $2.00
+ * Pricing:
+ *   - source: https://platform.claude.com/docs/en/about-claude/pricing
+ *   - verified 2026-11-10
+ *   - cacheWrite is the 1-hour-TTL rate (2x input); skald writes its
+ *     prefix with a 1-hour TTL (see anthropic-caching.ts)
+ *   - cacheRead multiplier varies by model: 0.1x input standard,
+ *     0.05x Opus 5.5 / Sonnet 5.5, 0.025x Fable 5.1 / 5.2
  *
- * Claude 5 family added 2026-07-26 (Opus 5 GA), first-party rates:
- *   - claude-fable-5: $10 / $50 input/output
- *   - claude-opus-5: $5 / $25 input/output (same tier as 4.8/4.7)
- *   - claude-sonnet-5: $3 / $15 standard rate (Anthropic is running an
- *     introductory $2/$10 rate through 2026-08-31; this table uses the
- *     standard post-intro rate deliberately, matching every other entry
- *     here being a steady-state price with no expiry — the estimate will
- *     OVERSTATE actual spend until the intro window ends 2026-08-31)
- *
- * Fable 5.1 added 2026-09-02, first-party rates:
- *   - claude-fable-5-1: $10 / $50 input/output (identical to claude-fable-5)
- *
- * Opus 5.5 and Sonnet 5.5 added 2026-10-02, first-party rates:
- *   - claude-opus-5-5: $4 / $20 input/output
- *   - claude-sonnet-5-5: $2 / $10 input/output
- *
- * cache_write rates above are the 1-HOUR-TTL write rate (2x base
- * input), because skald writes its system+tools prefix with a
- * 1-hour TTL (see anthropic-caching.ts) to survive multi-minute
- * mobile gaps. cache_read stays 0.1x base regardless of TTL. Per
- * Anthropic prompt-caching docs: 5-min write = 1.25x, 1-hour write =
- * 2x, read = 0.1x base input.
- *
- * OpenRouter rates vary per model; surfaced via their pricing API
- * but kept as a rough Sonnet baseline here for non-Anthropic routes
- * (cost surface is "indicative" — the actual bill comes from your
- * OpenRouter dashboard).
+ * OpenRouter rates vary per model; an Anthropic id behind an
+ * OpenRouter namespace resolves to the same row. The estimate is
+ * indicative; the bill comes from your provider dashboard.
  */
 
 import type { Usage } from './protocol';
@@ -63,63 +39,48 @@ export interface ModelPricing {
 /** Pricing table keyed by canonical model id (Anthropic names) and
  * by an OpenRouter-style namespaced fallback. */
 export const MODEL_PRICING: Record<string, ModelPricing> = {
-  // Fable 5: $10/M input, $50/M output — Anthropic's most capable
-  // widely-released model, priced above the Opus tier. Cache rates
-  // follow the same pattern as every other row: cache_read = 0.1x
-  // input ($1), cache_write (1-hour TTL) = 2x input ($20).
   'claude-fable-5': {
     input: 10,
     output: 50,
     cacheRead: 1,
     cacheWrite: 20,
   },
-  // Fable 5.1: same pricing as Fable 5 ($10/$50) — cache rates follow
-  // the same multipliers as the Fable 5 row above: cache_read = 0.1x
-  // input ($1), cache_write (1-hour TTL) = 2x input ($20).
   'claude-fable-5-1': {
     input: 10,
     output: 50,
-    cacheRead: 1,
+    cacheRead: 0.25,
     cacheWrite: 20,
   },
-  // Opus 5.5: $4/M input, $20/M output. Cache rates follow the standard
-  // pattern: cache_read = 0.05x input ($0.20), cache_write (1-hour TTL)
-  // = 2x input ($8).
+  'claude-fable-5-2': {
+    input: 8,
+    output: 40,
+    cacheRead: 0.2,
+    cacheWrite: 16,
+  },
   'claude-opus-5-5': {
     input: 4,
     output: 20,
     cacheRead: 0.2,
     cacheWrite: 8,
   },
-  // Sonnet 5.5: $2/M input, $10/M output. cache_read = 0.1x input
-  // ($0.20), cache_write (1-hour TTL) = 2x input ($4).
   'claude-sonnet-5-5': {
     input: 2,
     output: 10,
-    cacheRead: 0.2,
+    cacheRead: 0.1,
     cacheWrite: 4,
   },
-  // Opus 5: same tier pricing as Opus 4.8/4.7 ($5/$25) — the model's
-  // per-token price did not change at GA, only the tier's capability.
   'claude-opus-5': {
     input: 5,
     output: 25,
     cacheRead: 0.5,
     cacheWrite: 10,
   },
-  // Sonnet 5: same steady-state tier pricing as Sonnet 4.6 ($3/$15).
-  // Anthropic's temporary intro rate ($2/$10 through 2026-08-31) is
-  // deliberately NOT used here — see the file-header note.
   'claude-sonnet-5': {
-    input: 3,
-    output: 15,
-    cacheRead: 0.3,
-    cacheWrite: 6,
+    input: 2,
+    output: 10,
+    cacheRead: 0.2,
+    cacheWrite: 4,
   },
-  // Opus 4.8: $5/M input, $25/M output. Cache rates follow the
-  // standard pattern: cache_read = 0.1x input ($0.50), cache_write
-  // (1-hour TTL) = 2x input ($10). Source: Anthropic models page,
-  // verified 2026-06-17.
   'claude-opus-4-8': {
     input: 5,
     output: 25,
