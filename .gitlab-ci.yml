@@ -104,6 +104,8 @@ mutation:
   rules:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
   script:
+    # Stryker shells out to `ps`, which the CI image does not ship.
+    - dnf install -y -q --setopt=install_weak_deps=False procps-ng
     - pnpm test:mutation
   artifacts:
     when: always
