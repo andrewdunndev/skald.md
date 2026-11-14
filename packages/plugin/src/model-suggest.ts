@@ -7,7 +7,7 @@ import { AbstractInputSuggest, App, requestUrl } from 'obsidian';
  * 24-hour TTL, fuzzy-matches as the user types.
  *
  * The catalog has hundreds of models with slash-namespaced IDs
- * (`anthropic/claude-opus-4-7`, `openai/gpt-5.2`, etc.). Each
+ * (`anthropic/claude-opus-4.7`, `openai/gpt-5.2`, etc.). Each
  * suggestion row shows id + friendly name + context window + per-Mtok
  * pricing + capability chips so the user can pick from price/quality
  * trade-offs without leaving Obsidian.
@@ -130,7 +130,7 @@ async function ensureCatalog(): Promise<ModelInfo[]> {
     })
     .catch((err) => {
       inFlight = null;
-      console.warn('skald: ModelSuggest catalog fetch failed', err);
+      console.error('skald: ModelSuggest catalog fetch failed', err);
       // Return the stale cache if we have one; otherwise an empty list
       // so the suggestor renders without throwing.
       return catalogCache?.models ?? [];

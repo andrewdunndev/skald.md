@@ -30,7 +30,7 @@ function makeSettings(overrides: Partial<MinimalSettings> = {}): MinimalSettings
   return {
     provider: 'anthropic',
     defaultModel: 'claude-sonnet-4-6',
-    openrouterModel: 'anthropic/claude-sonnet-4-6',
+    openrouterModel: 'anthropic/claude-sonnet-4.6',
     openaiModel: '',
     ...overrides,
   };
@@ -93,7 +93,7 @@ describe('providerCapabilities', () => {
 describe('utilityModel: per-provider default', () => {
   it.each([
     ['anthropic', 'anthropic', 'claude-haiku-4-5'],
-    ['openrouter (namespaced)', 'openrouter', 'anthropic/claude-haiku-4-5'],
+    ['openrouter (namespaced)', 'openrouter', 'anthropic/claude-haiku-4.5'],
   ] as const)('%s', (_label, provider, expected) => {
     const s = makeSettings({ provider });
     expect(utilityModel(s as never)).toBe(expected);
@@ -126,5 +126,13 @@ describe('reasoningModel: returns configured chat model', () => {
   it('openai → settings.openaiModel', () => {
     const s = makeSettings({ provider: 'openai', openaiModel: 'qwen2.5-14b' });
     expect(reasoningModel(s as never)).toBe('qwen2.5-14b');
+  });
+});
+
+describe('OpenRouter utility model id', () => {
+  it('uses a dotted version id', () => {
+    expect(utilityModel(makeSettings({ provider: 'openrouter' }) as never)).toMatch(
+      /^anthropic\/claude-[a-z]+-\d+\.\d+$/,
+    );
   });
 });

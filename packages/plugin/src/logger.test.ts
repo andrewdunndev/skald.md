@@ -66,13 +66,13 @@ describe('Logger.write redaction', () => {
 
   it('a Bearer token never reaches the console mirror or the vault file', async () => {
     const logger = new Logger(app, () => 'Logs');
-    logger.info('dispatch', { authorization: 'Bearer sk-ant-supersecret-99' });
+    logger.error('dispatch', { authorization: 'Bearer sk-ant-supersecret-99' });
 
     // Flush the serialized write chain.
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
 
-    const consoleCall = (console.debug as unknown as { mock: { calls: unknown[][] } })
+    const consoleCall = (console.error as unknown as { mock: { calls: unknown[][] } })
       .mock.calls.map((c) => c.join(' '))
       .join('\n');
     expect(consoleCall).not.toContain('sk-ant-supersecret-99');
@@ -88,5 +88,21 @@ describe('Logger.write redaction', () => {
     await new Promise((r) => setTimeout(r, 0));
     await new Promise((r) => setTimeout(r, 0));
     expect(appended.join('')).not.toContain('sk-or-leakme-1234');
+  });
+});
+
+describe('Logger console mirror', () => {
+  it('writes only errors to the console', () => {
+    const debug = vi.spyOn(console, 'debug').mockImplementation(() => {});
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    const logger = new Logger({} as App, () => '');
+    logger.info('a');
+    logger.warn('b');
+    logger.error('c');
+    expect(debug).not.toHaveBeenCalled();
+    expect(warn).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledTimes(1);
+    vi.restoreAllMocks();
   });
 });

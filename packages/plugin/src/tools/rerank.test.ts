@@ -145,7 +145,7 @@ describe('rerankCandidates: OpenRouter provider', () => {
     // OpenRouter returns an Anthropic-shaped content response on /v1/messages.
     vi.mocked(obsidian.requestUrl).mockResolvedValue(anthropicOk('[5,0,2,1,3]'));
 
-    const result = await rerankCandidates('query', CANDIDATES, 'openrouter', OR_KEY, { topK: 3 }, 'anthropic/claude-haiku-4-5');
+    const result = await rerankCandidates('query', CANDIDATES, 'openrouter', OR_KEY, { topK: 3 }, 'anthropic/claude-haiku-4.5');
 
     // Must have ranked successfully (not soft-failed to plain slice).
     expect(result).toHaveLength(3);
@@ -163,7 +163,7 @@ describe('rerankCandidates: OpenRouter provider', () => {
   it('does NOT send cache_control on the system block for OpenRouter (promptCaching=false)', async () => {
     vi.mocked(obsidian.requestUrl).mockResolvedValue(anthropicOk('[0]'));
 
-    await rerankCandidates('query', CANDIDATES, 'openrouter', OR_KEY, { topK: 3 }, 'anthropic/claude-haiku-4-5');
+    await rerankCandidates('query', CANDIDATES, 'openrouter', OR_KEY, { topK: 3 }, 'anthropic/claude-haiku-4.5');
     const call = vi.mocked(obsidian.requestUrl).mock.calls[0][0];
     const body = JSON.parse((call as { body: string }).body);
 
@@ -187,7 +187,7 @@ describe('rerankCandidates: OpenRouter provider', () => {
   it('uses the OR-specific URL (not Anthropic) when provider=openrouter', async () => {
     vi.mocked(obsidian.requestUrl).mockResolvedValue(anthropicOk('[0]'));
 
-    await rerankCandidates('query', CANDIDATES, 'openrouter', OR_KEY, { topK: 1 }, 'anthropic/claude-haiku-4-5');
+    await rerankCandidates('query', CANDIDATES, 'openrouter', OR_KEY, { topK: 1 }, 'anthropic/claude-haiku-4.5');
     const call = vi.mocked(obsidian.requestUrl).mock.calls[0][0];
     expect((call as { url: string }).url).toBe(OPENROUTER_URL);
     expect((call as { url: string }).url).not.toBe(ANTHROPIC_URL);

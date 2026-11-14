@@ -81,7 +81,7 @@ export default class SkaldPlugin extends Plugin {
     // drops into the active chat input for review + send.
     this.addCommand({
       id: 'run-slash',
-      name: 'Run slash command',
+      name: 'Insert prompt template',
       callback: () => void this.runSlashCommand(),
     });
 

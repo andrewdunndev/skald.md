@@ -193,7 +193,7 @@ describe('DirectTransport: HTTP error mapping', () => {
   // (httpErrorMessage). These transport-integration tests assert only what
   // the transport itself owns: the right retryable flag is emitted, and the
   // raw provider body never leaks into the surfaced message.
-  it('emits a non-retryable error for HTTP 401 and does not leak the raw body', async () => {
+  it('emits a non-retryable error for HTTP 401 and surfaces the parsed error type, not raw JSON', async () => {
     fetchMock.mockResolvedValue(errResponse(401, '{"type":"error","error":{"type":"authentication_error"}}'));
     const { transport, handlers } = makeTransport();
     transport.connect();
@@ -207,11 +207,33 @@ describe('DirectTransport: HTTP error mapping', () => {
     expect(err?.type).toBe('error');
     if (err?.type === 'error') {
       expect(err.retryable).toBe(false);
-      expect(err.error).not.toContain('authentication_error'); // raw body stripped
+      expect(err.error).toContain('authentication_error');
+      expect(err.error).not.toContain('{');
     }
   });
 
-  it('emits a retryable error for HTTP 429 and does not leak the raw body', async () => {
+  it('names the provider message for HTTP 404', async () => {
+    fetchMock.mockResolvedValue(
+      new Response('{"error":{"type":"not_found_error","message":"model: nope"}}', {
+        status: 404,
+      }),
+    );
+    const { transport, handlers } = makeTransport();
+    transport.connect();
+    transport.send({
+      type: 'chat',
+      id: 't',
+      payload: { model: 'nope', messages: [{ role: 'user', content: 'hi' }], max_tokens: 100 },
+    });
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
+    const err = handlers.messages.find((m) => m.type === 'error');
+    if (err?.type === 'error') {
+      expect(err.error).toMatch(/model not found/i);
+      expect(err.error).toContain('not_found_error: model: nope');
+    }
+  });
+
+  it('emits a retryable error for HTTP 429 and surfaces the parsed error type, not raw JSON', async () => {
     fetchMock.mockResolvedValue(
       new Response('{"type":"error","error":{"type":"rate_limit_error"}}', {
         status: 429,
@@ -229,7 +251,8 @@ describe('DirectTransport: HTTP error mapping', () => {
     const err = handlers.messages.find((m) => m.type === 'error');
     if (err?.type === 'error') {
       expect(err.retryable).toBe(true);
-      expect(err.error).not.toContain('rate_limit_error'); // raw body stripped
+      expect(err.error).toContain('rate_limit_error');
+      expect(err.error).not.toContain('{');
     }
   });
 
@@ -277,7 +300,7 @@ describe('DirectTransport: OpenRouter dispatch', () => {
       id: 'or-turn',
       provider: 'openrouter',
       payload: {
-        model: 'anthropic/claude-sonnet-4-6',
+        model: 'anthropic/claude-sonnet-4.6',
         messages: [{ role: 'user', content: 'hi' }],
         max_tokens: 100,
       },
@@ -303,7 +326,7 @@ describe('DirectTransport: OpenRouter dispatch', () => {
       id: 'or-tools',
       provider: 'openrouter',
       payload: {
-        model: 'anthropic/claude-sonnet-4-6',
+        model: 'anthropic/claude-sonnet-4.6',
         messages: [{ role: 'user', content: 'hi' }],
         max_tokens: 100,
         tools: [

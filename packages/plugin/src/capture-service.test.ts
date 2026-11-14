@@ -75,7 +75,7 @@ function makeCfg(
     anthropicApiKey: 'sk-ant-test',
     openrouterApiKey: '',
     defaultModel: 'claude-sonnet-4-6',
-    openrouterModel: 'anthropic/claude-sonnet-4-6',
+    openrouterModel: 'anthropic/claude-sonnet-4.6',
     openaiApiKey: '',
     openaiModel: '',
     openaiBaseUrl: '',

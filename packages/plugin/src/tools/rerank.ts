@@ -53,7 +53,6 @@ export async function rerankCandidates(
   const maxInput = opts.maxInput ?? 20;
 
   if (!apiKey) {
-    console.warn('[rerank] no API key — skipping rerank');
     return candidates.slice(0, topK);
   }
 
@@ -109,7 +108,7 @@ export async function rerankCandidates(
 
     return ranked;
   } catch (err) {
-    console.warn('[rerank] error calling rerank model —', err, '— skipping rerank');
+    console.error('[rerank] error calling rerank model —', err, '— skipping rerank');
     return candidates.slice(0, topK);
   }
 }

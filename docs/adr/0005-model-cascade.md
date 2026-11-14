@@ -33,7 +33,7 @@ Two model roles are defined in `packages/plugin/src/provider-capabilities.ts`:
   `settings.openrouterModel` on OpenRouter.
 - **`utilityModel(settings)`** -- a cheap model for bulk, judgment-light
   sub-tasks. Defaults to `claude-haiku-4-5` (Anthropic),
-  `anthropic/claude-haiku-4-5` (OpenRouter), or the configured model on an
+  `anthropic/claude-haiku-4.5` (OpenRouter), or the configured model on an
   OpenAI-compatible endpoint.
 
 The utility model does two jobs today:

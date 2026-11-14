@@ -242,9 +242,6 @@ export class CaptureService {
         `Skald: capture rate-limit hit (${CAPTURE_RATE_LIMIT_COUNT}/min). If this is unexpected, a webpage may be firing capture URLs — check what's open.`,
         10_000,
       );
-      console.warn(
-        `Skald: capture rejected by rate-limit (${this.limiter.size()} in ${CAPTURE_RATE_LIMIT_WINDOW_MS / 1000}s window)`,
-      );
       return;
     }
     this.limiter.record();

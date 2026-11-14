@@ -15,8 +15,6 @@ export default defineConfig([
     rules: {
       // Declarative settings need Obsidian 1.13; minAppVersion is 1.11.4.
       'obsidianmd/settings-tab/prefer-setting-definitions': 'off',
-      // The command is named "Run slash command"; slash command is the feature's name.
-      'obsidianmd/commands/no-command-in-command-name': 'off',
       '@typescript-eslint/no-deprecated': 'off',
       'obsidianmd/ui/sentence-case': ['warn', { brands: ['Skald', 'Anthropic', 'OpenRouter', 'OpenAI', 'Claude', 'ID', 'Markdown'], ignoreRegex: ['^https?://', '^[a-z0-9.-]+(/[\\w.-]+)+$', '^[a-z]+[0-9.]+-[0-9a-z-]+$'] }],
       // Type-hygiene rules stay off; tsc is the type gate.

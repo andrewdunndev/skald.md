@@ -136,7 +136,7 @@ export class SkaldView extends ItemView {
         );
       },
       loadStarterChips: () =>
-        loadStarterChips(this.app, this.plugin.settings.startersPath),
+        loadStarterChips(this.app, this.plugin.settings.startersPath, this.plugin.logger),
       // One-tap Resend (retryable inline error): re-dispatch last user turn.
       onResend: () => resendLastTurn(this.transport, this.session, this.composer),
     });
@@ -218,6 +218,7 @@ export class SkaldView extends ItemView {
           messageList: this.messageList,
           dropSessionState: () => this.dropSessionState(),
           getModelValue: () => this.modelSelect.value,
+          getProvider: () => this.plugin.settings.provider,
           getTransport: () => this.transport,
           setTransport: () => { this.transport = null; },
           setSession: () => { this.session = null; },
@@ -321,6 +322,7 @@ export class SkaldView extends ItemView {
       total,
       this.modelSelect.value,
       this.plugin.sessionCostUSD,
+      provider,
     );
     this.usageFooterEl.setText(footerText);
     this.usageFooterEl.removeClass('skald-hidden');
@@ -354,6 +356,7 @@ export class SkaldView extends ItemView {
       this.session,
       this.plugin.settings.chatsFolder,
       this.modelSelect.value,
+      this.plugin.logger,
     );
   }
 

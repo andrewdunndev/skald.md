@@ -80,11 +80,7 @@ export class Logger {
     const ts = new Date().toISOString().replace('T', ' ').slice(0, 19);
     // Redact secrets before the line touches console or vault file.
     const line = redactSecrets(`${ts} [${level}] ${text}`);
-    // Mirror to the console; info-level uses console.debug, the only
-    // non-warning method the plugin lint allows.
     if (level === 'error') console.error('skald:', line);
-    else if (level === 'warn') console.warn('skald:', line);
-    else console.debug('skald:', line);
 
     const folder = this.folderGetter().trim();
     if (!folder) return;

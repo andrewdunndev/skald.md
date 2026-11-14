@@ -227,3 +227,9 @@ describe('normalizeSettings: web-tools fields (data.json trust boundary)', () =>
     ).toEqual(['ok.com', 'two.com']);
   });
 });
+
+describe('OpenRouter defaults', () => {
+  it('use dotted version ids', () => {
+    expect(DEFAULT_SETTINGS.openrouterModel).toMatch(/^anthropic\/claude-[a-z]+-\d+\.\d+$/);
+  });
+});

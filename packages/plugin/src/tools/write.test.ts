@@ -349,3 +349,27 @@ describe('write tools: path guard and honest create label', () => {
     expect(create).not.toHaveBeenCalled();
   });
 });
+
+describe('edit_note replacement is literal', () => {
+  it.each(['$$', '$&', '$1', '$`', "$'", '$<n>'])(
+    'keeps %s verbatim in the preview and the committed text',
+    async (pattern) => {
+      const files: Record<string, string> = { 'n.md': 'keep OLD tail' };
+      const app = {
+        vault: {
+          getAbstractFileByPath: (p: string) => (p in files ? new TFile(p) : null),
+          read: async (f: TFile) => files[f.path],
+          process: async (f: TFile, fn: (c: string) => string) => {
+            files[f.path] = fn(files[f.path]);
+          },
+        },
+      } as unknown as App;
+      const replace = `cost ${pattern} here`;
+      const approve = vi.fn().mockResolvedValue(true);
+      const result = await runEditNote(app, { path: 'n.md', search: 'OLD', replace }, 'tu', approve);
+      expect(result.is_error).toBeUndefined();
+      expect((approve.mock.calls[0][0] as WriteProposal).after).toBe(`keep ${replace} tail`);
+      expect(files['n.md']).toBe(`keep ${replace} tail`);
+    },
+  );
+});

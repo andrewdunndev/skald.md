@@ -94,7 +94,7 @@ export function utilityModel(settings: SkaldSettings): string {
     case 'anthropic':
       return 'claude-haiku-4-5';
     case 'openrouter':
-      return 'anthropic/claude-haiku-4-5';
+      return 'anthropic/claude-haiku-4.5';
     case 'openai':
       return settings.openaiModel || '';
     default:

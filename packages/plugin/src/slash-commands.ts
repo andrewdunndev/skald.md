@@ -129,7 +129,7 @@ export async function renderCommand(
     variables.active_note = '';
   }
 
-  return renderTemplate(cmd.template, cmd.id, variables);
+  return renderTemplate(cmd.template, variables);
 }
 
 /** Truncate an active-note body to ACTIVE_NOTE_INJECT_MAX_CHARS.
@@ -156,14 +156,12 @@ export function truncateForInject(body: string): {
 
 function renderTemplate(
   template: string,
-  cmdId: string,
   variables: Record<string, string>,
 ): string {
   return template.replace(/\{\{([^}]+)\}\}/g, (_match, raw: string) => {
     const [name, fallback] = raw.split('|').map((s) => s.trim());
     if (name in variables) return variables[name];
     if (fallback !== undefined) return fallback;
-    console.warn(`skald: slash command '${cmdId}' referenced unknown variable '${name}'`);
     return '';
   });
 }

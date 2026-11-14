@@ -1,6 +1,6 @@
 import { setIcon, setTooltip } from 'obsidian';
 import { ANTHROPIC_MODELS } from '../settings/provider';
-import type { SkaldSettings } from '../settings';
+import { DEFAULT_SETTINGS, type SkaldSettings } from '../settings';
 
 export interface HeaderHooks {
   onModelChange: (newModel: string) => void | Promise<void>;
@@ -55,7 +55,7 @@ export function renderHeader(
     // the user's configured model for the active provider.
     const isOpenai = provider === 'openai';
     const activeModel = isOpenai ? settings.openaiModel : settings.openrouterModel;
-    const fallback = isOpenai ? '' : 'anthropic/claude-sonnet-4-6';
+    const fallback = isOpenai ? '' : DEFAULT_SETTINGS.openrouterModel;
     const label = header.createSpan({
       cls: 'skald-model-label',
       text: activeModel || fallback,

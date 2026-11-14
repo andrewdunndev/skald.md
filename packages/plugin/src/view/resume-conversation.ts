@@ -25,6 +25,7 @@ export interface ResumeContext {
   messageList: MessageList;
   dropSessionState: () => void;
   getModelValue: () => string;
+  getProvider?: () => string;
   getTransport: () => { close(): void } | null;
   setTransport: (t: null) => void;
   setSession: (s: null) => void;
@@ -103,6 +104,7 @@ export async function resumeConversation(
       total,
       ctx.getModelValue(),
       0, // session prior cost managed by view; footer shows chat cost here
+      ctx.getProvider?.(),
     );
     ctx.usageFooterEl.setText(footerText);
     ctx.usageFooterEl.removeClass('skald-hidden');
