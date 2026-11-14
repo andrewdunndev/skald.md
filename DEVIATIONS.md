@@ -1,5 +1,7 @@
 # Deviations from dunn.dev/reference
 
+House-standard exceptions for the maintainer's own repo checks; nothing here affects users or contributors.
+
 Each entry: which contract check fails and why. An entry stands until
 it is closed or removed from this file.
 

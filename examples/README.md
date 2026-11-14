@@ -1,6 +1,6 @@
 # Starter content
 
-Drop-in personas and slash commands so a fresh skald install
+Drop-in personas and slash commands (prompt templates) so a fresh skald install
 isn't an empty picker on first run.
 
 ## Personas

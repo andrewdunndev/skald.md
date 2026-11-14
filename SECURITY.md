@@ -11,20 +11,17 @@ means.
 
 **Please do not open a public issue for security reports.**
 
-Report privately, by either:
-
-- emailing **andrew@dunn.dev** with `[skald security]` in the subject, or
-- opening a **confidential issue** on GitLab
-  (`New issue` → check *This issue is confidential*) at
-  <https://gitlab.com/dunn.dev/skald.md/-/issues>.
+Report privately through GitHub's private vulnerability reporting
+(Security tab of [andrewdunndev/skald.md](https://github.com/andrewdunndev/skald.md),
+"Report a vulnerability"), or email **andrew@dunn.dev** with
+`[skald security]` in the subject.
 
 Please include: what you found, how to reproduce it, the affected version, and
 the impact you foresee. A proof-of-concept helps but is not required.
 
-**Response targets** (best-effort, single maintainer): acknowledgement within
-**3 business days**, an initial assessment within **7 days**, and a fix or a
-documented mitigation for confirmed issues before the next release. We will
-credit reporters who want it once a fix ships.
+There is no SLA: this is a single-maintainer project, maintained as time
+allows. Confirmed issues are fixed in the next release, and reporters are
+credited if they want it.
 
 ## In scope
 

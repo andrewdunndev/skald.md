@@ -6,6 +6,11 @@
       "description": "typescript-eslint cannot use TS 7 (no programmatic API); TS 7 rides the typescript7 alias.",
       "matchDepNames": ["typescript"],
       "allowedVersions": "<7"
+    },
+    {
+      "description": "e2e fails on webdriverio 10; hold below 10 pending a lab repro.",
+      "matchPackageNames": ["webdriverio", "/^@wdio/"],
+      "allowedVersions": "<10"
     }
   ]
 }

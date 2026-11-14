@@ -8,10 +8,6 @@ data.json
 .DS_Store
 *.tsbuildinfo
 
-# stray redb view cache from gamma tooling — never ours
-claims/
-*.gamma
-
 # Stryker mutation-testing artifacts
 .stryker-tmp/
 reports/mutation/

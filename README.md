@@ -1,22 +1,20 @@
 ![hero](hero.svg)
 
-# skald
+# Skald
 
 [![license](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-**Mobile-first AI companion for Obsidian. Install the plugin, add your
-API key, chat. No server to deploy, nothing to host.**
+**Chat with Claude, OpenRouter or any OpenAI-compatible model from an
+Obsidian sidebar, on mobile and desktop, using your own API key.**
 
-skald is a Claude client that lives where you write. It streams
+Skald is a Claude client that lives where you write. It streams
 responses from Anthropic, OpenRouter, or any OpenAI-compatible
 endpoint directly -- no relay, no shared backend, no account beyond
 your provider key. Conversations save back into your vault as markdown.
 
-<!-- screenshots -->
-
 ## Features
 
-- **Commands:** Open chat, Search conversations, Run slash command.
+- **Commands:** Open chat, Search conversations, Insert prompt template.
 - **Vault tools:** read, search and edit notes; every write waits for
   your approval on a diff card.
 - **Capture:** optional, off by default;
@@ -28,12 +26,10 @@ your provider key. Conversations save back into your vault as markdown.
 - **Providers:** Anthropic, OpenRouter, or any OpenAI-compatible
   endpoint, switchable per conversation.
 
-> **Project home:** Skald is developed on **GitLab**
-> ([dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md)) -- CI, code review,
-> and the [roadmap](https://gitlab.com/dunn.dev/skald.md/-/boards) live there.
-> If you are reading this on GitHub, that is a mirror for discoverability:
-> issues and pull requests are welcome and get triaged onto GitLab. See
-> [CONTRIBUTING.md](CONTRIBUTING.md).
+Source and CI live on [GitLab](https://gitlab.com/dunn.dev/skald.md); this
+GitHub repo is the public mirror, where releases and
+[issues](https://github.com/andrewdunndev/skald.md/issues) live. See
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 Architecture decisions are recorded in [`docs/adr/`](docs/adr/).
 
@@ -44,7 +40,7 @@ Architecture decisions are recorded in [`docs/adr/`](docs/adr/).
 **BRAT.** Install
 [BRAT](https://github.com/TfTHacker/obsidian42-brat), run **BRAT: Add a
 beta plugin for testing**, and enter `andrewdunndev/skald.md`. BRAT
-installs the latest release and keeps it updated.
+installs the latest release and keeps it updated. A community-directory listing may follow.
 
 **Manual.** Copy `main.js`, `manifest.json`, `styles.css`, and `versions.json`
 from the latest release (or build them: `pnpm install && pnpm
@@ -67,7 +63,7 @@ Open Obsidian -> Settings -> Skald. The four core settings:
 4. **Memory** -- off by default; toggle on to keep a long-term memory
    note across sessions
 
-Everything else (vault folders, personas, slash commands, capture
+Everything else (vault folders, personas, slash commands (prompt templates), capture
 settings) is behind an **Advanced** expander and has safe defaults.
 
 ### 3. Chat
@@ -108,8 +104,9 @@ default ([security model](docs/security-model.md)). One mode, no seams.
 
 ## Network use and privacy
 
-- **Account required.** Skald needs an API key or account with at least
-  one provider; there is no Skald service or account.
+- **Account required.** Skald needs an API key from at least one
+  provider, and provider usage is billed to you (a paid account); there
+  is no Skald service or account.
 - **Remote services contacted**, only to run your chats and only with
   the provider you select:
   - Anthropic (`api.anthropic.com`) -- chat, tool use, and the
@@ -156,6 +153,12 @@ SKALD_OUT_DIR="$HOME/your-vault/.obsidian/plugins/skald" \
 The plugin requires Hot Reload to auto-pick up changes -- install
 [pjeby/hot-reload](https://github.com/pjeby/hot-reload) in your dev
 vault and drop a `.hotreload` sentinel into the skald plugin folder.
+
+## Support
+
+Maintained as time allows. Bug reports with a repro get priority; there
+is no feature roadmap. Report problems on
+[GitHub Issues](https://github.com/andrewdunndev/skald.md/issues).
 
 ## License
 
