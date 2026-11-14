@@ -228,8 +228,10 @@ export class Composer {
    */
   private autoGrow(): void {
     const el = this.inputEl;
-    el.setCssProps({ height: 'auto' });
-    el.setCssProps({ height: `${el.scrollHeight}px` });
+    el.addClass('skald-input-measuring');
+    const height = el.scrollHeight;
+    el.removeClass('skald-input-measuring');
+    el.setCssProps({ height: `${height}px` });
   }
 
   /**

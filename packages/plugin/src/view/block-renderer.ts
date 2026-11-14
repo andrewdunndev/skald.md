@@ -253,7 +253,7 @@ async function renderWebSearchResult(
       .join('\n');
     await renderMarkdownInto(body, md, ctx);
   } else {
-    body.createSpan({ text: '(no results)' });
+    body.createSpan({ text: '(No results)' });
   }
 }
 
@@ -299,11 +299,11 @@ async function renderWebFetchResult(
     if (text) {
       await renderMarkdownInto(body, text, ctx);
     } else {
-      body.createSpan({ text: '(fetched, but no text content surfaced)' });
+      body.createSpan({ text: '(Fetched, but no text content surfaced)' });
     }
     return;
   }
-  body.createSpan({ text: '(empty fetch)' });
+  body.createSpan({ text: '(Empty fetch)' });
 }
 
 /**

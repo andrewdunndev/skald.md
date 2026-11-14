@@ -136,3 +136,51 @@ describe('DirectTransport: cancel mid-pump', () => {
     }
   });
 });
+
+describe('DirectTransport: error body handling', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  const payload = {
+    model: 'claude-sonnet-4-6',
+    messages: [{ role: 'user' as const, content: 'hi' }],
+    max_tokens: 100,
+  };
+
+  it('Stop aborts a stalled error body and ends with done(cancelled)', async () => {
+    const stalled = new ReadableStream<Uint8Array>({
+      start(c) {
+        fetchMock.mockImplementation((_u: string, init: RequestInit) => {
+          (init.signal as AbortSignal).addEventListener('abort', () =>
+            c.error(Object.assign(new Error('aborted'), { name: 'AbortError' })),
+          );
+          return Promise.resolve(new Response(stalled, { status: 500 }));
+        });
+      },
+    });
+    const { transport, handlers } = makeTransport();
+    transport.connect();
+    transport.send({ type: 'chat', id: 'err-stop', payload });
+    await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
+    transport.send({ type: 'cancel', id: 'err-stop' });
+
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'done' || m.type === 'error'));
+    const done = handlers.messages.find((m) => m.type === 'done');
+    expect(done?.type === 'done' && done.stop_reason).toBe('cancelled');
+    expect(handlers.messages.some((m) => m.type === 'error')).toBe(false);
+  });
+
+  it('surfaces a plain string error field from the provider body', async () => {
+    fetchMock.mockResolvedValue(new Response('{"error":"model \\"x\\" not found"}', { status: 404 }));
+    const { transport, handlers } = makeTransport();
+    transport.connect();
+    transport.send({ type: 'chat', id: 'err-str', payload });
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error'));
+    const err = handlers.messages.find((m) => m.type === 'error');
+    expect(err?.type === 'error' && err.error).toContain('(model "x" not found)');
+  });
+});

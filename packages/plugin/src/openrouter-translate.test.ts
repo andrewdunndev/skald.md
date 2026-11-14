@@ -12,7 +12,7 @@ import type { ChatRequest } from './protocol';
 
 function baseReq(tools: ChatRequest['tools']): ChatRequest {
   return {
-    model: 'anthropic/claude-sonnet-4-6',
+    model: 'anthropic/claude-sonnet-4.6',
     messages: [{ role: 'user', content: 'hi' }],
     max_tokens: 1024,
     tools,

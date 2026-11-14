@@ -171,7 +171,7 @@ export async function runEditNote(
       is_error: true,
     };
   }
-  const after = before.replace(search, replace);
+  const after = before.replace(search, () => replace);
 
   const approved = await approve({
     toolUseId,
@@ -198,7 +198,7 @@ export async function runEditNote(
       if (!current.includes(search)) {
         throw new Error('search string no longer present');
       }
-      return current.replace(search, replace);
+      return current.replace(search, () => replace);
     });
   } catch (err) {
     return {

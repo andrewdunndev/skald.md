@@ -12,9 +12,10 @@ import { providerCapabilities } from './provider-capabilities';
 import {
   ENDPOINT_UNREACHABLE_MESSAGE,
   httpErrorMessage,
+  providerErrorDetail,
   NETWORK_ERROR_MESSAGE,
 } from './direct-transport-errors';
-import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS, composeSignal } from './transport-timeouts';
+import { REQUEST_TIMEOUT_MS, STREAM_IDLE_TIMEOUT_MS } from './transport-timeouts';
 import { rewriteOpenRouterTools, translateOpenRouterEvent } from './openrouter-translate';
 import { buildOpenAiDispatch } from './openai-translate';
 import { validateOpenAiBaseUrl } from './openai-base-url';
@@ -129,27 +130,25 @@ export class DirectTransport implements SkaldTransport {
     const ac = new AbortController();
     this.activeChats.set(id, ac);
 
-    const fetchSignal = composeSignal(ac.signal, REQUEST_TIMEOUT_MS);
+    let firstByteTimedOut = false;
+    const firstByteTimer = window.setTimeout(() => {
+      firstByteTimedOut = true;
+      ac.abort();
+    }, REQUEST_TIMEOUT_MS);
 
     let resp: Response;
     try {
       resp = await fetch(url, {
         method: 'POST',
-        signal: fetchSignal,
+        signal: ac.signal,
         headers,
         body: JSON.stringify({ ...requestBody, stream: true }),
       });
     } catch (err) {
+      window.clearTimeout(firstByteTimer);
       this.activeChats.delete(id);
       const isAbort = err instanceof Error && err.name === 'AbortError';
-      // Distinguish a user-initiated Stop from a request-timeout: a user
-      // cancel fires ac.abort() (so ac.signal.aborted === true); the
-      // REQUEST_TIMEOUT_MS ceiling fires the composed timer instead, leaving
-      // the per-turn controller un-aborted. A cold model start that blew the
-      // first-byte budget used to surface here as a silent done(cancelled),
-      // indistinguishable from the user pressing Stop — emit an actionable
-      // retryable error instead.
-      const isUserCancel = isAbort && ac.signal.aborted;
+      const isUserCancel = isAbort && ac.signal.aborted && !firstByteTimedOut;
       if (isUserCancel) {
         this.handlers.onMessage({
           type: 'done',
@@ -167,7 +166,7 @@ export class DirectTransport implements SkaldTransport {
           retryable: true,
         });
       } else {
-        console.warn('[skald] network error:', err);
+        console.error('[skald] network error:', err);
         this.handlers.onMessage({
           type: 'error',
           id,
@@ -179,12 +178,25 @@ export class DirectTransport implements SkaldTransport {
       return;
     }
 
+    window.clearTimeout(firstByteTimer);
+
     if (!resp.ok) {
+      const detail = await resp.text().then(providerErrorDetail, () => '');
       this.activeChats.delete(id);
-      console.warn(`[skald] HTTP ${resp.status} from ${provider}`);
+      if (ac.signal.aborted) {
+        this.handlers.onMessage({
+          type: 'done',
+          id,
+          stop_reason: 'cancelled',
+          usage: { input_tokens: 0, output_tokens: 0 },
+          provider,
+        });
+        return;
+      }
       const { error, retryable } = httpErrorMessage(
         resp.status,
         resp.headers.get('retry-after'),
+        detail,
       );
       this.handlers.onMessage({ type: 'error', id, error, retryable });
       return;
@@ -284,7 +296,7 @@ export class DirectTransport implements SkaldTransport {
         });
         return;
       }
-      console.warn('[skald] stream error:', err);
+      console.error('[skald] stream error:', err);
       this.handlers.onMessage({
         type: 'error',
         id,

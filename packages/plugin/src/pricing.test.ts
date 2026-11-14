@@ -7,6 +7,7 @@ import {
   formatSessionFooter,
   sumUsage,
   MODEL_PRICING,
+  lookupPricing,
 } from './pricing';
 
 describe('estimateTurnCost', () => {
@@ -209,12 +210,28 @@ describe('formatUsageFooter', () => {
     expect(out).toContain('$');
   });
 
-  it('omits cost part for unknown model', () => {
+  it('says nothing about cost for an unpriced model on the OpenAI-compatible provider', () => {
+    const out = formatUsageFooter({ input_tokens: 1000, output_tokens: 500 }, 'llama3', 'openai');
+    expect(out).not.toContain('cost unknown');
+  });
+
+  it('keeps cost unknown for an unpriced model on OpenRouter', () => {
+    const out = formatUsageFooter({ input_tokens: 1000, output_tokens: 500 }, 'x/unknown', 'openrouter');
+    expect(out).toContain('cost unknown');
+  });
+
+  it('says cost unknown for an unpriced model', () => {
     const usage = { input_tokens: 1000, output_tokens: 500 };
     const out = formatUsageFooter(usage, 'unknown-model');
     expect(out).toContain('1.0k ↑');
     expect(out).toContain('0.5k ↓');
+    expect(out).toContain('cost unknown');
     expect(out).not.toContain('$');
+  });
+
+  it('does not say cost unknown for a priced model with zero usage', () => {
+    const out = formatUsageFooter({ input_tokens: 0, output_tokens: 0 }, 'claude-sonnet-4-6');
+    expect(out).not.toContain('cost unknown');
   });
 
   it('handles zero usage gracefully', () => {
@@ -341,6 +358,49 @@ describe('default models', () => {
     expect(DEFAULT_SETTINGS.defaultModel).toBe('claude-sonnet-5-5');
     expect(MODEL_PRICING[DEFAULT_SETTINGS.defaultModel]).toBeDefined();
     expect(ANTHROPIC_MODELS.map((m) => m.id)).toContain(DEFAULT_SETTINGS.defaultModel);
-    expect(DEFAULT_SETTINGS.openrouterModel).toBe(`anthropic/${DEFAULT_SETTINGS.defaultModel}`);
+    expect(DEFAULT_SETTINGS.openrouterModel).toBe(
+      `anthropic/${DEFAULT_SETTINGS.defaultModel.replace(/-(\d)-(\d)$/, "-$1.$2")}`,
+    );
+  });
+});
+
+describe('lookupPricing normalization', () => {
+  const base = MODEL_PRICING['claude-sonnet-5-5'];
+
+  it.each([
+    'anthropic/claude-sonnet-5.5',
+    'anthropic/claude-sonnet-5.5:batch',
+    'anthropic/claude-sonnet-5.5-20261001',
+    'anthropic/claude-sonnet-5-5:thinking',
+  ])('prices %s as claude-sonnet-5-5', (id) => {
+    expect(base).toBeDefined();
+    expect(lookupPricing(id)).toBe(base);
+  });
+
+  it('prices a dotted OpenRouter haiku id', () => {
+    expect(lookupPricing('anthropic/claude-haiku-4.5')).toBe(MODEL_PRICING['claude-haiku-4-5']);
+  });
+
+  it('keeps claude-sonnet-5 distinct from claude-sonnet-5-5', () => {
+    expect(lookupPricing('anthropic/claude-sonnet-5')).toBe(MODEL_PRICING['claude-sonnet-5']);
+    expect(lookupPricing('anthropic/claude-sonnet-5')).not.toBe(MODEL_PRICING['claude-sonnet-5-5']);
+  });
+
+  it.each([
+    ['claude-fable-5.1', 'claude-fable-5-1'],
+    ['claude-fable-5-1', 'claude-fable-5-1'],
+    ['anthropic/claude-fable-5.2', 'claude-fable-5-2'],
+    ['anthropic/claude-fable-5-2', 'claude-fable-5-2'],
+  ])('prices %s as %s', (id, key) => {
+    expect(lookupPricing(id)).toBe(MODEL_PRICING[key]);
+  });
+
+  it('keeps fable 5.1 and 5.2 as distinct rows', () => {
+    expect(MODEL_PRICING['claude-fable-5-1']).not.toBe(MODEL_PRICING['claude-fable-5-2']);
+    expect(lookupPricing('claude-fable-5.1')).not.toBe(lookupPricing('claude-fable-5.2'));
+  });
+
+  it('returns null for an unknown id', () => {
+    expect(lookupPricing('anthropic/claude-nope-9.9')).toBeNull();
   });
 });

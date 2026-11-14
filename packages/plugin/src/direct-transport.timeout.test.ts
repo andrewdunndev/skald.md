@@ -6,6 +6,7 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import type { ServerMessage } from './protocol';
 import { DirectTransport } from './direct-transport';
+import { REQUEST_TIMEOUT_MS } from './transport-timeouts';
 
 function makeTransport() {
   const messages: ServerMessage[] = [];
@@ -114,39 +115,6 @@ describe('DirectTransport: request (first-byte) timeout vs user cancel', () => {
   beforeEach(() => { fetchMock = vi.fn(); vi.stubGlobal('fetch', fetchMock); });
   afterEach(() => vi.unstubAllGlobals());
 
-  // The REQUEST_TIMEOUT_MS ceiling fires composeSignal's internal
-  // AbortSignal.timeout, which is NOT under vitest's fake-timer control, so
-  // we cannot drive the real 60s clock here. Instead we model the *signature*
-  // of a timeout precisely: fetch rejects with an AbortError while the
-  // per-turn AbortController was never aborted by a user `cancel`. That is the
-  // exact condition the fix keys on (isAbort && !ac.signal.aborted) to tell a
-  // cold-start timeout apart from the user pressing Stop.
-  it('emits a RETRYABLE error (not a silent done) when fetch aborts without a user cancel', async () => {
-    const err = new Error('The operation timed out.');
-    err.name = 'AbortError';
-    fetchMock.mockRejectedValue(err);
-
-    const { transport, handlers } = makeTransport();
-    transport.connect();
-    transport.send({ type: 'chat', id: 'cold1', payload: CHAT_PAYLOAD });
-
-    await vi.waitUntil(() =>
-      handlers.messages.some((m) => m.type === 'error' || m.type === 'done'),
-    );
-    const msg = handlers.messages.find((m) => m.type === 'error' || m.type === 'done');
-    // A timeout must NOT look like a user-pressed-Stop cancel.
-    expect(msg?.type).toBe('error');
-    if (msg?.type === 'error') {
-      expect(msg.retryable).toBe(true);
-      expect(msg.error).toMatch(/too long|cold/i);
-    }
-    // And specifically no done(cancelled) was emitted.
-    const silentCancel = handlers.messages.find(
-      (m) => m.type === 'done' && m.stop_reason === 'cancelled',
-    );
-    expect(silentCancel).toBeUndefined();
-  });
-
   it('still emits done(cancelled) when the user cancels before the stream opens', async () => {
     // Same AbortError shape, but a `cancel` is sent first so ac.signal is
     // aborted — the fix must keep this path as a silent done(cancelled).
@@ -177,5 +145,68 @@ describe('DirectTransport: request (first-byte) timeout vs user cancel', () => {
     expect(done?.type).toBe('done');
     if (done?.type === 'done') expect(done.stop_reason).toBe('cancelled');
     expect(handlers.messages.some((m) => m.type === 'error')).toBe(false);
+  });
+});
+
+describe('DirectTransport: first-byte timeout covers headers only', () => {
+  let fetchMock: ReturnType<typeof vi.fn>;
+  beforeEach(() => {
+    vi.useFakeTimers();
+    fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+  });
+  afterEach(() => { vi.useRealTimers(); vi.unstubAllGlobals(); });
+
+  it('lets a body that streams past REQUEST_TIMEOUT_MS complete', async () => {
+    const encoder = new TextEncoder();
+    const delta =
+      'event: message_delta\ndata: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":1}}\n\n';
+    let ctrl!: ReadableStreamDefaultController<Uint8Array>;
+    const stream = new ReadableStream<Uint8Array>({ start(c) { ctrl = c; } });
+    let fetchSignal: AbortSignal | undefined;
+    fetchMock.mockImplementation((_u: string, init: RequestInit) => {
+      fetchSignal = init.signal as AbortSignal;
+      return Promise.resolve(new Response(stream, { status: 200 }));
+    });
+
+    const { transport, handlers } = makeTransport();
+    transport.connect();
+    transport.send({ type: 'chat', id: 'long1', payload: CHAT_PAYLOAD });
+    await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
+
+    for (let i = 0; i < 4; i++) {
+      await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS / 2);
+      ctrl.enqueue(encoder.encode('event: ping\ndata: {"type":"ping"}\n\n'));
+    }
+    expect(fetchSignal?.aborted).toBe(false);
+    ctrl.enqueue(encoder.encode(delta));
+    ctrl.close();
+
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'done'));
+    const done = handlers.messages.find((m) => m.type === 'done');
+    if (done?.type === 'done') expect(done.stop_reason).toBe('end_turn');
+    expect(handlers.messages.some((m) => m.type === 'error')).toBe(false);
+  });
+
+  it('reports a timeout error, not a cancel, when no headers arrive', async () => {
+    fetchMock.mockImplementation((_u: string, init: RequestInit) =>
+      new Promise<Response>((_res, rej) => {
+        (init.signal as AbortSignal).addEventListener('abort', () => {
+          const e = new Error('aborted');
+          e.name = 'AbortError';
+          rej(e);
+        });
+      }),
+    );
+    const { transport, handlers } = makeTransport();
+    transport.connect();
+    transport.send({ type: 'chat', id: 'hung1', payload: CHAT_PAYLOAD });
+    await vi.waitUntil(() => fetchMock.mock.calls.length > 0);
+    await vi.advanceTimersByTimeAsync(REQUEST_TIMEOUT_MS + 1);
+
+    await vi.waitUntil(() => handlers.messages.some((m) => m.type === 'error' || m.type === 'done'));
+    const msg = handlers.messages.find((m) => m.type === 'error' || m.type === 'done');
+    expect(msg?.type).toBe('error');
+    if (msg?.type === 'error') expect(msg.error).toMatch(/too long/i);
   });
 });

@@ -8,6 +8,7 @@
  */
 import { App, normalizePath, TFile } from 'obsidian';
 import type { Message } from './protocol';
+import type { Logger } from './logger';
 import {
   renderConversationMarkdown,
   slugify,
@@ -57,6 +58,7 @@ export async function saveConversation(
   folder: string,
   meta: ConversationMeta,
   messages: Message[],
+  logger?: Logger,
 ): Promise<TFile | null> {
   if (!folder.trim()) return null;
   if (messages.length === 0) return null;
@@ -104,9 +106,7 @@ export async function saveConversation(
         return body;
       });
       if (diverged) {
-        console.warn(
-          `skald: conversation note ${path} edited since last save — skipping overwrite to preserve the edit`,
-        );
+        logger?.warn(`skipped saving ${path}: the note changed since the last save`);
         return existing;
       }
       lastWritten.set(meta.id, hashBody(body));

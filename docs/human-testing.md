@@ -121,7 +121,7 @@ The real target. If this breaks, skald breaks.
 ### OpenRouter swap (live smoke test) `[L2]` streaming, `[manual]` web search
 - [ ] In settings, set **Provider** to OpenRouter. Set
       **OpenRouter API key** (pick or create its secret). Select a model via fuzzy search
-      (e.g. `anthropic/claude-sonnet-4-6`).
+      (e.g. `anthropic/claude-sonnet-5.5`).
 - [ ] Send a turn. Verify streaming works, response renders,
       cost surfaces in status row.
 - [ ] Ask Claude to "search the web for X." Verify

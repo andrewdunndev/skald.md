@@ -162,11 +162,9 @@ export async function proposeMemoryUpkeep(
   // OpenAI-compatible endpoints may need no key; gate on base URL instead.
   if (opts.provider === 'openai') {
     if (!opts.baseUrl) {
-      console.warn('[memory-upkeep] no base URL — skipping');
       return null;
     }
   } else if (!opts.apiKey) {
-    console.warn('[memory-upkeep] no API key — skipping');
     return null;
   }
 
@@ -229,7 +227,7 @@ export async function proposeMemoryUpkeep(
     // written to the vault on approval.
     return frontmatter + trimmedBody;
   } catch (err) {
-    console.warn('[memory-upkeep] error —', err);
+    console.error('[memory-upkeep] error —', err);
     return null;
   }
 }

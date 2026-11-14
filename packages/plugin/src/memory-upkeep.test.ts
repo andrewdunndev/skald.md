@@ -186,7 +186,7 @@ describe('proposeMemoryUpkeep: OpenRouter path', () => {
     const result = await proposeMemoryUpkeep({
       memoryBody: '',
       messages: makeMessages('cyan'),
-      model: 'anthropic/claude-haiku-4-5',
+      model: 'anthropic/claude-haiku-4.5',
       provider: 'openrouter',
       apiKey: 'or-test-key',
     });
@@ -216,7 +216,7 @@ describe('proposeMemoryUpkeep: OpenRouter path', () => {
     const result = await proposeMemoryUpkeep({
       memoryBody: 'existing',
       messages: makeMessages('magenta'),
-      model: 'anthropic/claude-haiku-4-5',
+      model: 'anthropic/claude-haiku-4.5',
       provider: 'openrouter',
       apiKey: 'or-test-key',
     });

@@ -4,9 +4,9 @@
  * stays under the size cap and the user-facing copy is unit-testable in
  * isolation.
  *
- * Contract: the user only ever sees the `error` string. Raw provider
- * response bodies are logged for debugging by the caller, never
- * surfaced here — nothing in this module accepts or echoes a body.
+ * Contract: the user sees the `error` string only. A provider error body
+ * contributes at most its short `type: message` text; headers and keys are
+ * never echoed.
  */
 
 export interface FriendlyError {
@@ -28,10 +28,39 @@ export const ENDPOINT_UNREACHABLE_MESSAGE =
  * Friendly message + retryable flag for a non-OK HTTP status.
  * 429 / 5xx / network are retryable; 4xx (auth, bad request) are not.
  */
+const DETAIL_MAX = 200;
+
+function clip(text: string): string {
+  return text.length > DETAIL_MAX ? `${text.slice(0, DETAIL_MAX)}…` : text;
+}
+
+/** Short `type: message` text from a provider error body, or empty. */
+export function providerErrorDetail(body: string): string {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(body);
+  } catch {
+    return '';
+  }
+  const err = (parsed as { error?: unknown } | null)?.error;
+  if (typeof err === 'string') return clip(err.replace(/\s+/g, ' ').trim());
+  if (!err || typeof err !== 'object') return '';
+  const { type, message } = err as { type?: unknown; message?: unknown };
+  const parts = [type, message].filter((p): p is string => typeof p === 'string' && p !== '');
+  const text = parts.join(': ').replace(/\s+/g, ' ');
+  return clip(text);
+}
+
 export function httpErrorMessage(
   status: number,
   retryAfter?: string | null,
+  detail?: string,
 ): FriendlyError {
+  const out = baseHttpError(status, retryAfter);
+  return detail ? { ...out, error: `${out.error} (${detail})` } : out;
+}
+
+function baseHttpError(status: number, retryAfter?: string | null): FriendlyError {
   if (status === 429) {
     const hint = retryAfter ? ` (retry in ${retryAfter}s)` : '';
     return {
@@ -42,6 +71,18 @@ export function httpErrorMessage(
   if (status === 401 || status === 403) {
     return {
       error: 'Your API key was rejected — check it in Settings → Skald.',
+      retryable: false,
+    };
+  }
+  if (status === 402) {
+    return {
+      error: 'The provider reports no credits or a billing problem — check your account balance.',
+      retryable: false,
+    };
+  }
+  if (status === 404) {
+    return {
+      error: 'Model not found. Check the model id and base URL in Settings → Skald.',
       retryable: false,
     };
   }
@@ -61,7 +102,7 @@ export function httpErrorMessage(
   }
   if (status >= 500) {
     return {
-      error: "Claude's having a moment on its end — try again in a sec.",
+      error: 'The provider returned a server error. Try again in a moment.',
       retryable: true,
     };
   }

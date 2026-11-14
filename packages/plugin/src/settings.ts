@@ -146,7 +146,7 @@ export const DEFAULT_SETTINGS: SkaldSettings = {
   openaiBaseUrl: '',
   openaiModel: '',
   defaultModel: 'claude-sonnet-5-5',
-  openrouterModel: 'anthropic/claude-sonnet-5-5',
+  openrouterModel: 'anthropic/claude-sonnet-5.5',
   harnessFolder: '.claude',
   savedNotesFolder: 'Skald/Saved',
   chatsFolder: 'Skald/Chats',
@@ -318,7 +318,7 @@ function renderAdvancedExpander(
 ): void {
   new Setting(containerEl)
     .setName('Advanced')
-    .setDesc('Vault folders, memory path, personas, slash commands, capture settings.')
+    .setDesc('Vault folders, memory path, personas, prompt templates, capture settings.')
     .setHeading()
     .addToggle((t) => {
       t.setValue(expanded).onChange((v) => onChange(v));

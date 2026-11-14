@@ -10,6 +10,7 @@
 import type { App } from 'obsidian';
 import type { ChatSession } from '../chat-session';
 import { saveConversation } from '../conversation-save';
+import type { Logger } from '../logger';
 import { estimateTurnCost } from '../pricing';
 
 export async function persistConversation(
@@ -17,6 +18,7 @@ export async function persistConversation(
   session: ChatSession | null,
   folderRaw: string,
   model: string,
+  logger?: Logger,
 ): Promise<void> {
   if (!session) return;
   const folder = folderRaw.trim();
@@ -45,5 +47,6 @@ export async function persistConversation(
       costUSD,
     },
     messages,
+    logger,
   );
 }

@@ -115,7 +115,7 @@ function renderOpenRouterBlock(
   });
   link.setAttr('target', '_blank');
   notice.createSpan({
-    text: ", and skald's security model in docs/security-model.md.",
+    text: ", and Skald's security model in docs/security-model.md.",
   });
 
   renderKeySetting(
@@ -133,7 +133,7 @@ function renderOpenRouterBlock(
       'OpenRouter model ID, namespaced by vendor. Type to search the catalog.',
     )
     .addText((t) => {
-      t.setPlaceholder('anthropic/claude-sonnet-5-5').setValue(
+      t.setPlaceholder('anthropic/claude-sonnet-5.5').setValue(
         plugin.settings.openrouterModel,
       );
       t.onChange(async (v) => {

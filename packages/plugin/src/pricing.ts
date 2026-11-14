@@ -144,20 +144,19 @@ export function estimateTurnCost(usage: Usage, model: string): number {
 }
 
 /**
- * Look up a model's pricing. Strips OpenRouter's namespacing
- * (`anthropic/claude-sonnet-4-6` → `claude-sonnet-4-6`) so a turn
- * routed through OpenRouter to a known Anthropic model still
- * surfaces a useful estimate.
+ * Look up a model's pricing. Normalizes OpenRouter ids to the catalog
+ * form: drops the namespace, `:variant` suffix and trailing `-YYYYMMDD`
+ * date, and turns dots into hyphens (`anthropic/claude-sonnet-5.5` →
+ * `claude-sonnet-5-5`).
  */
-function lookupPricing(model: string): ModelPricing | null {
+export function lookupPricing(model: string): ModelPricing | null {
   if (MODEL_PRICING[model]) return MODEL_PRICING[model];
-  // Strip leading namespace (anthropic/, openai/, meta-llama/, etc).
-  const idx = model.indexOf('/');
-  if (idx >= 0) {
-    const stripped = model.slice(idx + 1);
-    if (MODEL_PRICING[stripped]) return MODEL_PRICING[stripped];
-  }
-  return null;
+  const normalized = model
+    .slice(model.indexOf('/') + 1)
+    .replace(/:.*$/, '')
+    .replace(/-\d{8}$/, '')
+    .replace(/\./g, '-');
+  return MODEL_PRICING[normalized] ?? null;
 }
 
 /** Format a USD cost for display. Below $0.01 shows three decimal
@@ -190,7 +189,11 @@ export function sumUsage(a: Usage, b: Usage): Usage {
  *
  * Pure function — no view-layer dependencies so it's easy to test.
  */
-export function formatUsageFooter(total: Usage, model: string): string {
+export function formatUsageFooter(
+  total: Usage,
+  model: string,
+  provider?: string,
+): string {
   const inK = ((total.input_tokens ?? 0) / 1000).toFixed(1);
   const outK = ((total.output_tokens ?? 0) / 1000).toFixed(1);
   const cachedRead = total.cache_read_input_tokens ?? 0;
@@ -200,7 +203,12 @@ export function formatUsageFooter(total: Usage, model: string): string {
   const writePart =
     cacheWrite > 0 ? `+${(cacheWrite / 1000).toFixed(1)}kw` : '';
   const cost = estimateTurnCost(total, model);
-  const costPart = cost > 0 ? ` · ${formatCostUSD(cost)}` : '';
+  const costPart =
+    cost > 0
+      ? ` · ${formatCostUSD(cost)}`
+      : lookupPricing(model) || provider === 'openai'
+        ? ''
+        : ' · cost unknown';
   // Compact single-line form (must not wrap on mobile): ↑ input — fresh, plus
   // "+Nkc" cache READ (cheap prefix hit) and/or "+Nkw" cache WRITE (the prefix
   // was (re)cached; repeated writes across turns = cache busting); ↓ output.
@@ -224,8 +232,9 @@ export function formatSessionFooter(
   total: Usage,
   model: string,
   sessionPriorUSD: number,
+  provider?: string,
 ): string {
-  const base = formatUsageFooter(total, model);
+  const base = formatUsageFooter(total, model, provider);
   const chatCost = estimateTurnCost(total, model);
   if (chatCost <= 0) return base;
   const sessionCost = sessionPriorUSD + chatCost;

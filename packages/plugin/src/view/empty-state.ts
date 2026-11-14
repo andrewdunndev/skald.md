@@ -1,4 +1,5 @@
 import { TFile, normalizePath, setIcon, type App } from 'obsidian';
+import type { Logger } from '../logger';
 
 export interface StarterChip {
   /** Lucide icon name (or null for no icon). */
@@ -131,6 +132,7 @@ function stripFrontmatter(content: string): string {
 export async function loadStarterChips(
   app: App,
   path: string,
+  logger?: Logger,
 ): Promise<StarterChip[]> {
   const trimmed = path?.trim() ?? '';
   if (!trimmed) return DEFAULT_STARTER_CHIPS;
@@ -141,12 +143,8 @@ export async function loadStarterChips(
     const body = await app.vault.cachedRead(file);
     const parsed = parseStartersNote(body);
     if (parsed.length === 0) {
-      // File exists but parsed to zero chips — most likely a format
-      // issue (no list items, all separators missing). Surface this
-      // so the user knows why their custom starters aren't showing
-      // instead of silently falling back.
-      console.warn(
-        `skald: starters note at ${normalized} parsed to zero chips — check the list format (\`- :icon: Label — prompt\` per line). Using defaults.`,
+      logger?.warn(
+        `starters note ${normalized} has no list items; using the default starters`,
       );
       return DEFAULT_STARTER_CHIPS;
     }
