@@ -9,7 +9,9 @@ tag always equals `manifest.json`'s `version`.
 
 ## [Unreleased]
 
-First public release (`0.1.0`).
+## [0.1.0] - 2026-11-13
+
+First public release.
 
 ### Added
 - Mobile-first chat pane that streams from Anthropic, OpenRouter, or any
@@ -20,7 +22,7 @@ First public release (`0.1.0`).
 - Conversations save to your vault as markdown; "Search conversations" finds
   them again.
 - Optional long-term memory note with incremental upkeep (off by default).
-- Slash commands and personas.
+- Slash commands (prompt templates) and personas.
 - Optional iOS share-sheet text capture (off by default).
 - Token-economy controls: prompt caching, history windowing, and tool-result
   compaction.

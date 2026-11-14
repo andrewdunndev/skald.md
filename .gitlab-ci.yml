@@ -9,23 +9,30 @@
 # Caches the pnpm store keyed on the lockfile so subsequent runs reuse
 # the resolution work.
 #
-# Image: the estate's shared CI builder from dunn.dev/pipeline (Fedora +
-# node + npm + tooling), pulled from GitLab's registry. NOT Docker Hub's
-# `node:22` — the self-hosted runner pulls that unauthenticated and hits
-# Docker Hub's anon rate limit, which intermittently failed jobs at the
-# image-pull step. skald is pnpm; the shared image is npm-based, so we
-# bootstrap pnpm with `npm i -g` (corepack isn't guaranteed on the image).
+# Image: a shared Fedora CI builder with node, npm and tooling, pulled from
+# GitLab's registry rather than Docker Hub, whose anonymous pull rate limit
+# intermittently failed jobs at the image pull. skald uses pnpm, which the
+# image lacks, so each job installs the version pinned in package.json
+# (packageManager) with `npm i -g`.
+#
+# Plugin releases are cut by tag; see .github/workflows/release.yml.
+
+include:
+  - template: Jobs/Secret-Detection.gitlab-ci.yml
+
+# The scanner image has no node; skip the pnpm bootstrap and store cache.
+secret_detection:
+  cache: []
+  before_script: []
 
 default:
   image: registry.gitlab.com/dunn.dev/pipeline/ci:4.16.0@sha256:7f2f7c1c9fe4ec3a8f4a4c51b6c2eba0ff452de662e2ab4ef8a18d685ecc58d1
   # Untagged: jobs run on the shared SaaS runners. No self-hosted runner in the group accepts untagged jobs.
-  # Resilience net for the storr runner's egress: get_sources clone timeouts
-  # off that host land as script_failure (not runner_system_failure), and a
-  # genuinely hung job would otherwise run to whatever GitLab's project-wide
-  # default timeout is with zero retry. 15m ceiling — every job here normally
-  # completes in 20-30s (observed), so this only ever fires on a real hang.
-  # Mirrors nomograph/pipeline's per-job retry/timeout convention. server_timeout_running
-  # / server_timeout_canceling (not the deprecated job_execution_timeout — GitLab
+  # Resilience net: clone timeouts on the runner's network land as
+  # script_failure (not runner_system_failure), and a genuinely hung job would
+  # otherwise run to the project-wide default timeout with zero retry. 15m
+  # ceiling: every job here normally completes in 20-30s, so this only fires
+  # on a real hang. server_timeout_running and server_timeout_canceling (not the deprecated job_execution_timeout — GitLab
   # 19.1 split it into these two; confirmed via this project's own ci/lint output)
   # cover a job that hangs past `timeout:`. Deliberately does NOT include
   # script_failure — that would also silently retry a genuinely broken
@@ -41,7 +48,7 @@ default:
     paths:
       - .pnpm-store/
   before_script:
-    - npm install -g pnpm@11.1.1
+    - npm install -g "pnpm@$(node -p 'require("./package.json").packageManager.split("@")[1]')"
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
 
@@ -138,7 +145,7 @@ e2e-obsidian:
       paths:
         - .obsidian-cache/
   before_script:
-    - npm install -g pnpm@11.1.1
+    - npm install -g "pnpm@$(node -p 'require("./package.json").packageManager.split("@")[1]')"
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
     - dnf install -y --setopt=install_weak_deps=False xorg-x11-server-Xvfb herbstluftwm xdotool gtk3 nss alsa-lib libXScrnSaver libXtst at-spi2-core mesa-libgbm libdrm cups-libs xdg-utils
@@ -158,17 +165,14 @@ e2e-obsidian:
 # One tiny streamed request per provider against the real API (cheapest model,
 # max_tokens 20). Each provider skips itself when its masked CI variable is
 # unset (SKALD_SMOKE_ANTHROPIC_KEY, SKALD_SMOKE_OPENROUTER_KEY,
-# SKALD_SMOKE_OPENAI_KEY + SKALD_SMOKE_OPENAI_BASE_URL). Default-branch and
-# scheduled pipelines only: merge-request pipelines never spend tokens. The
+# SKALD_SMOKE_OPENAI_KEY + SKALD_SMOKE_OPENAI_BASE_URL). Scheduled pipelines only, and advisory: a failure never blocks a merge. The
 # script is plain node, so it skips the pnpm install.
 smoke-live:
   stage: e2e
   needs: []
   rules:
-    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
-      when: never
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
-    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+  allow_failure: true
   cache: []
   before_script: []
   script:

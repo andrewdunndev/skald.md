@@ -1,38 +1,36 @@
 # Contributing to Skald
 
-## Where development happens
+## Where things live
 
-GitLab is canonical: [dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md). CI, code review, and the roadmap all live there.
+Source and CI are on GitLab: [dunn.dev/skald.md](https://gitlab.com/dunn.dev/skald.md). The public mirror, releases and issues are on GitHub: [andrewdunndev/skald.md](https://github.com/andrewdunndev/skald.md).
 
-GitHub ([andrewdunndev/skald.md](https://github.com/andrewdunndev/skald.md)) is a mirror for discoverability. Issues and pull requests are welcome there and get triaged onto GitLab. GitHub Discussions are off -- Issues are the single community funnel.
+- **Issues:** GitHub. Use the issue templates; they ask for what is needed to triage. There is no feature roadmap.
+- **Pull requests:** welcome on GitHub or GitLab. GitHub PRs get CI from `.github/workflows/ci.yml`; GitLab MRs run the full pipeline including e2e.
 
-## The roadmap
+## Support level
 
-Lives as GitLab issues on the [project board](https://gitlab.com/dunn.dev/skald.md/-/boards).
+Maintained as time allows. Bug reports with a repro get priority. There is no feature roadmap, so for anything large, open an issue before writing code.
 
-Labels in use: `roadmap`, `accepted`, `exploring`.
+## Licence
 
-## Reporting bugs / requesting features
+Contributions are accepted under the repository's [MIT](LICENSE) license.
 
-Use the issue templates -- they prompt for the information needed to triage. GitHub issues get ported to GitLab; you don't need a GitLab account to file one.
+## LLM-assisted contributions
 
-## Code contributions
-
-Prefer a GitLab MR -- CI runs there and review is faster. GitHub PRs are accepted and ported.
-
-Before opening either, run the check gates locally (see below) so CI passes on the first push.
+PRs written with an LLM are welcome if you have run the tests and can explain the change.
 
 ## Dev setup
-
-**Install dependencies:**
 
 ```
 pnpm install
 ```
 
+Node comes from `.node-version`; pnpm from `packageManager` in `package.json`.
+
 **Monorepo layout:**
 
 - `packages/plugin` -- the Obsidian plugin
+- `packages/e2e` -- end-to-end tests (`specs/`) that drive the built plugin in desktop Obsidian via wdio-obsidian-service against a mock provider (`lib/`) and a fixture vault (`vault/`). Run with `pnpm test:e2e`.
 
 **Check gates (all must be green before merge):**
 

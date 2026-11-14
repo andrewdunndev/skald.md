@@ -35,6 +35,7 @@ context on demand, revisiting what 0003 front-loads.
 | [0005](0005-model-cascade.md) | Two-tier model cascade (utility + reasoning) | Accepted |
 | [0006](0006-citations-grounding-dedup.md) | Citations as grounding, with token de-duplication | Accepted |
 | [0007](0007-vault-as-memory.md) | Vault-as-memory note with incremental upkeep | Accepted |
-| [0009](0009-openai-compatible-provider.md) | OpenAI-compatible provider for self-hosted models | Proposed |
+| 0008 | (number unused; no ADR was filed) | n/a |
+| [0009](0009-openai-compatible-provider.md) | OpenAI-compatible provider for self-hosted models | Accepted |
 | [0010](0010-tool-result-compaction.md) | Tool-result compaction | Accepted |
 | [0011](0011-progressive-context-disclosure.md) | Progressive context disclosure (shim prefix + on-demand context) | Proposed (exploring) |

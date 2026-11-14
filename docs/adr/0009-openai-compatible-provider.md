@@ -1,6 +1,6 @@
 # ADR 0009: OpenAI-compatible provider for self-hosted models
 
-- Status: Proposed (direction set; feature not yet built)
+- Status: Accepted
 - Date: 2026-06-22
 - Deciders: Andrew Dunn
 
