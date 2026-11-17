@@ -38,14 +38,14 @@
   "engines": {
     "node": ">=24"
   },
-  "packageManager": "pnpm@12.20.0",
+  "packageManager": "pnpm@12.21.0",
   "devDependencies": {
     "@eslint/js": "10.0.1",
     "@eslint/json": "2.1.1",
     "@stryker-mutator/core": "10.1.1",
     "@stryker-mutator/vitest-runner": "10.1.1",
     "@vitest/coverage-v8": "5.1.0",
-    "eslint": "10.14.0",
+    "eslint": "10.15.0",
     "eslint-plugin-obsidianmd": "0.4.2",
     "typescript": "6.0.3",
     "typescript7": "npm:typescript@7.0.2",
