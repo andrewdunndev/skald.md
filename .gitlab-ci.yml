@@ -26,7 +26,7 @@ secret_detection:
   before_script: []
 
 default:
-  image: registry.gitlab.com/dunn.dev/pipeline/ci:4.16.1@sha256:ccc16c51a654d4a6bd0f25fcb2ea942934d5f9d5fede00b470ddf4b097ff51dd
+  image: registry.gitlab.com/dunn.dev/pipeline/ci:4.17.0@sha256:2ef7e2af84839476f02a225bb529fe93e895a79a1df9315c83644834982e6587
   # Untagged: jobs run on the shared SaaS runners. No self-hosted runner in the group accepts untagged jobs.
   # Resilience net: clone timeouts on the runner's network land as
   # script_failure (not runner_system_failure), and a genuinely hung job would
