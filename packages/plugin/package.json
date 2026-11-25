@@ -14,7 +14,7 @@
   "devDependencies": {
     "@types/node": "26.6.6",
     "esbuild": "0.28.2",
-    "marked": "18.2.1",
+    "marked": "18.3.0",
     "obsidian": "1.14.4"
   }
 }
