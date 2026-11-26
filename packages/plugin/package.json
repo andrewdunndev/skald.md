@@ -12,7 +12,7 @@
     "@toon-format/toon": "^4.0.0"
   },
   "devDependencies": {
-    "@types/node": "26.6.6",
+    "@types/node": "26.6.7",
     "esbuild": "0.28.2",
     "marked": "18.3.0",
     "obsidian": "1.14.4"
